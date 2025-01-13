@@ -1,0 +1,63 @@
+{
+  "definition":
+  [
+    {
+      "name": "global_tonemapping", 
+      "cs": [ "tonemap.hlsl", "global_tonemapping", "-DGLOBAL_TONEMAPPING" ]
+    },
+    {
+      "name": "tonemapping_and_weighting", 
+      "cs": [ "tonemap.hlsl", "tonemapping_and_weighting", "-DTONEMAPPING_AND_WEIGHTING" ]
+    },
+    {
+      "name": "downward", 
+      "cs": [ "tonemap.hlsl", "downward", "-DDOWNWARD" ]
+    },
+    {
+      "name": "upward", 
+      "cs": [ "tonemap.hlsl", "upward", "-DUPWARD" ]
+    },
+    {
+      "name": "blend", 
+      "cs": [ "tonemap.hlsl", "blend", "-DBLEND" ]
+    },
+    {
+      "name": "collapse", 
+      "cs": [ "tonemap.hlsl", "upward", "-DCOLLAPSE" ]
+    }
+  ],
+  "definitions" : 
+  [
+    {
+      "direct_product" :
+      [
+        {
+          "definition":
+          [
+            {
+              "name": "calc_scene_info", 
+              "cs": [ "tonemap.hlsl", "calc_scene_info", "-DCALC_SCENE_INFO" ]
+            }
+          ]
+        },
+        {
+          "definition":
+          [
+            {
+              "name": "",
+              "cs": [ "", "", "" ]
+            },
+            {
+              "name": "_first", 
+              "cs": [ "", "", "-DFIRST" ]
+            },
+            {
+              "name": "_last", 
+              "cs": [ "", "", "-DLAST" ]
+            },
+          ]
+        }
+      ]
+    }
+  ]
+}

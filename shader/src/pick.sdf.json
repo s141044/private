@@ -1,0 +1,9 @@
+{
+  "definition" : 
+  [
+    {
+      "name": "pick",
+      "cs": [ "pick.hlsl", "pick", ""]
+    }
+  ]
+}

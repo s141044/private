@@ -1,8 +1,8 @@
 
 #pragma once
 
-#ifndef NN_RENDER_RENDERER_PRIMARY_HPP
-#define NN_RENDER_RENDERER_PRIMARY_HPP
+#ifndef NN_RENDER_RENDERER_DIRECT_HPP
+#define NN_RENDER_RENDERER_DIRECT_HPP
 
 #include"../core_impl.hpp"
 #include"../render_type.hpp"
@@ -16,19 +16,19 @@ namespace nn{
 namespace render{
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//direct_lighting
+//direct_illumination
 /*/////////////////////////////////////////////////////////////////////////////////////////////////
 ∫{L*F*G*V*dw} ≒ ∫{L*F*G*dw} * denoise(∫{L*F*G*V*dw}) / denoise(∫{L*F*G*dw})
 /////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-class direct_lighting
+class direct_illumination
 {
 public:
 
 	//コンストラクタ
-	direct_lighting()
+	direct_illumination()
 	{
-		m_shader_file = gp_shader_manager->create(L"direct_lighting.sdf.json");
+		m_shader_file = gp_shader_manager->create(L"direct_illumination.sdf.json");
 	}
 
 	//

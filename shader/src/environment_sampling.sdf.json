@@ -1,0 +1,41 @@
+{
+  "definition":
+  [
+    {
+      "name": "initialize_weight", 
+      "cs": [ "environment_sampling.hlsl", "initialize_weight", "-DINITIALIZE_WEIGHT" ]
+    },
+    {
+      "name": "calculate_cdf", 
+      "cs": [ "environment_sampling.hlsl", "calculate_cdf", "-DCALCULATE_CDF" ]
+    },
+    {
+      "name": "presample", 
+      "cs": [ "environment_sampling.hlsl", "presample", "-DPRESAMPLE" ]
+    },
+    {
+      "name": "generate_mipmap1", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_FLOAT -DARRAY -DGEN_COUNT=1 -DREDUCE_ADD " ]
+    },
+    {
+      "name": "generate_mipmap2", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_FLOAT -DARRAY -DGEN_COUNT=2 -DREDUCE_ADD " ]
+    },
+    {
+      "name": "generate_mipmap3", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_FLOAT -DARRAY -DGEN_COUNT=3 -DREDUCE_ADD " ]
+    },
+    {
+      "name": "generate_mipmap4", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_FLOAT -DARRAY -DGEN_COUNT=4 -DREDUCE_ADD " ]
+    },
+    {
+      "name": "generate_mipmap5", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_FLOAT -DARRAY -DGEN_COUNT=5 -DREDUCE_ADD " ]
+    },
+    {
+      "name": "generate_mipmap6", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_FLOAT -DARRAY -DGEN_COUNT=6 -DREDUCE_ADD " ]
+    }
+  ]
+}

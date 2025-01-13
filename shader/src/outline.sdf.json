@@ -1,0 +1,13 @@
+{
+  "definition" : 
+  [
+    {
+      "name": "draw_outline",
+      "cs": [ "outline.hlsl", "draw_outline", "-DDRAW_OUTLINE"]
+    },
+    {
+      "name": "anti_aliasing",
+      "cs": [ "outline.hlsl", "anti_aliasing", "-DANTI_ALIASING"]
+    }
+  ]
+}

@@ -137,9 +137,12 @@ using shader_compiler_ptr = shared_ptr<shader_compiler>;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-static inline const wstring shader_src_dir = L"shader/src/";
-static inline const wstring shader_bin_dir = L"shader/bin/";
-static inline const wstring shader_pdb_dir = L"shader/pdb/";
+#ifndef SHADER_DIR
+#define SHADER_DIR L"./shader"
+#endif
+static inline const wstring shader_src_dir = SHADER_DIR L"/src/";
+static inline const wstring shader_bin_dir = SHADER_DIR L"/bin/";
+static inline const wstring shader_pdb_dir = SHADER_DIR L"/pdb/";
 static inline const wstring shader_file_ext[] = { L".hlsl", L".hlsli", };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

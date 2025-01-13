@@ -1,0 +1,33 @@
+{
+  "definition":
+  [
+    {
+      "name": "initialize_lod0", 
+      "cs": [ "environment.hlsl", "initialize_lod0", "-DINITIALIZE_LOD0" ]
+    },
+    {
+      "name": "generate_mipmap1", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_R9G9B9E5 -DARRAY -DGEN_COUNT=1 " ]
+    },
+    {
+      "name": "generate_mipmap2", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_R9G9B9E5 -DARRAY -DGEN_COUNT=2 " ]
+    },
+    {
+      "name": "generate_mipmap3", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_R9G9B9E5 -DARRAY -DGEN_COUNT=3 " ]
+    },
+    {
+      "name": "generate_mipmap4", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_R9G9B9E5 -DARRAY -DGEN_COUNT=4 " ]
+    },
+    {
+      "name": "generate_mipmap5", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_R9G9B9E5 -DARRAY -DGEN_COUNT=5 " ]
+    },
+    {
+      "name": "generate_mipmap6", 
+      "cs": [ "generate_mipmap.hlsl", "generate_mipmap", "-DFORMAT_R9G9B9E5 -DARRAY -DGEN_COUNT=6 " ]
+    }
+  ]
+}

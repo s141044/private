@@ -1,0 +1,17 @@
+{
+  "definition":
+  [
+    {
+      "name": "calc_diffuse_reflectance", 
+      "cs": [ "reflectance.hlsl", "calc_reflectance", "-DCALC_DIFFUSE" ]
+    },
+    {
+      "name": "calc_specular_reflectance", 
+      "cs": [ "reflectance.hlsl", "calc_reflectance", "-DCALC_SPECULAR" ]
+    },
+    {
+      "name": "calc_matte_reflectance", 
+      "cs": [ "reflectance.hlsl", "calc_reflectance", "-DCALC_MATTE" ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "definition":
+  [
+    {
+      "name": "global_count", 
+      "cs": [ "sort.hlsl", "global_count", "-DGLOBAL_COUNT" ]
+    },
+    {
+      "name": "global_scan", 
+      "cs": [ "sort.hlsl", "global_scan", "-DGLOBAL_SCAN" ]
+    },
+    {
+      "name": "reorder", 
+      "cs": [ "sort.hlsl", "reorder", "-DREORDER" ]
+    }
+  ]
+}

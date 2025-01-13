@@ -1,0 +1,50 @@
+{
+  "input_layout":
+  [
+    {
+      "name": "none",
+      "topology": "triangle_list"
+    }
+  ],
+  "blend_state" :
+  [
+    {
+      "name": "none",
+      "independent_blend": false,
+      "render_target": 
+      [
+        {
+          "enable": false
+        }
+      ]
+    }
+  ],
+  "depth_stencil_state":
+  [
+    {
+      "name": "none",
+      "depth_enable": false,
+      "stencil_enable": false
+    }
+  ],
+  "rasterizer_state":
+  [
+    {
+      "name": "none",
+      "fill": true,
+      "cull": "none"
+    }
+  ],
+  "definition" : 
+  [
+    {
+      "name": "prepare_present",
+      "bs": "none",
+      "il": "none",
+      "rs": "none",
+      "dss": "none",
+      "vs": [ "prepare_present.hlsl", "fullscreen_triangle_vs", ""],
+      "ps": [ "prepare_present.hlsl", "ps_main", ""]
+    }
+  ]
+}
