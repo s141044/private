@@ -1,0 +1,15 @@
+
+〇プリコンパイル済みヘッダの設定
+
+1. Configuration (構成) の C/C++ ⮕ Precompiled Headers ⮕
+　a. Precompiled Header を Use (/Yu) に設定
+　b. Precompiled Header File を pch.h に設定
+　c. Precompiled Header Output File を $(IntDir)$(TargetName).pch に設定
+2. (1-b) で設定した pch.h ファイルを作成（ほとんど変更されないヘッダをインクルード）
+3. (2) に対応した pch.cpp ファイルを作成（pch.hだけインクルード）
+4. (3) で作成したソースファイルだけのプロパティーを開き Configuration を (1) と同様に辿り /Yu を /Yc に変更
+5. プロジェクト単位の Configuration の Advanced で Forced Include File /FI[name] に pch.h;%(ForcedIncludeFiles) を設定
+（この設定はちょっと気持ち悪いから，必要に応じてインクルードするのでもいい）
+
+pch.hには，ns/pch.hppする方針で行く．
+

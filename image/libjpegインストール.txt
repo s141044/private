@@ -1,0 +1,37 @@
+
+○VisualStudio2010(またはより最新のもの)でのビルド方法
+
+libjpegのwindows用をダウンロードして展開
+
+VisualStudioのコマンドプロンプトを開く
+展開先に移動
+
+VisualStudio2010以降のコマンドプロンプトの場合は以下をコマンドを入力
+(指定しているパスはwin32.makが配置されているデフォルトの場所なので適宜修正)
+SET INCLUDE=%Include%;"C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Include"
+
+以下のコマンドを入力
+nmake /f makefile.vc setup-v10
+
+jpeg.slnが生成されるので
+VisualStudioで開いてビルド
+
+Debug版を作る場合は構成マネージャからReleaseのコピーで生成
+以下プロパティの項目を変更
+・ターゲット名 -> $(ProjectName)d
+・最適化　無効
+・フレームポインタなし　いいえ
+・ファイバー保護の最適化　いいえ
+・プログラム全体の最適化　いいえ
+・プリプロセッサの定義　NDEBUG -> _DEBUG
+・基本ランタイムチェック　両方
+・ランタイムライブラリ　マルチスレッドデバッグDLL
+Release，Debugの両方で以下を設定
+・デバッグ情報の形式　なし
+
+必要なファイルは以下の通り
+jpeg.lib
+jpegd.lib
+jpeglib.h
+jconfig.h
+jmorecfg.h

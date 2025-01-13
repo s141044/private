@@ -1,0 +1,49 @@
+
+○VisualStudioでのlibpngビルド方法
+
+libpngとzlibをダウンロードして展開
+
+libpngの展開先\projects\vstudio\zlib.props を開く
+zlibのディレクトリ位置を記述する場所があるので
+zlibの展開先のディレクトリを入力
+
+libpngの展開先\projects\vstudio\vstudio.slnを開いてビルド
+libpng, zlib, pnglibconf 以外のプロジェクトは不要なので
+構成マネージャでビルドしないように設定
+またはプロジェクト自体を削除
+
+DLLライブラリを作る場合は以下のプロパティの項目を変更
+Debug版
+・ターゲット名  $(ProjectName)16 -> $(ProjectName)16d
+・libpng追加の依存ファイル zlib.lib -> zlibd.lib
+Release，Debugの両方で以下を設定
+・デバッグ情報の形式　なし
+
+スタティックライブラリを作る場合は以下のプロパティの項目を変更
+Debug版
+・libpng ターゲット名  $(ProjectName)16 -> $(ProjectName)16sd
+・zlib ターゲット名  $(ProjectName) -> $(ProjectName)sd
+・ランタイムライブラリ マルチスレッドデバッグ -> マルチスレッドデバッグDLL
+Release版
+・libpng ターゲット名  $(ProjectName)16 -> $(ProjectName)16s
+・zlib ターゲット名  $(ProjectName) -> $(ProjectName)s
+・ランタイムライブラリ マルチスレッド -> マルチスレッドDLL
+Release，Debugの両方で以下を設定
+・デバッグ情報の形式　なし
+
+必要なファイルは以下の通り
+・zlib.lib
+・zlibd.lib
+・libpng16.lib
+・libpng16d.lib
+・libpng16.dll
+・libpng16d.dll
+(・zlibs.lib)
+(・zlibsd.lib)
+(・libpng16s.lib)
+(・libpng16sd.lib)
+・png.h
+・pngconf.h
+・pnglibconf.h
+
+スタティックライブラリだとDLL不要なので少し楽

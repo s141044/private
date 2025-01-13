@@ -1,0 +1,82 @@
+
+libpngを使うにはzlibが必要．
+
+〇zlib
+1. makefileを作成
+
+-------------------------------------------------------------------------------------------------------
+OBJECTS = adler32.o compress.o crc32.o deflate.o gzclose.o gzlib.o gzread.o \
+          gzwrite.o infback.o inffast.o inflate.o inftrees.o trees.o uncompr.o zutil.o
+
+zlib.lib: $(OBJECTS) 
+	lib $^ /OUT:$@ /MACHINE:X64 /LTCG /NOLOGO
+
+.c.o: 
+	clang++ -c $^ -o $@ -march=native -O2 -fno-strict-aliasing -MMD -MP
+
+clean: 
+	del /q *.d
+	del /q *.o
+	del /q *.lib
+
+-include *.d
+-------------------------------------------------------------------------------------------------------
+
+2. cファイルの中身を変更
+関数の引数部分の書き方を全部変更する (地獄，他に方法あると思うけど分からない)．
+void func(i)
+int i;
+{}
+を
+void func(int i)
+{}
+のようにする．
+
+3. makeを実行
+
+zlib.libが生成される．
+
+
+〇libpng
+
+1. makefileを作成
+
+-------------------------------------------------------------------------------------------------------
+OBJECTS = png.o pngerror.o pngget.o pngmem.o pngpread.o \
+	      pngread.o pngrio.o pngrtran.o pngrutil.o pngset.o \
+	      pngtrans.o pngwio.o pngwrite.o pngwtran.o pngwutil.o
+
+ZLIBDIR = D:\Users\s141044\Downloads\lpng1628\zlib1211\zlib-1.2.11
+
+png.lib: $(OBJECTS) 
+	lib $^ /OUT:$@ /MACHINE:X64 /LTCG /NOLOGO
+
+.c.o: 
+	clang++ -c $^ -o $@ -I$(ZLIBDIR) -march=native -O2 -fno-strict-aliasing -MMD -MP
+
+clean: 
+	del /q *.d
+	del /q *.o
+	del /q *.lib
+
+-include *.d
+-------------------------------------------------------------------------------------------------------
+
+2. pnglibconf.hを作成
+
+scripts/pnglibconf.h.prebuiltをコピーしてpnglibconf.hを作成
+
+3. makeを実行
+
+png.libが生成される．
+
+4. インストール
+
+以下のファイルを適切な場所へコピー．
+zlib.lib
+png.lib
+png.h
+pngconf.h
+pnglibconf.h
+
+

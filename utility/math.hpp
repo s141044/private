@@ -1,0 +1,70 @@
+
+#pragma once
+
+#ifndef NN_RENDER_UTILITY_MATH_HPP
+#define NN_RENDER_UTILITY_MATH_HPP
+
+#include<cmath>
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+namespace nn{
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+namespace render{
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//ŠÖ”’è‹`
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//³‚È‚ç1•‰‚È‚ç-1‚ð•Ô‚·
+inline float sign(const float f)
+{
+	return (f >= 0) ? 1.0f : -1.0f;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//0‚©‚ç1‚ÉƒNƒ‰ƒ“ƒv
+inline float saturate(const float f)
+{
+	return std::clamp(f, 0.0f, 1.0f);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define MAKE_VECTOR_OP(func) \
+inline float2 func(const float2 &f){ return float2(func(f.x), func(f.y)); } \
+inline float3 func(const float3 &f){ return float3(func(f.x), func(f.y), func(f.z)); } \
+inline float4 func(const float4 &f){ return float4(func(f.x), func(f.y), func(f.z), func(f.w)); }
+
+#define MAKE_STD_VECTOR_OP(func) \
+using std::func; \
+inline float2 func(const float2 &f){ return float2(func(f.x), func(f.y)); } \
+inline float3 func(const float3 &f){ return float3(func(f.x), func(f.y), func(f.z)); } \
+inline float4 func(const float4 &f){ return float4(func(f.x), func(f.y), func(f.z), func(f.w)); }
+
+MAKE_VECTOR_OP(sign)
+MAKE_VECTOR_OP(saturate)
+MAKE_STD_VECTOR_OP(abs)
+MAKE_STD_VECTOR_OP(sin)
+MAKE_STD_VECTOR_OP(cos)
+MAKE_STD_VECTOR_OP(tan)
+MAKE_STD_VECTOR_OP(exp)
+MAKE_STD_VECTOR_OP(log)
+
+#undef MAKE_VECTOR_OP
+#undef MAKE_STD_VECTOR_OP
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+} //namespace render
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+} //namespace nn
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#endif

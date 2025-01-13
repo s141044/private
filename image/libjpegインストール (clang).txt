@@ -1,0 +1,64 @@
+
+１. jconfig.h の作成
+
+jconfig.doc か jconfig.vc をコピーして jconfig.h を作成．
+jconfig.h の内容を適切に変更．
+
+または
+ckconfig.c をコンパイル．
+生成されたファイルを実行すると適切な jconfig.h が生成される．
+
+※windows.h をインクルードしたソースでlibjpegのヘッダをインクルードするとコンパイルエラーが発生する．
+　jconfig.h に以下の編集を加えるととりあえず解決．
+・windows.hをインクルード
+・XMD_Hマクロを定義
+・#undef NEED_FAR_POINTERSを削除
+・NEED_FAR_POINTERSを定義
+
+
+2. Makefileの作成
+
+---------------------------------------------------------------------------------------------
+SOURCES = jcapimin.c jcapistd.c jccoefct.c jccolor.c jcdctmgr.c jchuff.c \
+          jcinit.c jcmainct.c jcmarker.c jcmaster.c jcomapi.c jcparam.c \
+          jcphuff.c jcprepct.c jcsample.c jctrans.c jdapimin.c jdapistd.c \
+          jdatadst.c jdatasrc.c jdcoefct.c jdcolor.c jddctmgr.c jdhuff.c \
+          jdinput.c jdmainct.c jdmarker.c jdmaster.c jdmerge.c jdphuff.c \
+          jdpostct.c jdsample.c jdtrans.c jerror.c jfdctflt.c jfdctfst.c \
+          jfdctint.c jidctflt.c jidctfst.c jidctint.c jidctred.c jquant1.c \
+          jquant2.c jutils.c jmemmgr.c jmemnobs.c
+OBJECTS = $(SOURCES:.c=.o)
+
+jpeg.lib: $(OBJECTS) 
+	lib $^ /OUT:$@ /MACHINE:X64 /LTCG /NOLOGO
+
+.c.o: 
+	clang++ -c $^ -o $@ -march=native -O2 -fno-strict-aliasing -MMD -MP
+
+clean: 
+	del /q *.d
+	del /q *.o
+	del /q *.lib
+
+-include *.d
+---------------------------------------------------------------------------------------------
+
+3. makeを実行
+
+jpeg.lib が生成される．
+
+※普通のコマンドプロンプトからmakeを実行するとlibコマンドが認識されないため
+　visual studioのコマンドプロンプトかvisual studioのメイクプロジェクトでmakeを実行する
+（lib.exeにパス通すなら普通のコマンドプロンプトでも可能）
+
+4. インストール
+
+以下のファイルを適切な場所へコピー．
+jpeg.lib
+jpeglib.h 
+jerror.h
+jconfig.h
+jmorecfg.h
+
+
+
