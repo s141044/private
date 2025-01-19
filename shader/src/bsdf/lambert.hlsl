@@ -28,9 +28,9 @@ bsdf_sample sample_lambert_brdf(float3 wo, float3 normal, float3 kd, float u0, f
 	bsdf_sample s;
 	s.is_valid = true;
 	s.weight = kd;
-	s.wi = sample_cosine_hemisphere(u0, u1);
-	s.pdf = sample_cosine_hemisphere_pdf(s.wi);
-	s.wi = tangent * s.wi.x + binormal * s.wi.y + normal * s.wi.z;
+	s.w = sample_cosine_hemisphere(u0, u1);
+	s.pdf = sample_cosine_hemisphere_pdf(s.w);
+	s.w = tangent * s.w.x + binormal * s.w.y + normal * s.w.z;
 	return s;
 }
 

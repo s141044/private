@@ -6,18 +6,6 @@
 #include"environment.hlsl"
 #include"static_sampler.hlsl"
 
-ByteAddressBuffer		envmap_cdf;
-Texture2DArray<float>	envmap_weight;
-Texture2DArray<float>	envmap_weight1;
-Texture2DArray<float>	envmap_weight2;
-Texture2DArray<float>	envmap_weight3;
-Texture2DArray<float>	envmap_weight4;
-Texture2DArray<float>	envmap_weight5;
-Texture2DArray<float>	envmap_weight6;
-Texture2DArray<float>	envmap_weight7;
-Texture2DArray<float>	envmap_weight8;
-Texture2DArray<float>	envmap_weight9;
-
 struct env_sample
 {
 	float3	L;
@@ -31,6 +19,19 @@ struct compressed_env_sample
 	uint	w;
 	float	pdf;
 };
+
+ByteAddressBuffer						envmap_cdf;
+StructuredBuffer<compressed_env_sample>	envmap_samples;
+Texture2DArray<float>					envmap_weight;
+Texture2DArray<float>					envmap_weight1;
+Texture2DArray<float>					envmap_weight2;
+Texture2DArray<float>					envmap_weight3;
+Texture2DArray<float>					envmap_weight4;
+Texture2DArray<float>					envmap_weight5;
+Texture2DArray<float>					envmap_weight6;
+Texture2DArray<float>					envmap_weight7;
+Texture2DArray<float>					envmap_weight8;
+Texture2DArray<float>					envmap_weight9;
 
 env_sample decompress(compressed_env_sample cs)
 {
@@ -50,12 +51,17 @@ compressed_env_sample compress(env_sample s)
 	return cs;
 }
 
+env_sample sample_environment_light(uint i)
+{
+	return decompress(envmap_samples[i]);
+}
+
 struct envmap_face_cdf
 {
 	float val[6];
 };
 
-float4 sample_envmap(float u0, float u1)
+float4 sample_environment_light(float u0, float u1)
 {
 	envmap_face_cdf cdf = envmap_cdf.Load<envmap_face_cdf>(0);
 	u0 *= cdf.val[5];
@@ -159,6 +165,19 @@ float sample_envmap_pdf(float3 w)
 	return pdf;
 }
 
+bool environment_light_enable()
+{
+	return asfloat(envmap_cdf.Load(4 * 5)) > 0;
+}
+
+float cube_sample_level(float3 w, float pdf, uint N, float log2_texel_size)
+{
+	w /= max(abs(w.x), max(abs(w.y), abs(w.z)));
+	float len = length(w);
+	
+	return (log2(len * len * len / (pdf * N)) - log2_texel_size) / 2;
+}
+
 #if defined(INITIALIZE_WEIGHT)
 
 #include"packing.hlsl"
@@ -208,6 +227,7 @@ void calculate_cdf()
 #include"random.hlsl"
 #include"packing.hlsl"
 #include"root_constant.hlsl"
+#include"global_constant.hlsl"
 
 TextureCube<float3>							envmap;
 RWStructuredBuffer<compressed_env_sample>	samples;
@@ -215,12 +235,21 @@ RWStructuredBuffer<compressed_env_sample>	samples;
 [numthreads(256, 1, 1)]
 void presample(int dtid : SV_DispatchThreadID)
 {
+	if(!environment_light_enable())
+		return;
+
 	uint sample_count = root_constant >> 16;
 	if(dtid >= sample_count)
 		return;
-
-	float2 u = hammersley_sequence(dtid, sample_count);
-	float4 w_pdf = sample_envmap(u[0], u[1]);
+	
+	rng rng = create_rng(dtid + 1);
+	for(uint n = 0; n < 2; n++){ rand(rng); }
+	
+	float2 u;
+	u[0] = randF(rng);
+	u[1] = randF(rng);
+	//float2 u = hammersley_sequence(dtid, sample_count); //パターンが出る
+	float4 w_pdf = sample_environment_light(u[0], u[1]);
 
 	env_sample s;
 	s.L = envmap.SampleLevel(bilinear_clamp, w_pdf.xyz, root_constant & 0xffff);

@@ -1,0 +1,9 @@
+{
+  "definition" : 
+  [
+    {
+      "name": "trace_and_shade",
+      "cs": [ "test/direct.hlsl", "trace_and_shade", ""]
+    }
+  ]
+}

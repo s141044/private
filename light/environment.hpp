@@ -16,15 +16,15 @@ namespace nn{
 namespace render{
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//environment_map
+//environment_light
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-class environment_map
+class environment_light
 {
 public:
 
 	//コンストラクタ
-	environment_map(const hdr_image &hdri, const uint size)
+	environment_light(const hdr_image &hdri, const uint size)
 	{
 		assert(std::has_single_bit(size));
 
@@ -41,11 +41,11 @@ public:
 		}
 		mp_src_tex = gp_render_device->create_texture2d(texture_format_r9g9b9e5_sharedexp, hdri.width(), hdri.height(), 1, resource_flag_allow_shader_resource, src.data());
 		mp_src_srv = gp_render_device->create_shader_resource_view(*mp_src_tex, texture_srv_desc(*mp_src_tex));
-		gp_render_device->set_name(*mp_src_tex, L"environment_map: src_tex");
+		gp_render_device->set_name(*mp_src_tex, L"environment_light: src_tex");
 
 		const uint mip_levels = std::countr_zero(size) + 1;
 		mp_cube_tex = gp_render_device->create_texture_cube(texture_format_r9g9b9e5_sharedexp, size, size, mip_levels, resource_flag_allow_shader_resource);
-		gp_render_device->set_name(*mp_cube_tex, L"environment_map: cube_tex");
+		gp_render_device->set_name(*mp_cube_tex, L"environment_light: cube_tex");
 	}
 
 	//初期化
@@ -67,7 +67,7 @@ public:
 
 		//r9g9b9e5のuavを作れないのでr32uintに書いてからコピーする
 		auto p_tmp_tex = gp_render_device->create_texture2d_array(texture_format_r32_uint, w, h, 6, n, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access | resource_flag_scratch));
-		gp_render_device->set_name(*p_tmp_tex, L"environment_map: tmp_tex");
+		gp_render_device->set_name(*p_tmp_tex, L"environment_light: tmp_tex");
 
 		unordered_access_view_ptr uav_ptrs[16];
 		for(uint i = 0; i < n; i++)
@@ -149,15 +149,15 @@ private:
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//environment_map_sampler
+//environment_light_sampler
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-class environment_map_sampler
+class environment_light_sampler
 {
 public:
 
 	//コンストラクタ
-	environment_map_sampler() : mp_cube_tex()
+	environment_light_sampler() : mp_cube_tex()
 	{
 		m_shader_file = gp_shader_manager->create(L"environment_sampling.sdf.json");
 		mp_unnormalized_cdf_buf = gp_render_device->create_byteaddress_buffer(sizeof(float) * 6, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
@@ -165,8 +165,11 @@ public:
 		mp_unnormalized_cdf_uav = gp_render_device->create_unordered_access_view(*mp_unnormalized_cdf_buf, buffer_uav_desc(*mp_unnormalized_cdf_buf));
 	}
 
-	bool initialize(render_context &context, environment_map &envmap, uint res = 64)
+	bool initialize(render_context &context, environment_light &envmap, uint res = 64, uint sample_count = 16 * 1024)
 	{
+		assert(std::has_single_bit(res));
+		assert(std::has_single_bit(sample_count));
+
 		if(m_shader_file.has_update())
 		{
 			m_shader_file.update();
@@ -183,8 +186,8 @@ public:
 		{
 			const uint n = std::countr_zero(res) + 1;
 			mp_weight_tex = gp_render_device->create_texture2d_array(texture_format_r32_float, res, res, 6, n, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
-			for(uint i = 0; i < n; i++){ mp_weight_srv[i] = gp_render_device->create_shader_resource_view(*mp_weight_tex, texture_srv_desc(*mp_weight_tex, i)); }
-			gp_render_device->set_name(*mp_weight_tex, L"environment_map_sampler: weight_tex");
+			for(uint i = 0; i < n; i++){ mp_weight_srv[i] = gp_render_device->create_shader_resource_view(*mp_weight_tex, texture_srv_desc(*mp_weight_tex, i, -1)); }
+			gp_render_device->set_name(*mp_weight_tex, L"environment_light_sampler: weight_tex");
 
 			unordered_access_view_ptr uav_ptrs[16];
 			for(uint i = 0; i < n; i++){ uav_ptrs[i] = gp_render_device->create_unordered_access_view(*mp_weight_tex, texture_uav_desc(*mp_weight_tex, i)); }
@@ -215,48 +218,40 @@ public:
 				context.dispatch_with_32bit_constant(ceil_div(res >> i, 32), ceil_div(res >> i, 32), 6, reinterpret<uint>(1 / float(res >> (i - 1))));
 			}
 
-			//context.set_pipeline_resource("src", *mp_weight_srv[n - 1]);
-			//context.set_pipeline_resource("dst", *mp_unnormalized_cdf_uav);
-			//context.set_pipeline_state(*m_shader_file.get("calculate_cdf"));
-			//context.dispatch(1, 1, 1);
+			context.set_pipeline_resource("src", *mp_weight_srv[n - 1]);
+			context.set_pipeline_resource("dst", *mp_unnormalized_cdf_uav);
+			context.set_pipeline_state(*m_shader_file.get("calculate_cdf"));
+			context.dispatch(1, 1, 1);
 			mp_cube_tex = &cube_tex;
-		}
-		return true;
-	}
 
-	//プリサンプリング
-	bool presample(render_context &context, environment_map &envmap, const uint sample_count)
-	{
-		auto &cube_tex = envmap.cube_tex();
-		auto &cube_srv = envmap.cube_srv();
-		assert(&cube_tex == mp_cube_tex);
-
-		if((mp_sample_buf == nullptr) || (mp_sample_buf->num_elements() != sample_count))
-		{
-			struct sample
+			if((mp_sample_buf == nullptr) || (mp_sample_buf->num_elements() != sample_count))
 			{
-				uint	power;
-				uint	w;
-				float	pdf;
-			};
-			mp_sample_buf = gp_render_device->create_structured_buffer(sizeof(sample), sample_count, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
-			mp_sample_srv = gp_render_device->create_shader_resource_view(*mp_sample_buf, buffer_srv_desc(*mp_sample_buf));
-			mp_sample_uav = gp_render_device->create_unordered_access_view(*mp_sample_buf, buffer_uav_desc(*mp_sample_buf));
-		}
+				struct sample
+				{
+					uint	power;
+					uint	w;
+					float	pdf;
+				};
+				mp_sample_buf = gp_render_device->create_structured_buffer(sizeof(sample), sample_count, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+				mp_sample_srv = gp_render_device->create_shader_resource_view(*mp_sample_buf, buffer_srv_desc(*mp_sample_buf));
+				mp_sample_uav = gp_render_device->create_unordered_access_view(*mp_sample_buf, buffer_uav_desc(*mp_sample_buf));
+			}
 
-		bind(context);
-		context.set_pipeline_resource("envmap", cube_srv);
-		context.set_pipeline_resource("samples", *mp_sample_uav);
-		context.set_pipeline_state(*m_shader_file.get("presample"));
-		context.dispatch_with_32bit_constant(ceil_div(sample_count, 256), 1, 1, (cube_tex.mip_levels() - mp_weight_tex->mip_levels()) | (sample_count << 16));
+			bind(context);
+			context.set_pipeline_resource("envmap", cube_srv);
+			context.set_pipeline_resource("samples", *mp_sample_uav);
+			context.set_pipeline_state(*m_shader_file.get("presample"));
+			context.dispatch_with_32bit_constant(ceil_div(sample_count, 256), 1, 1, (cube_tex.mip_levels() - mp_weight_tex->mip_levels()) | (sample_count << 16));
+		}
 		return true;
 	}
 
 	//バインド
-	void bind(render_context &context)
+	void bind(render_context &context) const
 	{
 		context.set_pipeline_resource("envmap_cdf", *mp_unnormalized_cdf_srv);
 		context.set_pipeline_resource("envmap_weight", *mp_weight_srv[0]);
+		context.set_pipeline_resource("envmap_samples", *mp_sample_srv);
 
 		const auto mip_levels = int(mp_weight_tex->mip_levels());
 		context.set_pipeline_resource("envmap_weight1", *mp_weight_srv[std::max(mip_levels - 2, 0)]);
@@ -269,6 +264,9 @@ public:
 		context.set_pipeline_resource("envmap_weight8", *mp_weight_srv[std::max(mip_levels - 9, 0)]);
 		context.set_pipeline_resource("envmap_weight9", *mp_weight_srv[std::max(mip_levels - 10, 0)]);
 	}
+
+	//プリサンプル数を返す
+	uint presample_count() const { return mp_sample_buf->num_elements(); }
 
 private:
 

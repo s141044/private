@@ -938,7 +938,7 @@ inline texture_srv_desc::texture_srv_desc(const texture &tex, const srv_flag fla
 
 inline texture_srv_desc::texture_srv_desc(const texture &tex, const uint most_detailed_mip, const uint mip_levels, const srv_flag flag)
 {
-	this->mip_levels = mip_levels;
+	this->mip_levels = std::min(mip_levels, tex.mip_levels() - most_detailed_mip);
 	this->most_detailed_mip = most_detailed_mip;
 	this->array_size = tex.array_size();
 	this->first_array_index = 0;

@@ -140,8 +140,8 @@ void cs_main(uint2 dtid : SV_DispatchThreadID)
 			bsdf_sample s = sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng), randF(rng), dtid);
 			if(s.is_valid)
 			{
-				if(!is_occluded(isect.position, s.wi, 10000))
-					col = s.weight * env_cube.SampleLevel(bilinear_clamp, s.wi, 4);
+				if(!is_occluded(isect.position, s.w, 10000))
+					col = s.weight * env_cube.SampleLevel(bilinear_clamp, s.w, 4);
 			}
 		}
 
@@ -155,8 +155,8 @@ void cs_main(uint2 dtid : SV_DispatchThreadID)
 		//	albedo = albedo_map.SampleLevel(bilinear_wrap, isect.uv, 0);
 		//}
 		//
-		//if(!is_occluded(isect.position, s.wi, 10000))
-		//	result[dtid] = albedo * env_cube.SampleLevel(bilinear_clamp, s.wi, 4) * s.weight;
+		//if(!is_occluded(isect.position, s.w, 10000))
+		//	result[dtid] = albedo * env_cube.SampleLevel(bilinear_clamp, s.w, 4) * s.weight;
 		//else
 		//	result[dtid] = 0;
 
@@ -173,9 +173,9 @@ void cs_main(uint2 dtid : SV_DispatchThreadID)
 		//result[dtid] = max(isect.geometry_normal, 0);
 
 		//ray.origin = isect.position;
-		//ray.direction = s.wi;
+		//ray.direction = s.w;
 		//result[dtid] = saturate(dot(isect.normal, normalize(float3(1,1,1))));
-		//result[dtid] = hdri.SampleLevel(bilinear_clamp, s.wi, 0) * s.weight;
+		//result[dtid] = hdri.SampleLevel(bilinear_clamp, s.w, 0) * s.weight;
 		//result[dtid] = float3(randF(rng), randF(rng), randF(rng));
 
 		//result[dtid] = float3(payload.barycentrics, 0);

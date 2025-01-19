@@ -31,8 +31,10 @@ static const float cosine_threshold = 1e-3f;
 
 struct bsdf_sample
 {
-	float3	wi;
+	float3	w;
 	float3	weight;
+	float3	diffuse_weight;
+	float3	non_diffuse_weight;
 	float	pdf;
 	bool	is_valid;
 };

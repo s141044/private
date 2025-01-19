@@ -46,8 +46,8 @@ struct raytracing_instance_desc
 };
 
 RaytracingAccelerationStructure				AS : register(s0, space1);
-StructuredBuffer<bindless_instance_desc>	bindless_instance_descs;
-StructuredBuffer<raytracing_instance_desc>	raytracing_instance_descs;
+StructuredBuffer<bindless_instance_desc>	bindless_instance_descs;   //instance_id+geometry_indexでアクセス
+StructuredBuffer<raytracing_instance_desc>	raytracing_instance_descs; //instance_indexでアクセス
 
 //void closest_hit_shader(ray r, inout ray_payload payload, hit_info info);
 //bool any_hit_shader(ray r, inout ray_payload payload, hit_info info);
@@ -105,6 +105,7 @@ StructuredBuffer<raytracing_instance_desc>	raytracing_instance_descs;
 struct intersection
 {
 	float3	position;
+	float3	prev_position;
 	float3	normal;
 	float4	tangent;
 	float3	geometry_normal;
@@ -155,6 +156,16 @@ intersection get_intersection(uint instance_id, uint geometry_index, uint primit
 	float3 p2 = asfloat(vb0.Load3(geom.offsets[0] + (geom.strides[0] & 0xff) * index.z));
 	isect.position = p0 * b[0] + p1 * b[1] + p2 * b[2];
 	isect.geometry_normal = normalize(cross(p1 - p0, p2 - p0));
+
+	if(geom.vb_handles[4] == invalid_bindless_handle)
+		isect.prev_position = isect.position; //本当はPrevのワールド変換行列の考慮が必要
+	else
+	{
+		float3 p0 = asfloat(vb0.Load3(geom.offsets[4] + (geom.strides[1] & 0xff) * index.x));
+		float3 p1 = asfloat(vb0.Load3(geom.offsets[4] + (geom.strides[1] & 0xff) * index.y));
+		float3 p2 = asfloat(vb0.Load3(geom.offsets[4] + (geom.strides[1] & 0xff) * index.z));
+		isect.prev_position = p0 * b[0] + p1 * b[1] + p2 * b[2];
+	}
 
 	float3 n0 = decode_normal(vb1.Load(geom.offsets[1] + ((geom.strides[0] >> 8) & 0xff) * index.x));
 	float3 n1 = decode_normal(vb1.Load(geom.offsets[1] + ((geom.strides[0] >> 8) & 0xff) * index.y));

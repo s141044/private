@@ -1,0 +1,9 @@
+{
+  "definition" : 
+  [
+    {
+      "name": "sssss",
+      "cs": [ "test/sssss.hlsl", "sssss", ""]
+    }
+  ]
+}

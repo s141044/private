@@ -375,9 +375,12 @@ float3 calc_emissive(float3 wo, float3 normal, standard_material mtl)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl, uint2 dtid = 0)
+void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl, out float3 diffuse, out float3 non_diffuse, out float pdf, uint2 dtid = 0)
 {
-	float4 bsdf_pdf = 0;
+	diffuse = 0;
+	non_diffuse = 0;
+	pdf = 0;
+
 	float3 throughput = 1;
 	float sum_weight = 0;
 
@@ -397,12 +400,15 @@ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl,
 
 			float4 brdf_pdf = sheen::calc_brdf_pdf(sheen_wo, sheen_wi, get_sheen_roughness(mtl));
 			brdf_pdf.xyz *= reflectance;
-			bsdf_pdf += float4(brdf_pdf.xyz, brdf_pdf.w * weight);
-			//bsdf_pdf += float4(0, 0, 0, brdf_pdf.w * weight);
+			non_diffuse += brdf_pdf.xyz;
+			pdf += brdf_pdf.w * weight;
 
 			throughput *= 1 - reflectance;
 			if(all(throughput == 0))
-				return float4(bsdf_pdf.xyz, bsdf_pdf.w / sum_weight);
+			{
+				pdf /= sum_weight;
+				return;
+			}
 		}
 	}
 
@@ -422,12 +428,15 @@ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl,
 			sum_weight += weight;
 	
 			float4 brdf_pdf = microfacet::calc_brdf_pdf(coat_wo, coat_wi, get_coat_color0(mtl), get_coat_roughness(mtl));
-			bsdf_pdf += float4(coat_scale * brdf_pdf.xyz * throughput, brdf_pdf.w * weight);
-			//bsdf_pdf += float4(0, 0, 0, brdf_pdf.w * weight);
+			non_diffuse += coat_scale * brdf_pdf.xyz * throughput;
+			pdf += brdf_pdf.w * weight;
 
 			throughput *= 1 - reflectance;
 			if(all(throughput == 0))
-				return float4(bsdf_pdf.xyz, bsdf_pdf.w / sum_weight);
+			{
+				pdf /= sum_weight;
+				return;
+			}
 		}
 	}
 
@@ -446,20 +455,23 @@ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl,
 
 		float roughness = get_specular_roughness(mtl);
 		float4 brdf_pdf = microfacet::calc_brdf_pdf(base_wo, base_wi, get_specular_color0(mtl), roughness);
-		bsdf_pdf += float4(specular_scale * brdf_pdf.xyz * throughput, brdf_pdf.w * weight);
-		//bsdf_pdf += float4(0, 0, 0, brdf_pdf.w * weight);
+		non_diffuse += specular_scale * brdf_pdf.xyz * throughput;
+		pdf += brdf_pdf.w * weight;
 
 		float3 matte_reflectance = get_matte_reflectance(mtl);
 		weight = specular_scale * luminance(throughput * matte_reflectance);
 		sum_weight += weight;
 
 		brdf_pdf = microfacet::calc_matte_brdf_pdf(base_wo, base_wi, matte_reflectance, roughness);
-		bsdf_pdf += float4(specular_scale * brdf_pdf.xyz * throughput, brdf_pdf.w * weight);
-		//bsdf_pdf += float4(0, 0, 0, brdf_pdf.w * weight);
+		non_diffuse += specular_scale * brdf_pdf.xyz * throughput;
+		pdf += brdf_pdf.w * weight;
 
 		throughput *= 1 - (reflectance + matte_reflectance);
 		if(all(throughput == 0))
-			return float4(bsdf_pdf.xyz, bsdf_pdf.w / sum_weight);
+		{
+			pdf /= sum_weight;
+			return;
+		}
 	}
 
 	float3 diffuse_color = get_diffuse_color(mtl);
@@ -470,11 +482,19 @@ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl,
 		sum_weight += weight;
 
 		float4 brdf_pdf = oren_nayer::calc_brdf_pdf(base_wo, base_wi, get_diffuse_color(mtl), get_diffuse_roughness(mtl));
-		bsdf_pdf += float4(brdf_pdf.xyz * throughput, brdf_pdf.w * weight);
-		//bsdf_pdf += float4(0, 0, 0, brdf_pdf.w * weight);
+		diffuse += brdf_pdf.xyz * throughput;
+		pdf += brdf_pdf.w * weight;
 	}
 
-	return float4(bsdf_pdf.xyz, bsdf_pdf.w / sum_weight);
+	pdf /= sum_weight;
+}
+
+float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl, uint2 dtid = 0)
+{
+	float pdf;
+	float3 diffuse, non_diffuse;
+	calc_bsdf_pdf(wo, wi, normal, mtl, diffuse, non_diffuse, pdf, dtid);
+	return float4(diffuse + non_diffuse, pdf);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -598,7 +618,7 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 		sheen::calc_orthonormal_basis(wo, sample_normal, sample_tangent, sample_binormal);
 		float3 sheen_wo = float3(dot(sample_tangent, wo), dot(sample_binormal, wo), dot(sample_normal, wo));
 
-		s.is_valid = sheen::sample_brdf(sheen_wo, s.wi, get_sheen_roughness(mtl), u0, u1);
+		s.is_valid = sheen::sample_brdf(sheen_wo, s.w, get_sheen_roughness(mtl), u0, u1);
 		if(!s.is_valid)
 			return s;
 	}
@@ -609,7 +629,7 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 		calc_orthonormal_basis(sample_normal, sample_tangent, sample_binormal);
 		float3 coat_wo = float3(dot(sample_tangent, wo), dot(sample_binormal, wo), dot(sample_normal, wo));
 
-		s.is_valid = microfacet::sample_brdf(coat_wo, s.wi, get_coat_color0(mtl), get_coat_roughness(mtl), u1, u2);
+		s.is_valid = microfacet::sample_brdf(coat_wo, s.w, get_coat_color0(mtl), get_coat_roughness(mtl), u1, u2);
 		if(!s.is_valid)
 			return s;
 	}
@@ -623,39 +643,42 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 		//specular
 		if(sample_type == 2)
 		{
-			s.is_valid = microfacet::sample_brdf(base_wo, s.wi, get_specular_color0(mtl), get_specular_roughness(mtl), u1, u2);
+			s.is_valid = microfacet::sample_brdf(base_wo, s.w, get_specular_color0(mtl), get_specular_roughness(mtl), u1, u2);
 		}
 		//matte
 		else if(sample_type == 3)
 		{
-			s.is_valid = microfacet::sample_matte_brdf(base_wo, s.wi, get_matte_reflectance(mtl), get_specular_roughness(mtl), u1, u2);
+			s.is_valid = microfacet::sample_matte_brdf(base_wo, s.w, get_matte_reflectance(mtl), get_specular_roughness(mtl), u1, u2);
 		}
 		//diffuse
 		else
 		{
-			s.is_valid = oren_nayer::sample_brdf(base_wo, s.wi, get_diffuse_color(mtl), get_diffuse_roughness(mtl), u1, u2);
+			s.is_valid = oren_nayer::sample_brdf(base_wo, s.w, get_diffuse_color(mtl), get_diffuse_roughness(mtl), u1, u2);
 		}
 		if(!s.is_valid)
 			return s;
 	}
 
-	s.wi = sample_tangent * s.wi.x + sample_binormal * s.wi.y + sample_normal * s.wi.z;
+	s.w = sample_tangent * s.w.x + sample_binormal * s.w.y + sample_normal * s.w.z;
 
-	if(!has_contribution(dot(normal, s.wi), mtl))
+	if(!has_contribution(dot(normal, s.w), mtl))
 	{
 		s.is_valid = false;
 		return s;
 	}
 	
-	float4 bsdf_pdf = calc_bsdf_pdf(wo, s.wi, normal, mtl, dtid);
-	if(bsdf_pdf.w <= 0) //‚È‚ñ‚Å‚¢‚é‚ñ‚â‚Á‚¯H
-	{
-		s.is_valid = false;
-		return s;
-	}
+	float3 diffuse, non_diffuse;
+	calc_bsdf_pdf(wo, s.w, normal, mtl, diffuse, non_diffuse, s.pdf, dtid);
+	//if(pdf <= 0) //‚È‚ñ‚Å‚¢‚é‚ñ‚â‚Á‚¯H
+	//{
+	//	s.is_valid = false;
+	//	return s;
+	//}
 
-	s.weight = bsdf_pdf.xyz / bsdf_pdf.w;
-	s.pdf = bsdf_pdf.w;
+	float inv_pdf = 1 / s.pdf;
+	s.diffuse_weight = diffuse * inv_pdf;
+	s.non_diffuse_weight = non_diffuse * inv_pdf;
+	s.weight = (diffuse + non_diffuse) * inv_pdf;
 	return s;
 }
 
