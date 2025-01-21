@@ -9,6 +9,8 @@
 #include"../bsdf/microfacet.hlsl"
 #include"../bsdf/oren_nayer.hlsl"
 
+#include"../debug.hlsl"
+
 //‚Ü‚ ŒÅ’è‚Å‘åä•v‚¾‚ë‚¤
 #if !defined(RT_SAMPLER)
 #define RT_SAMPLER bilinear_wrap
@@ -384,8 +386,8 @@ void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl, o
 	float3 throughput = 1;
 	float sum_weight = 0;
 
-	float3 sheen_color = get_sheen_color(mtl);
-	if(any(sheen_color > 0))
+	float3 sheen_reflectance = get_sheen_reflectance(mtl);
+	if(any(sheen_reflectance > 0))
 	{
 		float3 sheen_tangent, sheen_binormal;
 		sheen::calc_orthonormal_basis(wo, normal, sheen_tangent, sheen_binormal);
@@ -394,16 +396,15 @@ void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl, o
 
 		if((sheen_wo.z > cosine_threshold) && (sheen_wi.z > cosine_threshold))
 		{
-			float3 reflectance = get_sheen_reflectance(mtl);
-			float weight = luminance(reflectance);
+			float weight = luminance(sheen_reflectance);
 			sum_weight += weight;
 
 			float4 brdf_pdf = sheen::calc_brdf_pdf(sheen_wo, sheen_wi, get_sheen_roughness(mtl));
-			brdf_pdf.xyz *= reflectance;
+			brdf_pdf.xyz *= sheen_reflectance;
 			non_diffuse += brdf_pdf.xyz;
 			pdf += brdf_pdf.w * weight;
 
-			throughput *= 1 - reflectance;
+			throughput *= 1 - sheen_reflectance;
 			if(all(throughput == 0))
 			{
 				pdf /= sum_weight;
@@ -446,47 +447,52 @@ void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl, o
 	float3 base_wo = float3(dot(base_tangent, wo), dot(base_binormal, wo), dot(base_normal, wo));
 	float3 base_wi = float3(dot(base_tangent, wi), dot(base_binormal, wi), dot(base_normal, wi));
 
-	float specular_scale = get_specular_scale(mtl);
-	if(specular_scale > 0)
+	if((base_wo.z > 0) && (base_wi.z > 0))
 	{
-		float3 reflectance = get_specular_reflectance(mtl);
-		float weight = specular_scale * luminance(throughput * reflectance);
-		sum_weight += weight;
-
-		float roughness = get_specular_roughness(mtl);
-		float4 brdf_pdf = microfacet::calc_brdf_pdf(base_wo, base_wi, get_specular_color0(mtl), roughness);
-		non_diffuse += specular_scale * brdf_pdf.xyz * throughput;
-		pdf += brdf_pdf.w * weight;
-
-		float3 matte_reflectance = get_matte_reflectance(mtl);
-		weight = specular_scale * luminance(throughput * matte_reflectance);
-		sum_weight += weight;
-
-		brdf_pdf = microfacet::calc_matte_brdf_pdf(base_wo, base_wi, matte_reflectance, roughness);
-		non_diffuse += specular_scale * brdf_pdf.xyz * throughput;
-		pdf += brdf_pdf.w * weight;
-
-		throughput *= 1 - (reflectance + matte_reflectance);
-		if(all(throughput == 0))
+		float specular_scale = get_specular_scale(mtl);
+		if(specular_scale > 0)
 		{
-			pdf /= sum_weight;
-			return;
+			float3 reflectance = get_specular_reflectance(mtl);
+			float weight = specular_scale * luminance(throughput * reflectance);
+			sum_weight += weight;
+
+			float roughness = get_specular_roughness(mtl);
+			float4 brdf_pdf = microfacet::calc_brdf_pdf(base_wo, base_wi, get_specular_color0(mtl), roughness);
+			non_diffuse += specular_scale * brdf_pdf.xyz * throughput;
+			pdf += brdf_pdf.w * weight;
+
+			float3 matte_reflectance = get_matte_reflectance(mtl);
+			weight = specular_scale * luminance(throughput * matte_reflectance);
+			sum_weight += weight;
+
+			brdf_pdf = microfacet::calc_matte_brdf_pdf(base_wo, base_wi, matte_reflectance, roughness);
+			non_diffuse += specular_scale * brdf_pdf.xyz * throughput;
+			pdf += brdf_pdf.w * weight;
+
+			throughput *= 1 - (reflectance + matte_reflectance);
+			if(all(throughput == 0))
+			{
+				pdf /= sum_weight;
+				return;
+			}
+		}
+
+		float3 diffuse_color = get_diffuse_color(mtl);
+		if(any(diffuse_color > 0))
+		{
+			float3 reflectance = get_diffuse_reflectance(mtl);
+			float weight = luminance(throughput * reflectance);
+			sum_weight += weight;
+
+			float4 brdf_pdf = oren_nayer::calc_brdf_pdf(base_wo, base_wi, get_diffuse_color(mtl), get_diffuse_roughness(mtl));
+			diffuse += brdf_pdf.xyz * throughput;
+			pdf += brdf_pdf.w * weight;
 		}
 	}
 
-	float3 diffuse_color = get_diffuse_color(mtl);
-	if(any(diffuse_color > 0))
-	{
-		float3 reflectance = get_diffuse_reflectance(mtl);
-		float weight = luminance(throughput * reflectance);
-		sum_weight += weight;
-
-		float4 brdf_pdf = oren_nayer::calc_brdf_pdf(base_wo, base_wi, get_diffuse_color(mtl), get_diffuse_roughness(mtl));
-		diffuse += brdf_pdf.xyz * throughput;
-		pdf += brdf_pdf.w * weight;
-	}
-
-	pdf /= sum_weight;
+	//NEE‚Å‚ÌÚ‘±æ‚ªdarkspot‚Ì‚Æ‚«0‚É‚È‚è‚¤‚é
+	if(sum_weight > 0)
+		pdf /= sum_weight;
 }
 
 float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl, uint2 dtid = 0)

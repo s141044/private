@@ -1,9 +1,9 @@
 
-#ifndef TEST_GBUFFER_HLSL
-#define TEST_GBUFFER_HLSL
+#ifndef GBUFFER_HLSL
+#define GBUFFER_HLSL
 
-#include"../packing.hlsl"
-#include"../global_constant.hlsl"
+#include"packing.hlsl"
+#include"global_constant.hlsl"
 
 float4 encode_velocity(float3 screen_diff)
 {

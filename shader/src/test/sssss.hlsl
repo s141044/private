@@ -12,9 +12,9 @@
 //#include"../sampling.hlsl"
 
 
-#include"gbuffer.hlsl"
 #include"../random.hlsl"
 #include"../utility.hlsl"
+#include"../gbuffer.hlsl"
 #include"../global_constant.hlsl"
 #include"../material/subsurface.hlsl"
 
@@ -41,8 +41,8 @@ void sssss(uint2 dtid : SV_DispatchThreadID)
 		return;
 
 	//float weight = 0.1f;
-	float weight = 0;
-	//float weight = 1;
+	//float weight = 0;
+	float weight = 1;
 	//float weight = decode_subsurface_weight(subsurface_weight[dtid]);
 	if(weight <= 0)
 	{
@@ -60,7 +60,9 @@ void sssss(uint2 dtid : SV_DispatchThreadID)
 	calc_orthonormal_basis(normal, tangent, binormal);
 
 	//float3 radius = 0.001;
-	float3 radius = float3(1, 0.01, 0.01) * 0.001;
+	float3 radius = float3(1, 1, 1) * 0.001;
+	//float3 radius = float3(1, 0.01, 0.01) * 0.002;
+	//float3 radius = float3(1, 0.01, 0.01) * 0.001;
 	//float3 radius = decode_subsurface_radius(subsurface_radius[dtid]);
 	float max_radius = max(radius.x, max(radius.y, radius.z));
 

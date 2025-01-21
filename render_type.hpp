@@ -74,8 +74,8 @@ public:
 	const float4x4 &wtol_matrix() const { return m_wtol; }
 
 	//•ÏŠ·s—ñ‚ğİ’è
-	void set_ltow_matrix(const float4x4 &ltow){ m_ltow = ltow; m_wtol = matrix_op::inverse(m_ltow); }
-	void set_wtol_matrix(const float4x4 &wtol){ m_wtol = wtol; m_ltow = matrix_op::inverse(m_wtol); }
+	void set_ltow_matrix(const float4x4 &ltow){ m_ltow = ltow; m_wtol = inverse(m_ltow); }
+	void set_wtol_matrix(const float4x4 &wtol){ m_wtol = wtol; m_ltow = inverse(m_wtol); }
 
 private:
 

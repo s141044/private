@@ -1,9 +1,4 @@
 
-RWTexture2D<float4> debug_uav0;
-RWTexture2D<float4> debug_uav1;
-RWTexture2D<float4> debug_uav2;
-RWTexture2D<float4> debug_uav3;
-
 #include"../random.hlsl"
 #include"../raytracing.hlsl"
 #include"../raytracing_utility.hlsl"
@@ -17,12 +12,13 @@ RWTexture2D<float4> debug_uav3;
 #include"../environment_sampling.hlsl"
 #include"../utility.hlsl"
 #include"../sampling.hlsl"
+#include"../gbuffer.hlsl"
+#include"../debug.hlsl"
 
-#include"gbuffer.hlsl"
-
-#define ENABLE_NEE_EVAL		1
-#define ENABLE_HIT_EVAL		1
-#define INF_T				1000
+#define ENABLE_NEE_EVAL	1
+#define ENABLE_HIT_EVAL	1
+#define FORCE_MIS		0
+#define INF_T			1000
 
 float calc_mis_weight(float pdf_a, float pdf_b)
 {
@@ -104,7 +100,7 @@ void directional_lighting(float3 position, float3 wo, float3 normal, standard_ma
 		calc_bsdf_pdf(wo, wi, normal, mtl, diffuse, non_diffuse, pdf_bsdf);
 
 		float weight = 1 / float(M_NEE * directional_light_sample_pdf);
-#if ENABLE_HIT_EVAL
+#if ENABLE_HIT_EVAL || FORCE_MIS
 		weight *= calc_mis_weight(M_NEE * directional_light_sample_pdf, M_BSDF * pdf_bsdf);
 #endif
 		diffuse *= directional_light_power * weight;
@@ -139,10 +135,10 @@ void environment_lighting(float3 position, float3 wo, float3 normal, standard_ma
 
 		float pdf_bsdf;
 		float3 diffuse, non_diffuse;
-		calc_bsdf_pdf(wo, wi, normal, mtl, diffuse, non_diffuse, pdf_bsdf);
+		calc_bsdf_pdf(wo, wi, normal, mtl, diffuse, non_diffuse, pdf_bsdf, dtid);
 
 		float weight = 1 / float(M_NEE * s.pdf);
-#if ENABLE_HIT_EVAL
+#if ENABLE_HIT_EVAL || FORCE_MIS
 		weight *= calc_mis_weight(M_NEE * s.pdf, M_BSDF * pdf_bsdf);
 #endif
 		diffuse *= s.L * weight;
@@ -157,10 +153,7 @@ void trace_and_shade(uint2 dtid : SV_DispatchThreadID)
 	if(any(dtid >= screen_size))
 		return;
 	
-	debug_uav0[dtid] = 0;
-	debug_uav1[dtid] = 0;
-	debug_uav2[dtid] = 0;
-	debug_uav3[dtid] = 0;
+	init_debug_output(dtid);
 
 	rng rng = create_rng(dtid.x + screen_size.x * (dtid.y + screen_size.y * frame_count));
 
@@ -205,7 +198,7 @@ void trace_and_shade(uint2 dtid : SV_DispatchThreadID)
 			if(is_in_cone(s.w, directional_light_cos_max, directional_light_axis_x, directional_light_axis_y, directional_light_direction))
 			{
 				float weight = 1 / float(M_BSDF);
-#if ENABLE_NEE_EVAL
+#if ENABLE_NEE_EVAL || FORCE_MIS
 				weight *= calc_mis_weight(M_BSDF * s.pdf, directional_light_M_NEE * directional_light_sample_pdf);
 #endif
 				float3 diffuse = s.diffuse_weight * directional_light_power * weight;
@@ -216,7 +209,7 @@ void trace_and_shade(uint2 dtid : SV_DispatchThreadID)
 			if(environment_light_enable())
 			{
 				float weight = 1 / float(M_BSDF);
-#if ENABLE_NEE_EVAL
+#if ENABLE_NEE_EVAL || FORCE_MIS
 				weight *= calc_mis_weight(M_BSDF * s.pdf, environment_light_M_NEE * sample_envmap_pdf(s.w));
 #endif
 				float3 L = env_cube.SampleLevel(bilinear_clamp, s.w, cube_sample_level(s.w, s.pdf, M_BSDF, environment_light_log2_texel_size)) * environment_light_power_scale;

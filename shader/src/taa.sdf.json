@@ -1,0 +1,9 @@
+{
+  "definition":
+  [
+    {
+      "name": "taa", 
+      "cs": [ "taa.hlsl", "taa", "" ]
+    }
+  ]
+}

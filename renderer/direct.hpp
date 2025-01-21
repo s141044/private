@@ -54,6 +54,8 @@ public:
 
 		init_resources(params);
 
+		m_current_index = 1 - m_current_index;
+
 		params.p_environment_light_sampler->bind(context);
 		context.set_pipeline_resource("env_cube", params.p_environment_light->cube_srv());
 		context.set_pipeline_resource("env_panorama", params.p_environment_light->src_srv());
@@ -68,14 +70,15 @@ public:
 		context.set_pipeline_resource("specular_color0", *mp_uav[texture_type_specular_color0]);
 		context.set_pipeline_resource("normal_roughness", *mp_uav[texture_type_normal_roughness]);
 		context.set_pipeline_resource("velocity", *mp_uav[texture_type_velocity]);
-		context.set_pipeline_resource("depth", *mp_uav[texture_type_depth]);
+		context.set_pipeline_resource("depth", *mp_uav[texture_type_depth_ping + m_current_index]);
 		context.set_pipeline_state(*m_shader_file.get("trace_and_shade"));
 		context.dispatch(ceil_div(params.screen_size.x, 8), ceil_div(params.screen_size.y, 4), 1);
 		return true;
 	}
 
 	//SRV‚ð•Ô‚·
-	shader_resource_view& depth_srv() const { return *mp_srv[texture_type_depth]; }
+	shader_resource_view& depth_srv() const { return *mp_srv[texture_type_depth_ping + m_current_index]; }
+	shader_resource_view& prev_depth_srv() const { return *mp_srv[texture_type_depth_ping + (1 - m_current_index)]; }
 	shader_resource_view& velocity_srv() const { return *mp_srv[texture_type_velocity]; }
 	shader_resource_view& normal_roughness_srv() const { return *mp_srv[texture_type_normal_roughness]; }
 	shader_resource_view& diffuse_color_srv() const { return *mp_srv[texture_type_diffuse_color]; }
@@ -114,7 +117,8 @@ private:
 			case texture_type_subsurface_misc:
 				format = texture_format_r32_uint; //r24_unorm depth, r8_unorm cos
 				break;
-			case texture_type_depth:
+			case texture_type_depth_ping:
+			case texture_type_depth_pong:
 				format = texture_format_r32_float;
 				break;
 			case texture_type_diffuse_color:
@@ -152,7 +156,8 @@ private:
 		texture_type_subsurface_weight,
 		texture_type_subsurface_misc,
 
-		texture_type_depth, 
+		texture_type_depth_ping, 
+		texture_type_depth_pong, 
 		texture_type_diffuse_color, 
 		texture_type_specular_color0, 
 		texture_type_normal_roughness, 
@@ -162,7 +167,7 @@ private:
 	};
 
 	shader_file_holder										m_shader_file;
-	uint													m_pingpong_index = 0;
+	uint													m_current_index = 0;
 	array<texture_ptr, texture_type_count>					mp_tex;
 	array<shader_resource_view_ptr, texture_type_count>		mp_srv;
 	array<unordered_access_view_ptr, texture_type_count>	mp_uav;
