@@ -2,6 +2,7 @@
 #ifndef TAA_HLSL
 #define TAA_HLSL
 
+#include"math.hlsl"
 #include"gbuffer.hlsl"
 #include"static_sampler.hlsl"
 #include"global_constant.hlsl"
@@ -14,7 +15,7 @@ cbuffer constant_buffer
 	float	reserved;
 };
 
-#define BORDER	2
+#define BORDER	1
 #define SIZE	16
 
 Texture2D<float>	depth;
@@ -41,48 +42,22 @@ void taa(int2 dtid : SV_DispatchThreadID, int2 gtid : SV_GroupThreadID, int2 gid
 	}
 	GroupMemoryBarrierWithGroupSync();
 
-	float3 col = src[dtid];
+	float3 current_color = shared_col[gtid.y + BORDER][gtid.x + BORDER];
 
-	float3 prev_pos;
-	prev_pos.xy = dtid + 0.5f;
-	prev_pos.z = depth[dtid];
-	if(prev_pos.z <= 0)
+	float z = depth[dtid];
+	if(z <= 0)
 	{
-		dst[dtid] = col;
+		dst[dtid] = current_color;
 		return;
 	}
 
-	prev_pos += decode_velocity(velocity[dtid]);
-	if(any(prev_pos.xy < 0) || any(prev_pos.xy >= screen_size))
+	float3 vel = decode_velocity(velocity[dtid]);
+	float3 prev_pos = float3(dtid + 0.5f, z) + vel;
+	if(any(prev_pos.xy < 0) || any(prev_pos.xy >= screen_size) || (prev_pos.z > 1))
 	{
-		dst[dtid] = col;
+		dst[dtid] = current_color;
 		return;
 	}
-
-	float2 left_top = floor(prev_pos.xy - 0.5f);
-	float2 bilinear_weight = prev_pos.xy - left_top - 0.5f;
-
-	float4 weight;
-	weight[0] = (1 - bilinear_weight.x) * (1 - bilinear_weight.y);
-	weight[1] = bilinear_weight.x * (1 - bilinear_weight.y);
-	weight[2] = (1 - bilinear_weight.x) * bilinear_weight.y;
-	weight[3] = bilinear_weight.x * bilinear_weight.y;
-
-	float4 prev_z;
-	prev_z = prev_depth.GatherRed(bilinear_clamp, prev_pos.xy * inv_screen_size, 0).wzxy;
-
-	float4 history_col = 0;
-	for(int i = 0; i < 4; i++)
-	{
-		int2 offset;
-		offset.x = (i >> 0) & 1;
-		offset.y = (i >> 1) & 1;
-		history_col += weight[i] * float4(history[left_top + offset], 1);
-	}
-	if(history_col.w > 0)
-		history_col.xyz /= history_col.w;
-	else
-		history_col.xyz = col;
 
 	float3 sum1 = 0;
 	float3 sum2 = 0;
@@ -102,17 +77,23 @@ void taa(int2 dtid : SV_DispatchThreadID, int2 gtid : SV_GroupThreadID, int2 gid
 	float3 min_col = sum1 - sigma;
 	float3 max_col = sum1 + sigma;
 
-	//if(any(isnan(col)))
-	//{
-	//	for(int i = 0; i < 10; i ++)
-	//		for(int j = 0; j < 10; j++)
-	//			dst[dtid + int2(i,j)] = float3(10,0,0);
-	//	return;
-	//}
+	float2 prev_uv = prev_pos.xy * inv_screen_size;
+	float3 history_color = history.SampleLevel(bilinear_clamp, prev_uv, 0);
+	history_color = clamp(history_color, min_col, max_col);
 
-	history_col.xyz = clamp(history_col.xyz, min_col, max_col);
-	dst[dtid] = lerp(history_col.xyz, col, update_rate);
-	//dst[dtid] = lerp(history_col.xyz, col, 1);
+	//float history_weight = 0.0f;
+	//float history_weight = 0.99f;
+	float history_weight = 1 - update_rate;
+
+	//prev‚Æ–¾‚é‚³‚Ì·‚ª‘å‚«‚¢‚È‚çhistory‚Ì‰e‹¿‚ð¬‚³‚­
+	float lumi_cur = luminance(sum1);
+	float lumi_prev = luminance(history_color);
+	float lumi_sigma = luminance(sigma);
+	float rel_error = (abs(lumi_cur - lumi_prev) - lumi_sigma) / (max(lumi_cur, lumi_prev) + lumi_sigma);
+	history_weight *= 1 - saturate(rel_error);
+
+	dst[dtid] = lerp(current_color, history_color, history_weight);
+
 }
 
 #endif
