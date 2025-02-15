@@ -164,7 +164,7 @@ private:
 
 struct draw : base
 {
-	draw(const uint priority, const uint vertex_count, const uint instance_count, const uint start_vertex_location, const uint constant, const uint stencil, const bool uav_barrier, const pipeline_state& pipeline_state, const target_state& target_state, const geometry_state& geometry_state, void* p_optional) : base(type_draw, priority), vertex_count(vertex_count), instance_count(instance_count), start_vertex_location(start_vertex_location), constant(constant), stencil(stencil), uav_barrier(uav_barrier), p_target_state(&target_state), p_geometry_state(&geometry_state), p_pipeline_state(&pipeline_state), p_optional(p_optional)
+	draw(const uint priority, const uint vertex_count, const uint instance_count, const uint start_vertex_location, const uint constant, const uint stencil, const bool uav_barrier, const pipeline_state& pipeline_state, const target_state& target_state, const geometry_state* p_geometry_state, void* p_optional) : base(type_draw, priority), vertex_count(vertex_count), instance_count(instance_count), start_vertex_location(start_vertex_location), constant(constant), stencil(stencil), uav_barrier(uav_barrier), p_target_state(&target_state), p_geometry_state(p_geometry_state), p_pipeline_state(&pipeline_state), p_optional(p_optional)
 	{
 	}
 	uint					vertex_count;
@@ -185,7 +185,7 @@ struct draw : base
 
 struct draw_indexed : base
 {
-	draw_indexed(const uint priority, const uint index_count, const uint instance_count, const uint start_index_location, const uint base_vertex_location, const uint constant, const uint stencil, const bool uav_barrier, const pipeline_state& pipeline_state, const target_state& target_state, const geometry_state& geometry_state, void* p_optional) : base(type_draw_indexed, priority), index_count(index_count), instance_count(instance_count), start_index_location(start_index_location), base_vertex_location(base_vertex_location), constant(constant), stencil(stencil), uav_barrier(uav_barrier), p_target_state(&target_state), p_geometry_state(&geometry_state), p_pipeline_state(&pipeline_state), p_optional(p_optional)
+	draw_indexed(const uint priority, const uint index_count, const uint instance_count, const uint start_index_location, const uint base_vertex_location, const uint constant, const uint stencil, const bool uav_barrier, const pipeline_state& pipeline_state, const target_state& target_state, const geometry_state* p_geometry_state, void* p_optional) : base(type_draw_indexed, priority), index_count(index_count), instance_count(instance_count), start_index_location(start_index_location), base_vertex_location(base_vertex_location), constant(constant), stencil(stencil), uav_barrier(uav_barrier), p_target_state(&target_state), p_geometry_state(p_geometry_state), p_pipeline_state(&pipeline_state), p_optional(p_optional)
 	{
 	}
 	uint					index_count;
@@ -225,7 +225,7 @@ struct dispatch : base
 
 struct draw_indirect : base
 {
-	draw_indirect(const uint priority, buffer& buf, const size_t offset, const uint constant, const uint stencil, const bool uav_barrier, const pipeline_state& pipeline_state, const target_state& target_state, const geometry_state& geometry_state, void* p_optional) : base(type_draw_indirect, priority), p_buf(&buf), offset(offset), constant(constant), stencil(stencil), uav_barrier(uav_barrier), p_target_state(&target_state), p_geometry_state(&geometry_state), p_pipeline_state(&pipeline_state), p_optional(p_optional)
+	draw_indirect(const uint priority, buffer& buf, const size_t offset, const uint constant, const uint stencil, const bool uav_barrier, const pipeline_state& pipeline_state, const target_state& target_state, const geometry_state* p_geometry_state, void* p_optional) : base(type_draw_indirect, priority), p_buf(&buf), offset(offset), constant(constant), stencil(stencil), uav_barrier(uav_barrier), p_target_state(&target_state), p_geometry_state(p_geometry_state), p_pipeline_state(&pipeline_state), p_optional(p_optional)
 	{
 	}
 	buffer*					p_buf;
@@ -245,7 +245,7 @@ struct draw_indirect : base
 
 struct draw_indexed_indirect : base
 {
-	draw_indexed_indirect(const uint priority, buffer& buf, const size_t offset, const uint constant, const uint stencil, const bool uav_barrier, const pipeline_state& pipeline_state, const target_state& target_state, const geometry_state& geometry_state, void* p_optional) : base(type_draw_indexed_indirect, priority), p_buf(&buf), offset(offset), constant(constant), stencil(stencil), uav_barrier(uav_barrier), p_target_state(&target_state), p_geometry_state(&geometry_state), p_pipeline_state(&pipeline_state), p_optional(p_optional)
+	draw_indexed_indirect(const uint priority, buffer& buf, const size_t offset, const uint constant, const uint stencil, const bool uav_barrier, const pipeline_state& pipeline_state, const target_state& target_state, const geometry_state* p_geometry_state, void* p_optional) : base(type_draw_indexed_indirect, priority), p_buf(&buf), offset(offset), constant(constant), stencil(stencil), uav_barrier(uav_barrier), p_target_state(&target_state), p_geometry_state(p_geometry_state), p_pipeline_state(&pipeline_state), p_optional(p_optional)
 	{
 	}
 	buffer*					p_buf;

@@ -1180,7 +1180,7 @@ private:
 
 	//実行可能かのチェックと実行に必要なデータを作成
 	virtual void* validate(const pipeline_state& ps, const unordered_map<string, bind_resource>& resources) = 0;
-	virtual void* validate(const pipeline_state& ps, const target_state& ts, const geometry_state& gs, const unordered_map<string, bind_resource>& resources) = 0;
+	virtual void* validate(const pipeline_state& ps, const target_state& ts, const geometry_state* p_gs, const unordered_map<string, bind_resource>& resources) = 0;
 
 protected:
 

@@ -204,9 +204,16 @@ inline void camera::translate(const float3 &t)
 //…•½ñU‚è
 inline void camera::pan(const float radian)
 {
+#if 0
 	const float3x3 m = anon::rotate(m_axis_y, radian);
 	m_axis_x = m * m_axis_x;
 	m_axis_z = m * m_axis_z;
+#else
+	const auto m = float3x3(nn::rotate_y(radian));
+	m_axis_x = m * m_axis_x;
+	m_axis_y = m * m_axis_y;
+	m_axis_z = m * m_axis_z;
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -224,11 +231,20 @@ inline void camera::tilt(const float radian)
 //’‹“_ü‚è‚Ì‰ñ“]
 inline void camera::rotate_x(const float radian)
 {
+#if 0
 	const float3x3 m = anon::rotate(m_axis_y, radian);
 	const float3 center = m_pos - m_axis_z * m_dist;
 	m_pos = m * (m_pos - center) + center;
 	m_axis_x = m * m_axis_x;
 	m_axis_z = m * m_axis_z;
+#else
+	const auto m = float3x3(nn::rotate_y(radian));
+	const float3 center = m_pos - m_axis_z * m_dist;
+	m_pos = m * (m_pos - center) + center;
+	m_axis_x = m * m_axis_x;
+	m_axis_y = m * m_axis_y;
+	m_axis_z = m * m_axis_z;
+#endif
 }
 
 inline void camera::rotate_y(const float radian)
@@ -245,7 +261,9 @@ inline void camera::rotate_y(const float radian)
 //’‹“_‚ÉÚ‹ß
 inline void camera::dolly_in(const float dist)
 {
+	const float3 center = m_pos - m_axis_z * m_dist;
 	m_dist = std::max(m_dist - dist, 0.01f);
+	m_pos = center + m_axis_z * m_dist;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

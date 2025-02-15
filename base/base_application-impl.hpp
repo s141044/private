@@ -54,6 +54,43 @@ inline void base_application::finalize()
 //更新
 inline int base_application::update(render_context& context, const float delta_time)
 {
+	auto& device_input = *gp_device_input;
+	if(device_input.pressed(device_input.key_lalt))
+	{
+
+		if(device_input.pressed(device_input.mouse1))
+		{
+			if(device_input.mouse_delta_x()){ m_camera.pan(device_input.mouse_delta_x() * m_pan_speed); }
+			if(device_input.mouse_delta_y()){ m_camera.tilt(device_input.mouse_delta_y() * m_tilt_speed); }
+		}
+		if(device_input.pressed(device_input.mouse0))
+		{
+			if(device_input.mouse_delta_x()){ m_camera.rotate_x(device_input.mouse_delta_x() * m_rotate_speed); }
+			if(device_input.mouse_delta_y()){ m_camera.rotate_y(device_input.mouse_delta_y() * m_rotate_speed); }
+		}
+
+		if(device_input.mouse_delta_z())
+		{
+			if(device_input.pressed(device_input.key_lcontrol))
+				m_camera.zoom_in(device_input.mouse_delta_z() * m_zoom_speed);
+			else
+				m_camera.dolly_in(device_input.mouse_delta_z() * m_dolly_speed);
+		}
+
+		float3 t = 0;
+		const float3 &axis_x = m_camera.axis_x();
+		const float3 &axis_y = m_camera.axis_y();
+		const float3 &axis_z = m_camera.axis_z();
+		if(device_input.pressed(device_input.key_w)){ t -= axis_z; }
+		if(device_input.pressed(device_input.key_s)){ t += axis_z; }
+		if(device_input.pressed(device_input.key_a)){ t -= axis_x; }
+		if(device_input.pressed(device_input.key_d)){ t += axis_x; }
+		if(device_input.pressed(device_input.key_q)){ t -= axis_y; }
+		if(device_input.pressed(device_input.key_e)){ t += axis_y; }
+		if(device_input.pressed(device_input.key_lshift)){ t *= 2; }
+		m_camera.translate(m_move_speed * t);
+	}
+
 	gp_texture_manager->update(context);
 	return update_impl(context, delta_time);
 }
@@ -151,33 +188,6 @@ inline void base_application::composite_gui_and_present(render_context& context,
 	context.set_pipeline_state(*m_present_shaders.get(r9g9b9e5 ? "prepare_present_r9g9b9e5" : "prepare_present"));
 	context.draw(3, 1, 1);
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-//グリッドを描画
-//inline void base_application::draw_grid(render_context& context, const float3& color, const float min, const float max, const int subdiv)
-//{
-//	depthがいる...
-//
-//
-//	if(m_dev_draw_shaders.has_update())
-//		m_dev_draw_shaders.update();
-//	else if(m_dev_draw_shaders.is_invalid())
-//		return;
-//
-//	context.push_priority(priority_render_gui + 1);
-//	context.set_target_state(*mp_ldr_target);
-//	context.set_geometry_state(*mp_dummy_geometry);
-//	context.draw(2 * (2 + subdiv), 2, 0);
-//	context.pop_priority();
-//}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-//3次元軸を描画
-//inline void base_application::draw_axes(render_context& context, const float color_scale)
-//{
-//}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 

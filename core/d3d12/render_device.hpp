@@ -836,7 +836,7 @@ public:
 		ComPtr<ID3D12RootSignature>	p_root_signature;
 		pipeline_resource_count		pipeline_resource_count;
 	};
-	const record& get(render_device& device, const target_state& ts, const geometry_state& gs) const;
+	const record& get(render_device& device, const target_state& ts, const geometry_state* p_gs) const;
 
 	//パイプライン情報を返す
 	const input_layout_desc& input_layout() const { return m_il; }
@@ -1113,7 +1113,7 @@ public:
 
 	//実行可能かのチェックと実行に必要なデータを作成
 	void* validate(const render::pipeline_state& ps, const unordered_map<string, bind_resource>& resources) override;
-	void* validate(const render::pipeline_state& ps, const render::target_state& ts, const render::geometry_state& gs, const unordered_map<string, bind_resource>& resources) override;
+	void* validate(const render::pipeline_state& ps, const render::target_state& ts, const render::geometry_state* p_gs, const unordered_map<string, bind_resource>& resources) override;
 	void* validate_impl(const shader** shader_ptrs, const shader_resource_count* resource_count_table, const uint num_shaders, const unordered_map<string, bind_resource>& resources);
 
 	//リソース/バッファ/テクスチャをコピー

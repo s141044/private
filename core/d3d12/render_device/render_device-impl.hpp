@@ -1116,7 +1116,7 @@ inline graphics_pipeline_state::graphics_pipeline_state(const string& name, shad
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //パイプラインステートを返す
-inline const graphics_pipeline_state::record &graphics_pipeline_state::get(render_device& device, const target_state& ts, const geometry_state& gs) const
+inline const graphics_pipeline_state::record &graphics_pipeline_state::get(render_device& device, const target_state& ts, const geometry_state* p_gs) const
 {
 	size_t hash;
 	{
@@ -1125,9 +1125,8 @@ inline const graphics_pipeline_state::record &graphics_pipeline_state::get(rende
 			key[i] = ts.rtv(i).format();
 		if(ts.has_dsv())
 			key[8] = ts.dsv().format();
-		if((&gs != nullptr) && gs.has_index_buffer())
-		//if(gs.has_index_buffer())
-			key[9] = gs.index_buffer().stride();
+		if((p_gs != nullptr) && p_gs->has_index_buffer())
+			key[9] = p_gs->index_buffer().stride();
 		hash = calc_hash(key);
 	}
 
@@ -1153,12 +1152,11 @@ inline const graphics_pipeline_state::record &graphics_pipeline_state::get(rende
 		desc.InputLayout.NumElements = m_il.num_elements;
 		desc.InputLayout.pInputElementDescs = input_element_descs;
 		
-		if((&gs != nullptr) && gs.has_index_buffer())
-		//if(gs.has_index_buffer())
+		if((p_gs != nullptr) && p_gs->has_index_buffer())
 		{
-			if(gs.index_buffer().stride() == 2)
+			if(p_gs->index_buffer().stride() == 2)
 				desc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF;
-			else if(gs.index_buffer().stride() == 4)
+			else if(p_gs->index_buffer().stride() == 4)
 				desc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFFFFFF;
 		}
 
@@ -2474,7 +2472,7 @@ inline void render_device::present_impl(render::swapchain& swapchain_base)
 #ifdef RESORUCE_BARRIER_DEBUG
 			std::cout << "[" << i << "] " << p_pipeline_state->name() << std::endl;
 #endif
-			auto& record = p_pipeline_state->get(*this, *p_target_state, *p_geometry_state);
+			auto& record = p_pipeline_state->get(*this, *p_target_state, p_geometry_state);
 			auto resource_num = [&](const uint i){ auto& count = record.pipeline_resource_count.shader_resource_count_table[i]; return count.cbv + count.srv + count.uav + count.sampler; };
 
 			m_graphics_command_list->SetGraphicsRootSignature(record.p_root_signature.Get());
@@ -3252,12 +3250,12 @@ inline void* render_device::validate(const render::pipeline_state& ps_base, cons
 	return validate_impl(&p_shader, &resource_count, 1, resources);
 }
 
-inline void* render_device::validate(const render::pipeline_state& ps_base, const render::target_state& ts_base, const render::geometry_state& gs_base, const unordered_map<string, bind_resource>& resources)
+inline void* render_device::validate(const render::pipeline_state& ps_base, const render::target_state& ts_base, const render::geometry_state* p_gs_base, const unordered_map<string, bind_resource>& resources)
 {
 	auto& target_state = static_cast<const d3d12::target_state&>(ts_base);
-	auto& geometry_state = static_cast<const d3d12::geometry_state&>(gs_base);
 	auto& pipeline_state = static_cast<const d3d12::graphics_pipeline_state&>(ps_base);
-	auto& record = pipeline_state.get(*this, target_state, geometry_state);
+	auto* p_geometry_state = static_cast<const d3d12::geometry_state*>(p_gs_base);
+	auto& record = pipeline_state.get(*this, target_state, p_geometry_state);
 	auto& shader_resource_count_table = record.pipeline_resource_count.shader_resource_count_table;
 
 	const d3d12::shader* shader_ptrs[] = {

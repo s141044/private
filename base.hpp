@@ -620,6 +620,12 @@ private:
 protected:
 
 	camera						m_camera;
+	float						m_move_speed	= 0.05f;
+	float						m_zoom_speed	= 1.0f / 120.0f;
+	float						m_dolly_speed	= 0.1f / 120.0f;
+	float						m_pan_speed		= -0.01f / PI();
+	float						m_tilt_speed	= -0.01f / PI();
+	float						m_rotate_speed	= -0.01f / PI();
 
 private:
 

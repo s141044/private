@@ -112,14 +112,14 @@ inline void render_context::draw(buffer& buf, const uint offset, const bool uav_
 
 inline void render_context::draw_with_32bit_constant(const uint vertex_count, const uint instance_count, const uint start_vertex_location, const uint constant, const bool uav_barrier)
 {
-	void *p_optional = m_device.validate(*mp_ps, *mp_ts, *mp_gs, m_bind_resources);
-	if(p_optional){ m_device.m_command_manager.construct<command::draw>(m_priority, vertex_count, instance_count, start_vertex_location, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, *mp_gs, p_optional); }
+	void *p_optional = m_device.validate(*mp_ps, *mp_ts, mp_gs, m_bind_resources);
+	if(p_optional){ m_device.m_command_manager.construct<command::draw>(m_priority, vertex_count, instance_count, start_vertex_location, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, mp_gs, p_optional); }
 }
 
 inline void render_context::draw_with_32bit_constant(buffer& buf, const uint offset, const uint constant, const bool uav_barrier)
 {
-	void *p_optional = m_device.validate(*mp_ps, *mp_ts, *mp_gs, m_bind_resources);
-	if(p_optional){ m_device.m_command_manager.construct<command::draw_indirect>(m_priority, buf, offset, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, *mp_gs, p_optional); }
+	void *p_optional = m_device.validate(*mp_ps, *mp_ts, mp_gs, m_bind_resources);
+	if(p_optional){ m_device.m_command_manager.construct<command::draw_indirect>(m_priority, buf, offset, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, mp_gs, p_optional); }
 }
 
 inline void render_context::draw_indexed(const uint index_count, const uint instance_count, const uint start_index_location, const uint base_vertex_location, const bool uav_barrier)
@@ -134,14 +134,14 @@ inline void render_context::draw_indexed(buffer& buf, const uint offset, const b
 
 inline void render_context::draw_indexed_with_32bit_constant(const uint index_count, const uint instance_count, const uint start_index_location, const uint base_vertex_location, const uint constant, const bool uav_barrier)
 {
-	void *p_optional = m_device.validate(*mp_ps, *mp_ts, *mp_gs, m_bind_resources);
-	if(p_optional){ m_device.m_command_manager.construct<command::draw_indexed>(m_priority, index_count, instance_count, start_index_location, base_vertex_location, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, *mp_gs, p_optional); }
+	void *p_optional = m_device.validate(*mp_ps, *mp_ts, mp_gs, m_bind_resources);
+	if(p_optional){ m_device.m_command_manager.construct<command::draw_indexed>(m_priority, index_count, instance_count, start_index_location, base_vertex_location, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, mp_gs, p_optional); }
 }
 
 inline void render_context::draw_indexed_with_32bit_constant(buffer& buf, const uint offset, const uint constant, const bool uav_barrier)
 {
-	void *p_optional = m_device.validate(*mp_ps, *mp_ts, *mp_gs, m_bind_resources);
-	if(p_optional){ m_device.m_command_manager.construct<command::draw_indexed_indirect>(m_priority, buf, offset, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, *mp_gs, p_optional); }
+	void *p_optional = m_device.validate(*mp_ps, *mp_ts, mp_gs, m_bind_resources);
+	if(p_optional){ m_device.m_command_manager.construct<command::draw_indexed_indirect>(m_priority, buf, offset, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, mp_gs, p_optional); }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
