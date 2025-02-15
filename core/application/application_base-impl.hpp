@@ -12,7 +12,7 @@ namespace render{
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline application_base::application_base(const uint2 present_size) : m_present_size(present_size)
+inline application_base::application_base(const uint2 present_size, const texture_format hdr_format) : m_present_size(present_size), m_hdr_format(hdr_format)
 {
 	m_delta_time = -1;
 	m_frame_count = 0;
@@ -21,52 +21,11 @@ inline application_base::application_base(const uint2 present_size) : m_present_
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //実行
-inline int application_base::run(const wchar_t *className, HINSTANCE hInst, int nCmdShow)
+inline int application_base::run()
 {
-	Microsoft::WRL::Wrappers::RoInitializeWrapper InitializeWinRT(RO_INIT_MULTITHREADED);
-	check_hresult(InitializeWinRT);
-
-	//デバッグレイヤー有効化
-#if _DEBUG || defined(ENABLE_DEBUG_LAYER)
-	ComPtr<ID3D12Debug6> p_debug;
-	if(SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&p_debug))))
-	{
-		p_debug->EnableDebugLayer();
-		p_debug->SetEnableGPUBasedValidation(true);
-		p_debug->SetForceLegacyBarrierValidation(true);
-	}
-#endif
-
-	//ウィンドウ作成
-	{
-		WNDCLASSEX wcex;
-		wcex.cbSize = sizeof(WNDCLASSEX);
-		wcex.style = CS_HREDRAW | CS_VREDRAW;
-		wcex.lpfnWndProc = wnd_proc;
-		wcex.cbClsExtra = 0;
-		wcex.cbWndExtra = 0;
-		wcex.hInstance = hInst;
-		wcex.hIcon = LoadIcon(hInst, IDI_APPLICATION);
-		wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
-		wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-		wcex.lpszMenuName = nullptr;
-		wcex.lpszClassName = className;
-		wcex.hIconSm = LoadIcon(hInst, IDI_APPLICATION);
-		check_result(RegisterClassEx(&wcex) != 0);
-
-		m_window_rect = RECT{ 0, 0, s32(m_present_size.x), s32(m_present_size.y) };
-		AdjustWindowRect(&m_window_rect, m_window_style, FALSE);
-
-		const auto width = m_window_rect.right - m_window_rect.left;
-		const auto height = m_window_rect.bottom - m_window_rect.top;
-		m_hwnd = CreateWindow(className, className, m_window_style, CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, hInst, nullptr);
-		check_result(m_hwnd != 0);
-
-		SetWindowLongPtr(m_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-	}
-
 	//デバイスの作成
-	gp_render_device.reset(new d3d12::render_device());
+	auto *p_device = new d3d12::render_device();
+	gp_render_device.reset(p_device);
 
 	//スワップチェイン作成
 	mp_swapchain = gp_render_device->create_swapchain(m_hwnd, m_present_size);
@@ -82,20 +41,25 @@ inline int application_base::run(const wchar_t *className, HINSTANCE hInst, int 
 	
 	//デバイス入力の初期化
 	m_device_input.initialize(m_hwnd);
-	
-	//グローバル変数の初期化
+
+	//GUIマネージャの初期化
+	gp_gui_manager.reset(new gui_manager());
+	gp_gui_manager->initialize(*p_device, m_hwnd, mp_swapchain->buffer_count(), m_hdr_format);
+
+	//シェーダマネージャの初期化
 	const uint max_instance_count = 65535;
 	gp_shader_manager.reset(new shader_manager(*gp_render_device));
-	gp_texture_manager.reset(new texture_manager());
-	gp_raytracing_picker.reset(new raytracing_picker(max_instance_count));
-	gp_raytracing_manager.reset(new raytracing_manager(max_instance_count));
 
 	//アプリケーション固有の初期化処理
 	initialize();
 	
 	//ウィンドウの表示
 	ShowWindow(m_hwnd, nCmdShow);
-	
+
+	//実行
+	auto ret = static_cast<Impl*>(this)->run();
+
+
 	//メッセージループ
 	while(true)
 	{
@@ -117,6 +81,7 @@ inline int application_base::run(const wchar_t *className, HINSTANCE hInst, int 
 	
 		//デバイス入力の更新
 		m_device_input.update(m_hwnd, delta_time);
+		m_gui_input.new_frame();
 
 		//
 		render_context context(*gp_render_device);
@@ -142,6 +107,7 @@ inline int application_base::run(const wchar_t *className, HINSTANCE hInst, int 
 	
 	//デバイス入力の終了処理
 	m_device_input.finalize();
+	m_gui_input.finalize();
 
 	//グローバル変数の削除
 	g_delay_deleter.force_delete();
@@ -211,7 +177,10 @@ inline void application_base::change_present_size(const uint2 size)
 //ウィンドウプロシージャ
 inline LRESULT CALLBACK wnd_proc(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
 {
-	auto *p_app = reinterpret_cast<application_base *>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+	auto *p_app = reinterpret_cast<application_base*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+	if(p_app->m_gui_input.wnd_proc(hwnd, message, wp, lp))
+		return 0;
+
 	switch(message)
 	{
 	case WM_SIZE:

@@ -4,22 +4,19 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-cbuffer camera_info
+cbuffer scene_info
 {
 	uint2		screen_size;
 	float2		inv_screen_size;
-
 	float3		camera_pos;
-	uint		reserved0;
-
+	float		pixel_size;		//距離1におけるピクセルのサイズ
+	float2		frustum_size;	//距離1におけるフラスタムのサイズ
+	float2		reserved0;
 	float4x3	view_mat;
 	float4x4	proj_mat;
 	float4x4	view_proj_mat;
 	float4x4	inv_view_proj_mat;
-
-	//後で消す
-	uint		frame_count;
-	uint3		reserved1;
+	float4x4	prev_inv_view_proj_mat;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

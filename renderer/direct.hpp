@@ -73,6 +73,37 @@ public:
 		context.set_pipeline_resource("depth", *mp_uav[texture_type_depth_ping + m_current_index]);
 		context.set_pipeline_state(*m_shader_file.get("trace_and_shade"));
 		context.dispatch(ceil_div(params.screen_size.x, 8), ceil_div(params.screen_size.y, 4), 1);
+
+		context.set_pipeline_resource("depth_srv", *mp_srv[texture_type_depth_ping + m_current_index]);
+		context.set_pipeline_resource("shadowed_result_srv", *mp_srv[texture_type_shadowed_result_ping]);
+		context.set_pipeline_resource("shadowed_result_uav", *mp_uav[texture_type_shadowed_result_pong]);
+		context.set_pipeline_resource("unshadowed_result_srv", *mp_srv[texture_type_unshadowed_result_ping]);
+		context.set_pipeline_resource("unshadowed_result_uav", *mp_uav[texture_type_unshadowed_result_pong]);
+		context.set_pipeline_state(*m_shader_file.get("blur"));
+		context.dispatch(ceil_div(params.screen_size.x, 16), ceil_div(params.screen_size.y, 16), 1);
+
+		context.set_pipeline_resource("depth_srv", *mp_srv[texture_type_depth_ping + m_current_index]);
+		context.set_pipeline_resource("diffuse_result_uav", *params.p_diffuse_result);
+		context.set_pipeline_resource("non_diffuse_result_uav", *params.p_non_diffuse_result);
+		context.set_pipeline_resource("shadowed_result_srv", *mp_srv[texture_type_shadowed_result_pong]);
+		context.set_pipeline_resource("unshadowed_result_srv", *mp_srv[texture_type_unshadowed_result_pong]);
+		context.set_pipeline_resource("history_shadowed_result_srv", *mp_srv[texture_type_history_shadowed_result_ping + m_current_index]);
+		context.set_pipeline_resource("history_unshadowed_result_srv", *mp_srv[texture_type_history_unshadowed_result_ping + m_current_index]);
+		context.set_pipeline_resource("history_shadowed_result_uav", *mp_uav[texture_type_history_shadowed_result_ping + (1 - m_current_index)]);
+		context.set_pipeline_resource("history_unshadowed_result_uav", *mp_uav[texture_type_history_unshadowed_result_ping + (1 - m_current_index)]);
+		context.set_pipeline_state(*m_shader_file.get("temporal_accumulation"));
+		context.dispatch(ceil_div(params.screen_size.x, 16), ceil_div(params.screen_size.y, 16), 1);
+
+		//・shading
+		// shadowed/unshadowed/(hitDist?)
+		// 
+		//・pre blur
+		// 
+		// 
+		//・post blur
+		//
+		//・temporal
+
 		return true;
 	}
 
@@ -106,6 +137,10 @@ private:
 			case texture_type_shadowed_result_pong:
 			case texture_type_unshadowed_result_ping:
 			case texture_type_unshadowed_result_pong:
+			case texture_type_history_shadowed_result_ping:
+			case texture_type_history_shadowed_result_pong:
+			case texture_type_history_unshadowed_result_ping:
+			case texture_type_history_unshadowed_result_pong:
 				format = texture_format_r16_float;
 				break;
 			case texture_type_subsurface_radius:
@@ -122,9 +157,11 @@ private:
 				format = texture_format_r32_float;
 				break;
 			case texture_type_diffuse_color:
-			case texture_type_specular_color0:
 			case texture_type_normal_roughness:
 				format = texture_format_r10g10b10a2_unorm;
+				break;
+			case texture_type_specular_color0:
+				format = texture_format_r8g8b8a8_unorm; //rgbはcolor0, aはscale. diffuse
 				break;
 			case texture_type_velocity:
 				format = texture_format_r16g16b16a16_snorm; //velocityはスクリーン空間[0,1], zはdepth差, wは未使用
@@ -151,6 +188,10 @@ private:
 		texture_type_shadowed_result_pong, 
 		texture_type_unshadowed_result_ping, 
 		texture_type_unshadowed_result_pong, 
+		texture_type_history_shadowed_result_ping, 
+		texture_type_history_shadowed_result_pong, 
+		texture_type_history_unshadowed_result_ping, 
+		texture_type_history_unshadowed_result_pong, 
 
 		texture_type_subsurface_radius, 
 		texture_type_subsurface_weight,

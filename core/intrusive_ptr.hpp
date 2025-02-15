@@ -35,23 +35,23 @@ public:
 	intrusive_ptr(std::nullptr_t = nullptr) : m_ptr()
 	{
 	}
-	intrusive_ptr(intrusive_ptr &&other) : m_ptr(other.m_ptr)
+	intrusive_ptr(intrusive_ptr&& other) : m_ptr(other.m_ptr)
 	{
 		other.m_ptr = nullptr;
 	}
-	intrusive_ptr(const intrusive_ptr &other) : m_ptr(other.m_ptr)
+	intrusive_ptr(const intrusive_ptr& other) : m_ptr(other.m_ptr)
 	{
 		intrusive_ptr_add_ref(m_ptr);
 	}
-	template<class U> intrusive_ptr(intrusive_ptr<U> &&other) : m_ptr(static_cast<T*>(other.m_ptr))
+	template<class U> intrusive_ptr(intrusive_ptr<U>&& other) : m_ptr(static_cast<T*>(other.m_ptr))
 	{
 		other.m_ptr = nullptr;
 	}
-	template<class U> intrusive_ptr(const intrusive_ptr<U> &other) : m_ptr(static_cast<T*>(other.m_ptr))
+	template<class U> intrusive_ptr(const intrusive_ptr<U>& other) : m_ptr(static_cast<T*>(other.m_ptr))
 	{
 		intrusive_ptr_add_ref(m_ptr);
 	}
-	template<class U> intrusive_ptr(U *ptr) : m_ptr(static_cast<T*>(ptr))
+	template<class U> intrusive_ptr(U* ptr) : m_ptr(static_cast<T*>(ptr))
 	{
 	}
 
@@ -67,12 +67,12 @@ public:
 	}
 
 	//代入
-	intrusive_ptr &operator=(std::nullptr_t)
+	intrusive_ptr& operator=(std::nullptr_t)
 	{
 		this->~intrusive_ptr();
 		return *this;
 	}
-	intrusive_ptr &operator=(intrusive_ptr &&other)
+	intrusive_ptr& operator=(intrusive_ptr&& other)
 	{
 		if(&other != this)
 		{
@@ -82,7 +82,7 @@ public:
 		}
 		return *this;
 	}
-	intrusive_ptr &operator=(const intrusive_ptr &other)
+	intrusive_ptr& operator=(const intrusive_ptr& other)
 	{
 		if(&other != this)
 		{
@@ -95,7 +95,7 @@ public:
 		}
 		return *this;
 	}
-	template<class U> intrusive_ptr &operator=(intrusive_ptr<U> &&other)
+	template<class U> intrusive_ptr& operator=(intrusive_ptr<U>&& other)
 	{
 		if(&other != this)
 		{
@@ -105,7 +105,7 @@ public:
 		}
 		return *this;
 	}
-	template<class U> intrusive_ptr &operator=(const intrusive_ptr<U> &other)
+	template<class U> intrusive_ptr& operator=(const intrusive_ptr<U>& other)
 	{
 		if(&other != this)
 		{
@@ -118,7 +118,7 @@ public:
 		}
 		return *this;
 	}
-	template<class U> intrusive_ptr &operator=(U *other)
+	template<class U> intrusive_ptr& operator=(U* other)
 	{
 		if(other != m_ptr)
 		{
@@ -133,23 +133,23 @@ public:
 	{
 		this->~intrusive_ptr();
 	}
-	template<class U> void reset(U *ptr)
+	template<class U> void reset(U* ptr)
 	{
 		operator=(intrusive_ptr(ptr));
 	}
 
 	//アドレスを返す
-	T *get() const
+	T* get() const
 	{
 		return m_ptr;
 	}
-	T *operator->() const
+	T* operator->() const
 	{
 		return m_ptr;
 	}
 
 	//間接参照
-	T &operator*() const
+	T& operator*() const
 	{
 		return *m_ptr;
 	}
@@ -169,18 +169,18 @@ public:
 	{
 		return m_ptr != nullptr;
 	}
-	template<class U> bool operator==(const intrusive_ptr<U> &other) const
+	template<class U> bool operator==(const intrusive_ptr<U>& other) const
 	{
 		return m_ptr == other.m_ptr;
 	}
-	template<class U> bool operator!=(const intrusive_ptr<U> &other) const
+	template<class U> bool operator!=(const intrusive_ptr<U>& other) const
 	{
 		return m_ptr != other.m_ptr;
 	}
 
 private:
 
-	T *m_ptr;
+	T* m_ptr;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

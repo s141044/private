@@ -4,6 +4,14 @@
     {
       "name": "trace_and_shade",
       "cs": [ "test/direct.hlsl", "trace_and_shade", ""]
+    },
+    {
+      "name": "blur",
+      "cs": [ "test/direct_denoise.hlsl", "blur", ""]
+    },
+    {
+      "name": "temporal_accumulation",
+      "cs": [ "test/direct_denoise.hlsl", "temporal_accumulation", ""]
     }
   ]
 }

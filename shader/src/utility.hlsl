@@ -2,6 +2,7 @@
 #ifndef UTILITY_HLSL
 #define UTILITY_HLSL
 
+#include"packing.hlsl"
 #include"global_constant.hlsl"
 
 float3 world_to_screen(float3 pos)
@@ -33,6 +34,31 @@ uint2 calc_active_thread_count_and_offset()
 	return uint2(
 		WaveActiveCountBits(true),	//count
 		WavePrefixCountBits(true));	//offset
+}
+
+float3 rec709_to_rec2020(float3 rec709)
+{
+	static const float3x3 m =
+	{
+		0.627402, 0.329292, 0.043306,
+		0.069095, 0.919544, 0.011360,
+		0.016394, 0.088028, 0.895578
+	};
+	return mul(m, rec709);
+}
+
+float3 bilinear_sample(Texture2D<uint> tex, sampler s, float2 uv)
+{
+	float2 size;
+	tex.GetDimensions(size.x, size.y);
+	float2 left_top = floor(uv * size - 0.5f);
+	float2 bilinear_weight = uv * size - (left_top + 0.5f);
+	uint4 vals = tex.GatherRed(s, uv, 0).wzxy;
+	return 
+		r9g9b9e5_to_f32x3(vals.x) * (1 - bilinear_weight.x) * (1 - bilinear_weight.y) + 
+		r9g9b9e5_to_f32x3(vals.y) * bilinear_weight.x * (1 - bilinear_weight.y) + 
+		r9g9b9e5_to_f32x3(vals.z) * (1 - bilinear_weight.x) * bilinear_weight.y + 
+		r9g9b9e5_to_f32x3(vals.w) * bilinear_weight.x * bilinear_weight.y;
 }
 
 #endif

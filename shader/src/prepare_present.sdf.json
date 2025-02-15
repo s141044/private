@@ -35,16 +35,39 @@
       "cull": "none"
     }
   ],
-  "definition" : 
+  "definitions" : 
   [
     {
-      "name": "prepare_present",
-      "bs": "none",
-      "il": "none",
-      "rs": "none",
-      "dss": "none",
-      "vs": [ "prepare_present.hlsl", "fullscreen_triangle_vs", ""],
-      "ps": [ "prepare_present.hlsl", "ps_main", ""]
+      "direct_product" : 
+      [
+        {
+          "definition": 
+          [
+            {
+              "name": "prepare_present",
+              "bs": "none",
+              "il": "none",
+              "rs": "none",
+              "dss": "none",
+              "vs": [ "prepare_present.hlsl", "fullscreen_triangle_vs", ""],
+              "ps": [ "prepare_present.hlsl", "present_ps", ""]
+            }
+          ]
+        },
+        {
+          "definition": 
+          [
+            {
+              "name": "",
+              "ps": ["", "", ""]
+            },
+            {
+              "name": "_r9g9b9e5",
+              "ps": ["", "", "-DR9G9B9E5"]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

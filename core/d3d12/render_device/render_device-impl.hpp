@@ -15,6 +15,16 @@ namespace d3d12{
 //関数定義
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+//成功確認
+inline void check_hresult(const HRESULT hresult)
+{
+#ifdef _DEBUG
+	if(FAILED(hresult)){ __debugbreak(); }
+#endif
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 //リソースフラグの変換
 inline D3D12_RESOURCE_FLAGS convert(const resource_flags flags)
 {
@@ -119,7 +129,7 @@ inline uint plane_count(const DXGI_FORMAT format)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //StaticSamplerを返す
-static auto &get_static_samplers(const uint bind_point, const uint bind_space)
+static auto& get_static_samplers(const uint bind_point, const uint bind_space)
 {
 	static auto samplers = []()
 	{
@@ -142,7 +152,7 @@ static auto &get_static_samplers(const uint bind_point, const uint bind_space)
 		{
 			for(uint j = 0; j < _countof(modes); j++, idx++)
 			{
-				auto &desc = descs[idx];
+				auto& desc = descs[idx];
 				desc.MaxLOD = FLT_MAX;
 				desc.MaxAnisotropy = 16;
 				desc.RegisterSpace = 1;
@@ -164,9 +174,9 @@ static auto &get_static_samplers(const uint bind_point, const uint bind_space)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //サブリソースのインデックスを返す
-inline uint subresource_index(resource &res, const uint mip_slice, const uint array_slice, const uint plane_slice)
+inline uint subresource_index(resource& res, const uint mip_slice, const uint array_slice, const uint plane_slice)
 {
-	const auto &desc = res->GetDesc();
+	const auto& desc = res->GetDesc();
 	const uint mip_levels = desc.MipLevels;
 	const uint array_size = (desc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D) ? 1 : desc.DepthOrArraySize;
 	return mip_slice + mip_levels * (array_slice + array_size * plane_slice);
@@ -174,7 +184,7 @@ inline uint subresource_index(resource &res, const uint mip_slice, const uint ar
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-//
+//文字列化
 inline string state_string(uint state)
 {
 	string output;
@@ -206,7 +216,7 @@ inline const auto raytracing_compaction_state_progress2 = raytracing_compaction_
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //初期化
-inline void resource::init(ID3D12Device &device, const D3D12_HEAP_PROPERTIES &prop, const D3D12_HEAP_FLAGS flags, const D3D12_RESOURCE_DESC &desc, const D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE *clear_value)
+inline void resource::init(ID3D12Device& device, const D3D12_HEAP_PROPERTIES& prop, const D3D12_HEAP_FLAGS flags, const D3D12_RESOURCE_DESC& desc, const D3D12_RESOURCE_STATES state, const D3D12_CLEAR_VALUE* clear_value)
 {
 	D3D12_CLEAR_VALUE tmp_clear_value = {};
 	if((clear_value == nullptr) && (desc.Format != DXGI_FORMAT_UNKNOWN) && (desc.Flags & (D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)))
@@ -220,7 +230,7 @@ inline void resource::init(ID3D12Device &device, const D3D12_HEAP_PROPERTIES &pr
 	init(std::move(p_impl), desc, state);
 }
 
-inline void resource::init(ComPtr<ID3D12Resource> p_impl, const D3D12_RESOURCE_DESC &desc, const D3D12_RESOURCE_STATES state)
+inline void resource::init(ComPtr<ID3D12Resource> p_impl, const D3D12_RESOURCE_DESC& desc, const D3D12_RESOURCE_STATES state)
 {
 	mp_impl = std::move(p_impl);
 
@@ -229,7 +239,7 @@ inline void resource::init(ComPtr<ID3D12Resource> p_impl, const D3D12_RESOURCE_D
 		array_size = desc.DepthOrArraySize;
 
 	m_state_infos.resize(desc.MipLevels * array_size * plane_count(desc.Format));
-	for(auto &info : m_state_infos)
+	for(auto& info : m_state_infos)
 	{
 		info.state = state;
 		info.implicit = (state == D3D12_RESOURCE_STATE_COMMON);
@@ -259,7 +269,7 @@ inline bool resource::is_texture() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline buffer::buffer(render_device &device, const uint stride, const uint num_elements, const resource_flags flags, const void *data, const D3D12_RESOURCE_STATES state) : render::buffer(stride, num_elements)
+inline buffer::buffer(render_device& device, const uint stride, const uint num_elements, const resource_flags flags, const void* data, const D3D12_RESOURCE_STATES state) : render::buffer(stride, num_elements)
 {
 	D3D12_RESOURCE_DESC desc = {};
 	desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -290,7 +300,7 @@ inline buffer::buffer(render_device &device, const uint stride, const uint num_e
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //srvDescを生成
-inline D3D12_SHADER_RESOURCE_VIEW_DESC structured_buffer::create_srv_desc(const buffer_srv_desc &desc) const
+inline D3D12_SHADER_RESOURCE_VIEW_DESC structured_buffer::create_srv_desc(const buffer_srv_desc& desc) const
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -313,7 +323,7 @@ inline D3D12_SHADER_RESOURCE_VIEW_DESC structured_buffer::create_srv_desc(const 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //uavDescを生成
-inline D3D12_UNORDERED_ACCESS_VIEW_DESC structured_buffer::create_uav_desc(const buffer_uav_desc &desc) const
+inline D3D12_UNORDERED_ACCESS_VIEW_DESC structured_buffer::create_uav_desc(const buffer_uav_desc& desc) const
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 	uav_desc.Format = DXGI_FORMAT_UNKNOWN;
@@ -329,7 +339,7 @@ inline D3D12_UNORDERED_ACCESS_VIEW_DESC structured_buffer::create_uav_desc(const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //srvDescを生成
-inline D3D12_SHADER_RESOURCE_VIEW_DESC byteaddress_buffer::create_srv_desc(const buffer_srv_desc &desc) const
+inline D3D12_SHADER_RESOURCE_VIEW_DESC byteaddress_buffer::create_srv_desc(const buffer_srv_desc& desc) const
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 	srv_desc.Format = DXGI_FORMAT_R32_TYPELESS;
@@ -344,7 +354,7 @@ inline D3D12_SHADER_RESOURCE_VIEW_DESC byteaddress_buffer::create_srv_desc(const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //uavDescを生成
-inline D3D12_UNORDERED_ACCESS_VIEW_DESC byteaddress_buffer::create_uav_desc(const buffer_uav_desc &desc) const
+inline D3D12_UNORDERED_ACCESS_VIEW_DESC byteaddress_buffer::create_uav_desc(const buffer_uav_desc& desc) const
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 	uav_desc.Format = DXGI_FORMAT_R32_TYPELESS;
@@ -377,7 +387,7 @@ inline constant_buffer::operator D3D12_CPU_DESCRIPTOR_HANDLE() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline static_constant_buffer::static_constant_buffer(render_device &device, const uint size, const void *data) : constant_buffer(size)
+inline static_constant_buffer::static_constant_buffer(render_device& device, const uint size, const void* data) : constant_buffer(size)
 {
 	D3D12_RESOURCE_DESC desc = {};
 	desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -404,7 +414,7 @@ inline static_constant_buffer::static_constant_buffer(render_device &device, con
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline temporary_constant_buffer::temporary_constant_buffer(render_device &device, const uint size, const void *src_data, void *dst_data, cpu_descriptor view) : constant_buffer(size, std::move(view))
+inline temporary_constant_buffer::temporary_constant_buffer(render_device& device, const uint size, const void* src_data, void* dst_data, cpu_descriptor view) : constant_buffer(size, std::move(view))
 {
 	m_data = dst_data;
 	if(src_data != nullptr){ memcpy(m_data, src_data, size); }
@@ -415,7 +425,7 @@ inline temporary_constant_buffer::temporary_constant_buffer(render_device &devic
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline upload_buffer::upload_buffer(render_device &device, const uint size, const void *data) : render::upload_buffer(size)
+inline upload_buffer::upload_buffer(render_device& device, const uint size, const void* data) : render::upload_buffer(size)
 {
 	D3D12_RESOURCE_DESC desc = {};
 	desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -449,7 +459,7 @@ inline upload_buffer::~upload_buffer()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline readback_buffer::readback_buffer(render_device &device, const uint size) : render::readback_buffer(size)
+inline readback_buffer::readback_buffer(render_device& device, const uint size) : render::readback_buffer(size)
 {
 	D3D12_RESOURCE_DESC desc = {};
 	desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -482,7 +492,7 @@ inline readback_buffer::~readback_buffer()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline texture::texture(render_device &device, const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void *data, const D3D12_RESOURCE_DIMENSION dimension) : render::texture(format, width, height, depth, mip_levels, dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
+inline texture::texture(render_device& device, const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const D3D12_RESOURCE_DIMENSION dimension) : render::texture(format, width, height, depth, mip_levels, dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
 {
 	D3D12_RESOURCE_DESC desc = {};
 	desc.Width = width;
@@ -530,8 +540,8 @@ inline texture::texture(render_device &device, const texture_format format, cons
 		device->GetCopyableFootprints(&desc, 0, num_subresources, 0, layouts, nullptr, nullptr, &total_bytes);
 
 		upload_buffer upload(device, uint(total_bytes), nullptr);
-		auto *dst = upload.data<uint8_t>();
-		auto *src = static_cast<const uint8_t*>(data);
+		auto* dst = upload.data<uint8_t>();
+		auto* src = static_cast<const uint8_t*>(data);
 		const uint texel_size = render::texel_size(texture_format(desc.Format));
 		
 		uint64_t src_offset = 0; //dataはlod(i)のテクスチャ配列の後ろにlod(i+1)が並ぶようにする
@@ -541,8 +551,8 @@ inline texture::texture(render_device &device, const texture_format format, cons
 			{
 				for(uint i = 0; i < desc.DepthOrArraySize; i++)
 				{
-					const auto &layout = layouts[subresource_index(*this, l, i, p)];
-					const auto &footprint = layout.Footprint;
+					const auto& layout = layouts[subresource_index(*this, l, i, p)];
+					const auto& footprint = layout.Footprint;
 
 					uint64_t dst_offset = layout.Offset;
 					for(uint y = 0; y < footprint.Height; y++)
@@ -572,7 +582,7 @@ inline texture::texture(ComPtr<ID3D12Resource> p_target) : render::texture(textu
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //SrvDescを生成
-inline D3D12_SHADER_RESOURCE_VIEW_DESC texture1d::create_srv_desc(const texture_srv_desc &desc) const
+inline D3D12_SHADER_RESOURCE_VIEW_DESC texture1d::create_srv_desc(const texture_srv_desc& desc) const
 {
 	assert(desc.flag == srv_flag_none);
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
@@ -587,7 +597,7 @@ inline D3D12_SHADER_RESOURCE_VIEW_DESC texture1d::create_srv_desc(const texture_
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //UavDescを生成
-inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture1d::create_uav_desc(const texture_uav_desc &desc) const
+inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture1d::create_uav_desc(const texture_uav_desc& desc) const
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 	uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1D;
@@ -601,7 +611,7 @@ inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture1d::create_uav_desc(const texture
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //RtvDescを生成
-inline D3D12_RENDER_TARGET_VIEW_DESC texture2d::create_rtv_desc(const texture_rtv_desc &desc) const
+inline D3D12_RENDER_TARGET_VIEW_DESC texture2d::create_rtv_desc(const texture_rtv_desc& desc) const
 {
 	D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
 	rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
@@ -613,7 +623,7 @@ inline D3D12_RENDER_TARGET_VIEW_DESC texture2d::create_rtv_desc(const texture_rt
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //DsvDescを生成
-inline D3D12_DEPTH_STENCIL_VIEW_DESC texture2d::create_dsv_desc(const texture_dsv_desc &desc) const
+inline D3D12_DEPTH_STENCIL_VIEW_DESC texture2d::create_dsv_desc(const texture_dsv_desc& desc) const
 {
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
 	dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
@@ -626,7 +636,7 @@ inline D3D12_DEPTH_STENCIL_VIEW_DESC texture2d::create_dsv_desc(const texture_ds
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //SrvDescを生成
-inline D3D12_SHADER_RESOURCE_VIEW_DESC texture2d::create_srv_desc(const texture_srv_desc &desc) const
+inline D3D12_SHADER_RESOURCE_VIEW_DESC texture2d::create_srv_desc(const texture_srv_desc& desc) const
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -641,7 +651,7 @@ inline D3D12_SHADER_RESOURCE_VIEW_DESC texture2d::create_srv_desc(const texture_
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //UavDescを生成
-inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture2d::create_uav_desc(const texture_uav_desc &desc) const
+inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture2d::create_uav_desc(const texture_uav_desc& desc) const
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 	uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
@@ -655,7 +665,7 @@ inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture2d::create_uav_desc(const texture
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //RtvDescを生成
-inline D3D12_RENDER_TARGET_VIEW_DESC texture3d::create_rtv_desc(const texture_rtv_desc &desc) const
+inline D3D12_RENDER_TARGET_VIEW_DESC texture3d::create_rtv_desc(const texture_rtv_desc& desc) const
 {
 	D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
 	rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE3D;
@@ -669,7 +679,7 @@ inline D3D12_RENDER_TARGET_VIEW_DESC texture3d::create_rtv_desc(const texture_rt
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //SrvDescを生成
-inline D3D12_SHADER_RESOURCE_VIEW_DESC texture3d::create_srv_desc(const texture_srv_desc &desc) const
+inline D3D12_SHADER_RESOURCE_VIEW_DESC texture3d::create_srv_desc(const texture_srv_desc& desc) const
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
@@ -683,7 +693,7 @@ inline D3D12_SHADER_RESOURCE_VIEW_DESC texture3d::create_srv_desc(const texture_
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //UavDescを生成
-inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture3d::create_uav_desc(const texture_uav_desc &desc) const
+inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture3d::create_uav_desc(const texture_uav_desc& desc) const
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 	uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE3D;
@@ -699,7 +709,7 @@ inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture3d::create_uav_desc(const texture
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //RtvDescを生成
-inline D3D12_RENDER_TARGET_VIEW_DESC texture_cube::create_rtv_desc(const texture_rtv_desc &desc) const
+inline D3D12_RENDER_TARGET_VIEW_DESC texture_cube::create_rtv_desc(const texture_rtv_desc& desc) const
 {
 	D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
 	rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
@@ -713,7 +723,7 @@ inline D3D12_RENDER_TARGET_VIEW_DESC texture_cube::create_rtv_desc(const texture
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //DsvDescを生成
-inline D3D12_DEPTH_STENCIL_VIEW_DESC texture_cube::create_dsv_desc(const texture_dsv_desc &desc) const
+inline D3D12_DEPTH_STENCIL_VIEW_DESC texture_cube::create_dsv_desc(const texture_dsv_desc& desc) const
 {
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
 	dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
@@ -728,7 +738,7 @@ inline D3D12_DEPTH_STENCIL_VIEW_DESC texture_cube::create_dsv_desc(const texture
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //SrvDescを生成
-inline D3D12_SHADER_RESOURCE_VIEW_DESC texture_cube::create_srv_desc(const texture_srv_desc &desc) const
+inline D3D12_SHADER_RESOURCE_VIEW_DESC texture_cube::create_srv_desc(const texture_srv_desc& desc) const
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 	srv_desc.Format = convert(mp_impl->GetDesc().Format, desc.flag);
@@ -754,7 +764,7 @@ inline D3D12_SHADER_RESOURCE_VIEW_DESC texture_cube::create_srv_desc(const textu
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //UavDescを生成
-inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture_cube::create_uav_desc(const texture_uav_desc &desc) const
+inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture_cube::create_uav_desc(const texture_uav_desc& desc) const
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 	uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
@@ -770,7 +780,7 @@ inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture_cube::create_uav_desc(const text
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //SrvDescを生成
-inline D3D12_SHADER_RESOURCE_VIEW_DESC texture1d_array::create_srv_desc(const texture_srv_desc &desc) const
+inline D3D12_SHADER_RESOURCE_VIEW_DESC texture1d_array::create_srv_desc(const texture_srv_desc& desc) const
 {
 	assert(desc.flag == srv_flag_none);
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
@@ -787,7 +797,7 @@ inline D3D12_SHADER_RESOURCE_VIEW_DESC texture1d_array::create_srv_desc(const te
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //UavDescを生成
-inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture1d_array::create_uav_desc(const texture_uav_desc &desc) const
+inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture1d_array::create_uav_desc(const texture_uav_desc& desc) const
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 	uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE1DARRAY;
@@ -803,7 +813,7 @@ inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture1d_array::create_uav_desc(const t
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //RtvDescを生成
-inline D3D12_RENDER_TARGET_VIEW_DESC texture2d_array::create_rtv_desc(const texture_rtv_desc &desc) const
+inline D3D12_RENDER_TARGET_VIEW_DESC texture2d_array::create_rtv_desc(const texture_rtv_desc& desc) const
 {
 	D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
 	rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
@@ -817,7 +827,7 @@ inline D3D12_RENDER_TARGET_VIEW_DESC texture2d_array::create_rtv_desc(const text
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //DsvDescを生成
-inline D3D12_DEPTH_STENCIL_VIEW_DESC texture2d_array::create_dsv_desc(const texture_dsv_desc &desc) const
+inline D3D12_DEPTH_STENCIL_VIEW_DESC texture2d_array::create_dsv_desc(const texture_dsv_desc& desc) const
 {
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
 	dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
@@ -832,7 +842,7 @@ inline D3D12_DEPTH_STENCIL_VIEW_DESC texture2d_array::create_dsv_desc(const text
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //SrvDescを生成
-inline D3D12_SHADER_RESOURCE_VIEW_DESC texture2d_array::create_srv_desc(const texture_srv_desc &desc) const
+inline D3D12_SHADER_RESOURCE_VIEW_DESC texture2d_array::create_srv_desc(const texture_srv_desc& desc) const
 {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
 	srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
@@ -849,7 +859,7 @@ inline D3D12_SHADER_RESOURCE_VIEW_DESC texture2d_array::create_srv_desc(const te
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //UavDescを生成
-inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture2d_array::create_uav_desc(const texture_uav_desc &desc) const
+inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture2d_array::create_uav_desc(const texture_uav_desc& desc) const
 {
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 	uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
@@ -865,7 +875,7 @@ inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture2d_array::create_uav_desc(const t
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //RtvDescを生成
-inline D3D12_RENDER_TARGET_VIEW_DESC texture_cube_array::create_rtv_desc(const texture_rtv_desc &desc) const
+inline D3D12_RENDER_TARGET_VIEW_DESC texture_cube_array::create_rtv_desc(const texture_rtv_desc& desc) const
 {
 	throw;
 	//D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
@@ -880,7 +890,7 @@ inline D3D12_RENDER_TARGET_VIEW_DESC texture_cube_array::create_rtv_desc(const t
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //DsvDescを生成
-inline D3D12_DEPTH_STENCIL_VIEW_DESC texture_cube_array::create_dsv_desc(const texture_dsv_desc &desc) const
+inline D3D12_DEPTH_STENCIL_VIEW_DESC texture_cube_array::create_dsv_desc(const texture_dsv_desc& desc) const
 {
 	throw;
 	//D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
@@ -896,7 +906,7 @@ inline D3D12_DEPTH_STENCIL_VIEW_DESC texture_cube_array::create_dsv_desc(const t
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //SrvDescを生成
-inline D3D12_SHADER_RESOURCE_VIEW_DESC texture_cube_array::create_srv_desc(const texture_srv_desc &desc) const
+inline D3D12_SHADER_RESOURCE_VIEW_DESC texture_cube_array::create_srv_desc(const texture_srv_desc& desc) const
 {
 	throw;
 	//D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
@@ -913,7 +923,7 @@ inline D3D12_SHADER_RESOURCE_VIEW_DESC texture_cube_array::create_srv_desc(const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //UavDescを生成
-inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture_cube_array::create_uav_desc(const texture_uav_desc &desc) const
+inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture_cube_array::create_uav_desc(const texture_uav_desc& desc) const
 {
 	throw;
 	//D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
@@ -930,7 +940,7 @@ inline D3D12_UNORDERED_ACCESS_VIEW_DESC texture_cube_array::create_uav_desc(cons
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline top_level_acceleration_structure::top_level_acceleration_structure(render_device &device, const uint num_instances)
+inline top_level_acceleration_structure::top_level_acceleration_structure(render_device& device, const uint num_instances)
 {
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs;
 	inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
@@ -982,10 +992,10 @@ inline D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS top_level_accelerati
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline bottom_level_acceleration_structure::bottom_level_acceleration_structure(render_device &device, const geometry_state &gs, const raytracing_geometry_desc *descs, const uint num_descs, const bool allow_update) : m_allow_update(allow_update)
+inline bottom_level_acceleration_structure::bottom_level_acceleration_structure(render_device& device, const geometry_state& gs, const raytracing_geometry_desc* descs, const uint num_descs, const bool allow_update) : m_allow_update(allow_update)
 {
-	auto &ib = gs.index_buffer();
-	auto &vb = gs.vertex_buffer(0);
+	auto& ib = gs.index_buffer();
+	auto& vb = gs.vertex_buffer(0);
 	assert(ib.stride() == 2);
 	assert(gs.stride(0) >= 12);
 	m_vb_address = vb->GetGPUVirtualAddress();
@@ -1040,10 +1050,10 @@ inline bottom_level_acceleration_structure::bottom_level_acceleration_structure(
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //ジオメトリを更新
-inline void bottom_level_acceleration_structure::update_geometry(const geometry_state &gs)
+inline void bottom_level_acceleration_structure::update_geometry(const geometry_state& gs)
 {
-	auto &ib = gs.index_buffer();
-	auto &vb = gs.vertex_buffer(0);
+	auto& ib = gs.index_buffer();
+	auto& vb = gs.vertex_buffer(0);
 	for(size_t i = 0; i < m_descs.size(); i++)
 	{
 		m_descs[i].Triangles.IndexBuffer -= m_ib_address;
@@ -1076,7 +1086,7 @@ inline D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS bottom_level_acceler
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンパクションの状態を設定
-inline void bottom_level_acceleration_structure::set_compaction_state(render_device &device, const raytracing_compaction_state state)
+inline void bottom_level_acceleration_structure::set_compaction_state(render_device& device, const raytracing_compaction_state state)
 {
 	m_compaction_state = state;
 	if(m_compaction_state == raytracing_compaction_state_progress2)
@@ -1099,14 +1109,14 @@ inline void bottom_level_acceleration_structure::set_compaction_state(render_dev
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline graphics_pipeline_state::graphics_pipeline_state(const string &name, shader_ptr p_vs, shader_ptr p_ps, const input_layout_desc &il, const rasterizer_desc &rs, const depth_stencil_desc &dss, const blend_desc &bs) : pipeline_state(name), mp_vs(std::move(p_vs)), mp_ps(std::move(p_ps)), m_il(il), m_rs(rs), m_dss(dss), m_bs(bs)
+inline graphics_pipeline_state::graphics_pipeline_state(const string& name, shader_ptr p_vs, shader_ptr p_ps, const input_layout_desc& il, const rasterizer_desc& rs, const depth_stencil_desc& dss, const blend_desc& bs) : pipeline_state(name), mp_vs(std::move(p_vs)), mp_ps(std::move(p_ps)), m_il(il), m_rs(rs), m_dss(dss), m_bs(bs)
 {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //パイプラインステートを返す
-inline const graphics_pipeline_state::record &graphics_pipeline_state::get(render_device &device, const target_state &ts, const geometry_state &gs) const
+inline const graphics_pipeline_state::record &graphics_pipeline_state::get(render_device& device, const target_state& ts, const geometry_state& gs) const
 {
 	size_t hash;
 	{
@@ -1115,13 +1125,14 @@ inline const graphics_pipeline_state::record &graphics_pipeline_state::get(rende
 			key[i] = ts.rtv(i).format();
 		if(ts.has_dsv())
 			key[8] = ts.dsv().format();
-		if(gs.has_index_buffer())
+		if((&gs != nullptr) && gs.has_index_buffer())
+		//if(gs.has_index_buffer())
 			key[9] = gs.index_buffer().stride();
 		hash = calc_hash(key);
 	}
 
-	auto it = std::find_if(m_records.begin(), m_records.end(), [&](const auto &r){ return (r.hash == hash); });
-	auto &record = (it == m_records.end()) ? m_records.emplace_back(hash) : *it;
+	auto it = std::find_if(m_records.begin(), m_records.end(), [&](const auto& r){ return (r.hash == hash); });
+	auto& record = (it == m_records.end()) ? m_records.emplace_back(hash) : *it;
 	if(record.p_pipeline_state == nullptr)
 	{
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
@@ -1142,7 +1153,8 @@ inline const graphics_pipeline_state::record &graphics_pipeline_state::get(rende
 		desc.InputLayout.NumElements = m_il.num_elements;
 		desc.InputLayout.pInputElementDescs = input_element_descs;
 		
-		if(gs.has_index_buffer())
+		if((&gs != nullptr) && gs.has_index_buffer())
+		//if(gs.has_index_buffer())
 		{
 			if(gs.index_buffer().stride() == 2)
 				desc.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF;
@@ -1244,7 +1256,7 @@ inline const graphics_pipeline_state::record &graphics_pipeline_state::get(rende
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline compute_pipeline_state::compute_pipeline_state(render_device &device, const string &name, shader_ptr p_cs) : pipeline_state(name), mp_cs(std::move(p_cs))
+inline compute_pipeline_state::compute_pipeline_state(render_device& device, const string& name, shader_ptr p_cs) : pipeline_state(name), mp_cs(std::move(p_cs))
 {
 	auto p_shader = static_cast<const d3d12::shader*>(mp_cs.get());
 	auto rs = device.create_root_signature(&p_shader, 1);
@@ -1272,7 +1284,7 @@ inline shader::shader(ComPtr<ID3DBlob> p_blob, ComPtr<ID3D12ShaderReflection> p_
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //バイナリを返す
-inline ID3DBlob &shader::blob() const
+inline ID3DBlob& shader::blob() const
 {
 	return *mp_blob.Get();
 }
@@ -1280,7 +1292,7 @@ inline ID3DBlob &shader::blob() const
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //リフレクションを返す
-inline ID3D12ShaderReflection &shader::reflection() const
+inline ID3D12ShaderReflection& shader::reflection() const
 {
 	return *mp_reflection.Get();
 }
@@ -1293,16 +1305,16 @@ class shader_compiler::include_handler : public IDxcIncludeHandler
 {
 public:
 
-	include_handler(IDxcUtils &utils) : mp_utils(&utils)
+	include_handler(IDxcUtils& utils) : mp_utils(&utils)
 	{
 	}
 
-	std::unordered_set<std::wstring> &include_files()
+	unordered_set<wstring>& include_files()
 	{
 		return m_include_files;
 	}
 
-	HRESULT LoadSource(LPCWSTR filename, IDxcBlob **pp_result) override
+	HRESULT LoadSource(LPCWSTR filename, IDxcBlob** pp_result) override
 	{
 		ComPtr<IDxcBlobEncoding> p_encoding;
 		
@@ -1351,7 +1363,7 @@ inline shader_compiler::shader_compiler()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンパイル
-inline shader_ptr shader_compiler::compile(const wstring &filename, const wstring &entry_point, const wstring &target, const wstring &orig_defines, unordered_set<wstring> &dependent)
+inline shader_ptr shader_compiler::compile(const wstring& filename, const wstring& entry_point, const wstring& target, const wstring& orig_defines, unordered_set<wstring>& dependent)
 {
 	const wstring stem = filename.substr(0, filename.find_last_of(L'.'));
 	//const wstring bin_filename = stem + L".bin";
@@ -1524,7 +1536,7 @@ inline render_device_impl::render_device_impl()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline swapchain::swapchain(ID3D12CommandQueue &queue, const HWND hwnd, const uint2 size) : m_hdr_mode()
+inline swapchain::swapchain(ID3D12CommandQueue& queue, const HWND hwnd, const uint2 size) : m_hdr_mode()
 {
 	ComPtr<IDXGIFactory> p_factory;
 	check_hresult(CreateDXGIFactory2(0, IID_PPV_ARGS(&p_factory)));
@@ -1570,6 +1582,8 @@ inline swapchain::swapchain(ID3D12CommandQueue &queue, const HWND hwnd, const ui
 			}
 		}
 	}
+	if(not(m_hdr_mode))
+		throw;
 
 	//バックバッファを取得
 	get_back_buffers();
@@ -1591,13 +1605,19 @@ inline void swapchain::resize(const uint2 size)
 	DXGI_SWAP_CHAIN_DESC1 desc;
 	mp_impl->GetDesc1(&desc);
 
-	//破棄しろといわれるが，即時に破棄できない．．．
-	//for(auto &p_back_buffer : m_back_buffer_ptrs)
-	//	p_back_buffer.reset();
-	throw;
+	for(auto& p_back_buffer : m_back_buffer_ptrs)
+		p_back_buffer.reset();
 
 	mp_impl->ResizeBuffers(buffer_count(), size.x, size.y, desc.Format, desc.Flags);
 	get_back_buffers();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//フルスクリーンの切り替え
+inline void swapchain::toggle_fullscreen(const bool fullscreen)
+{
+	mp_impl->SetFullscreenState(fullscreen, nullptr);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1617,7 +1637,7 @@ inline void swapchain::get_back_buffers()
 //descriptor_heap
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-inline descriptor_heap::descriptor_heap(render_device &device, const D3D12_DESCRIPTOR_HEAP_TYPE type, const uint num) : m_size(device->GetDescriptorHandleIncrementSize(type)), m_allocator(num)
+inline descriptor_heap::descriptor_heap(render_device& device, const D3D12_DESCRIPTOR_HEAP_TYPE type, const uint num) : m_size(device->GetDescriptorHandleIncrementSize(type)), m_allocator(num)
 {
 	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 	desc.NumDescriptors = num;
@@ -1651,7 +1671,7 @@ inline void descriptor_heap::deallocate(const D3D12_CPU_DESCRIPTOR_HANDLE handle
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline sv_descriptor_heap::sv_descriptor_heap(render_device &device, const D3D12_DESCRIPTOR_HEAP_TYPE type, const uint num_bind, const uint num_bindless) : m_size(device->GetDescriptorHandleIncrementSize(type)), m_allocator(num_bind), m_allocator_bindless(num_bindless)
+inline sv_descriptor_heap::sv_descriptor_heap(render_device& device, const D3D12_DESCRIPTOR_HEAP_TYPE type, const uint num_bind, const uint num_bindless) : m_size(device->GetDescriptorHandleIncrementSize(type)), m_allocator(num_bind), m_allocator_bindless(num_bindless)
 {
 	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 	desc.NumDescriptors = num_bind + num_bindless;
@@ -1699,12 +1719,22 @@ inline void sv_descriptor_heap::deallocate_bindless(const uint index)
 	m_allocator_bindless.deallocate(index);
 }
 
+inline void sv_descriptor_heap::deallocate_bindless(const D3D12_CPU_DESCRIPTOR_HANDLE cpu_start)
+{
+	m_allocator_bindless.deallocate((cpu_start.ptr - m_cpu_start) / m_size);
+}
+
+inline void sv_descriptor_heap::deallocate_bindless(const D3D12_GPU_DESCRIPTOR_HANDLE gpu_start)
+{
+	m_allocator_bindless.deallocate((gpu_start.ptr - m_gpu_start) / m_size);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //command_queue
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline command_queue::command_queue(render_device &device, const D3D12_COMMAND_LIST_TYPE type)
+inline command_queue::command_queue(render_device& device, const D3D12_COMMAND_LIST_TYPE type)
 {
 	assert(type != D3D12_COMMAND_LIST_TYPE_NONE);
 	assert(type != D3D12_COMMAND_LIST_TYPE_BUNDLE);
@@ -1720,7 +1750,7 @@ inline command_queue::command_queue(render_device &device, const D3D12_COMMAND_L
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コマンドリスト
-inline command_list::command_list(render_device &device, const D3D12_COMMAND_LIST_TYPE type, ID3D12CommandAllocator &allocator)
+inline command_list::command_list(render_device& device, const D3D12_COMMAND_LIST_TYPE type, ID3D12CommandAllocator& allocator)
 {
 	assert(type != D3D12_COMMAND_LIST_TYPE_NONE);
 	assert(type != D3D12_COMMAND_LIST_TYPE_BUNDLE);
@@ -1733,7 +1763,7 @@ inline command_list::command_list(render_device &device, const D3D12_COMMAND_LIS
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline command_allocator::command_allocator(render_device &device, const D3D12_COMMAND_LIST_TYPE type)
+inline command_allocator::command_allocator(render_device& device, const D3D12_COMMAND_LIST_TYPE type)
 {
 	assert(type != D3D12_COMMAND_LIST_TYPE_NONE);
 	assert(type != D3D12_COMMAND_LIST_TYPE_BUNDLE);
@@ -1745,7 +1775,7 @@ inline command_allocator::command_allocator(render_device &device, const D3D12_C
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline fence::fence(render_device &device)
+inline fence::fence(render_device& device)
 {
 	check_hresult(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&mp_impl)));
 }
@@ -1755,8 +1785,8 @@ inline fence::fence(render_device &device)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline render_device::render_device() : 
-	RenderDevice(command_buffer_size), 
+inline render_device::render_device(const HWND hwnd) : 
+	iface::render_device(command_buffer_size), m_hwnd(hwnd),
 	m_rtv_descriptor_heap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, rtv_descriptor_size), 
 	m_dsv_descriptor_heap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, dsv_descriptor_size), 
 	m_sampler_descriptor_heap(*this, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, sampler_descriptor_size), 
@@ -1796,6 +1826,9 @@ inline render_device::render_device() :
 
 	m_copy_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 	m_graphics_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+	m_graphics_fence_value = m_graphics_fence->GetCompletedValue();
+	m_graphics_fence_prev_value = m_graphics_fence_value;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1810,16 +1843,16 @@ inline render_device::~render_device()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //実行
-inline void render_device::present(render::swapchain &swapchain_base)
+inline void render_device::present_impl(render::swapchain& swapchain_base)
 {
-	auto &swapchain = static_cast<d3d12::swapchain&>(swapchain_base);
+	auto& swapchain = static_cast<d3d12::swapchain&>(swapchain_base);
 	const uint back_buffer_index = swapchain.back_buffer_index();
 	m_command_manager.construct<command::present>(swapchain.back_buffer(back_buffer_index));
 
 	m_end_barrier_table.clear();
 	m_begin_barrier_table.clear();
 
-	const auto &command_ptrs = m_command_manager.sort_and_get();
+	const auto& command_ptrs = m_command_manager.sort_and_get();
 	m_begin_barrier_table.resize(command_ptrs.size() + 1);
 
 	//ステートトラッキング
@@ -1836,9 +1869,9 @@ inline void render_device::present(render::swapchain &swapchain_base)
 				m_end_barrier_table.push_back(m_command_manager.allocate<end_barrier>(nullptr, last_end_barrier_position));
 			}
 		};
-		auto init_tlas_state_info = [&](top_level_acceleration_structure &tlas)
+		auto init_tlas_state_info = [&](top_level_acceleration_structure& tlas)
 		{
-			auto &info = tlas.m_state_infos[0];
+			auto& info = tlas.m_state_infos[0];
 			if(info.last_used_frame < frame_count())
 			{
 				info.last_build_pos = 0;
@@ -1846,10 +1879,10 @@ inline void render_device::present(render::swapchain &swapchain_base)
 				info.last_used_frame = frame_count();
 			}
 		};
-		auto tlas_build_barrier = [&](top_level_acceleration_structure &tlas)
+		auto tlas_build_barrier = [&](top_level_acceleration_structure& tlas)
 		{
 			init_tlas_state_info(tlas);
-			auto &info = tlas.m_state_infos[0];
+			auto& info = tlas.m_state_infos[0];
 			if(info.last_build_pos > info.last_barrier_pos)
 			{
 				if(last_end_barrier_position <= info.last_build_pos)
@@ -1858,15 +1891,15 @@ inline void render_device::present(render::swapchain &swapchain_base)
 				info.last_barrier_pos = i;
 			}
 		};
-		auto set_tlas_build_pos = [&](top_level_acceleration_structure &tlas)
+		auto set_tlas_build_pos = [&](top_level_acceleration_structure& tlas)
 		{
 			init_tlas_state_info(tlas);
 			tlas.m_state_infos[0].last_build_pos = i;
 		};
 
-		auto state_transition_impl = [&](resource &res, const uint subresource_index, const D3D12_RESOURCE_STATES after, bool need_uav_barrier, const bool is_buffer)
+		auto state_transition_impl = [&](resource& res, const uint subresource_index, const D3D12_RESOURCE_STATES after, bool need_uav_barrier, const bool is_buffer)
 		{
-			auto &info = res.m_state_infos[subresource_index];
+			auto& info = res.m_state_infos[subresource_index];
 			if(info.last_used_frame < frame_count())
 			{
 				info.last_used_pos = 0;
@@ -1898,7 +1931,7 @@ inline void render_device::present(render::swapchain &swapchain_base)
 					//uavバリア
 					if(last_end_barrier_position <= info.last_used_pos)
 						last_end_barrier_position = i;
-					auto *p_uav_barrier = m_command_manager.allocate<end_barrier>(&res, last_end_barrier_position);
+					auto* p_uav_barrier = m_command_manager.allocate<end_barrier>(&res, last_end_barrier_position);
 					m_end_barrier_table.push_back(p_uav_barrier);
 				}
 				info.last_used_pos = i;
@@ -1939,22 +1972,22 @@ inline void render_device::present(render::swapchain &swapchain_base)
 				const bool end_only = not((i == 1) || (last_end_barrier_position == info.last_used_pos + 1)); 
 				if(end_only)
 				{
-					auto &p_front = m_begin_barrier_table[info.last_used_pos + 1];
-					auto *p_begin_barrier = m_command_manager.allocate<begin_barrier>(res, subresource_index, before, after, p_front);
+					auto& p_front = m_begin_barrier_table[info.last_used_pos + 1];
+					auto* p_begin_barrier = m_command_manager.allocate<begin_barrier>(res, subresource_index, before, after, p_front);
 					p_front = p_begin_barrier;
 				}
 
 				//endバリア
-				auto *p_end_barrier = m_command_manager.allocate<end_barrier>(res, subresource_index, before, after, last_end_barrier_position, not(end_only));
+				auto* p_end_barrier = m_command_manager.allocate<end_barrier>(res, subresource_index, before, after, last_end_barrier_position, not(end_only));
 				m_end_barrier_table.push_back(p_end_barrier);
 			}
 			info.last_used_pos = i;
 			return false;
 		};
 
-		auto state_transition = [&](resource &res, uint mip_slice, uint mip_count, uint array_slice, uint array_count, DXGI_FORMAT format, D3D12_RESOURCE_STATES after, bool need_uav_barrier)
+		auto state_transition = [&](resource& res, uint mip_slice, uint mip_count, uint array_slice, uint array_count, DXGI_FORMAT format, D3D12_RESOURCE_STATES after, bool need_uav_barrier)
 		{
-			//auto get_name = [&](auto &res)
+			//auto get_name = [&](auto& res)
 			//{
 			//	wchar_t name[128];
 			//	uint size = sizeof(name);
@@ -1963,8 +1996,8 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			//};
 			//std::cout << get_name(res) << std::endl;
 
-			const auto &desc = res->GetDesc();
-			const auto &infos = res.m_state_infos;
+			const auto& desc = res->GetDesc();
+			const auto& infos = res.m_state_infos;
 
 			uint plane_slice = 0;
 			uint plane_count = 1;
@@ -1999,53 +2032,53 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			}
 		};
 
-		const auto &command_base = *command_ptrs[i - 1];
+		const auto& command_base = *command_ptrs[i - 1];
 		switch(command_base.type)
 		{
 		case command::type_clear_depth_stencil_view:
 		{
-			auto &command = static_cast<const command::clear_depth_stencil_view&>(command_base);
-			auto &view = *static_cast<d3d12::depth_stencil_view*>(command.p_dsv);
-			auto &desc = view.desc();
+			auto& command = static_cast<const command::clear_depth_stencil_view&>(command_base);
+			auto& view = *static_cast<d3d12::depth_stencil_view*>(command.p_dsv);
+			auto& desc = view.desc();
 			state_transition(view.resource(), desc.mip_slice, 1, desc.first_array_index, desc.array_size, view.format(), D3D12_RESOURCE_STATE_DEPTH_WRITE, false);
 			break;
 		}
 		case command::type_clear_render_target_view:
 		{
-			auto &command = static_cast<const command::clear_render_target_view&>(command_base);
-			auto &view = *static_cast<d3d12::render_target_view*>(command.p_rtv);
-			auto &desc = view.desc();
+			auto& command = static_cast<const command::clear_render_target_view&>(command_base);
+			auto& view = *static_cast<d3d12::render_target_view*>(command.p_rtv);
+			auto& desc = view.desc();
 			state_transition(view.resource(), desc.mip_slice, 1, desc.first_array_index, desc.array_size, view.format(), D3D12_RESOURCE_STATE_RENDER_TARGET, false);
 			break;
 		}
 		case command::type_clear_unordered_access_view_float:
 		{
-			auto &command = static_cast<const command::clear_unordered_access_view_float&>(command_base);
-			auto &view = *static_cast<d3d12::unordered_access_view*>(command.p_uav);
+			auto& command = static_cast<const command::clear_unordered_access_view_float&>(command_base);
+			auto& view = *static_cast<d3d12::unordered_access_view*>(command.p_uav);
 			if(view.resource().is_buffer())
 			{
-				auto &desc = static_cast<d3d12::buffer_unordered_access_view&>(view).desc();
+				auto& desc = static_cast<d3d12::buffer_unordered_access_view&>(view).desc();
 				state_transition(view.resource(), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, command.uav_barrier);
 			}
 			else
 			{
-				auto &desc = static_cast<d3d12::texture_unordered_access_view&>(view).desc();
+				auto& desc = static_cast<d3d12::texture_unordered_access_view&>(view).desc();
 				state_transition(view.resource(), desc.mip_slice, 1, desc.first_array_index, desc.array_size, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, command.uav_barrier);
 			}
 			break;
 		}
 		case command::type_clear_unordered_access_view_uint:
 		{
-			auto &command = static_cast<const command::clear_unordered_access_view_uint&>(command_base);
-			auto &view = *static_cast<d3d12::unordered_access_view*>(command.p_uav);
+			auto& command = static_cast<const command::clear_unordered_access_view_uint&>(command_base);
+			auto& view = *static_cast<d3d12::unordered_access_view*>(command.p_uav);
 			if(view.resource().is_buffer())
 			{
-				auto &desc = static_cast<d3d12::buffer_unordered_access_view&>(view).desc();
+				auto& desc = static_cast<d3d12::buffer_unordered_access_view&>(view).desc();
 				state_transition(view.resource(), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, command.uav_barrier);
 			}
 			else
 			{
-				auto &desc = static_cast<d3d12::texture_unordered_access_view&>(view).desc();
+				auto& desc = static_cast<d3d12::texture_unordered_access_view&>(view).desc();
 				state_transition(view.resource(), desc.mip_slice, 1, desc.first_array_index, desc.array_size, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, command.uav_barrier);
 			}
 			break;
@@ -2058,9 +2091,9 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		case command::type_dispatch_indirect:
 		{
 			bool uav_barrier;
-			buffer *p_buffer = nullptr;
+			buffer* p_buffer = nullptr;
 			bind_info *p_bind_info = nullptr;
-			const target_state *p_target_state = nullptr;
+			const target_state* p_target_state = nullptr;
 			switch(command_base.type)
 			{
 			case command::type_draw:
@@ -2100,8 +2133,16 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			{
 				for(uint i = 0; i < p_target_state->num_rtvs(); i++)
 				{
-					auto &rtv = p_target_state->rtv(i);
+					auto& rtv = p_target_state->rtv(i);
 					state_transition(rtv.resource(), rtv.desc().mip_slice, 1, rtv.desc().first_array_index, 1, rtv.format(), D3D12_RESOURCE_STATE_RENDER_TARGET, uav_barrier);
+				}
+				if(p_target_state->has_dsv())
+				{
+					auto& dsv = p_target_state->dsv();
+					auto after_state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+					if((dsv.desc().flags == dsv_flag_readonly_depth) || (dsv.desc().flags == dsv_flag_readonly_stencil))
+						after_state = D3D12_RESOURCE_STATE_DEPTH_READ;
+					state_transition(dsv.resource(), dsv.desc().mip_slice, 1, dsv.desc().first_array_index, 1, dsv.format(), after_state, uav_barrier);
 				}
 			}
 
@@ -2119,31 +2160,31 @@ inline void render_device::present(render::swapchain &swapchain_base)
 					if(p_bind_info->views[i].for_ps())
 						after_state = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 					
-					auto &view = p_bind_info->views[i].get<shader_resource_view>();
+					auto& view = p_bind_info->views[i].get<shader_resource_view>();
 					if(view.resource().is_buffer())
 					{
-						auto &desc = static_cast<const d3d12::buffer_shader_resource_view&>(view).desc();
+						auto& desc = static_cast<const d3d12::buffer_shader_resource_view&>(view).desc();
 						state_transition(view.resource(), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, after_state, uav_barrier);
 					}
 					else
 					{
-						auto &view = p_bind_info->views[i].get<texture_shader_resource_view>();
-						auto &desc = p_bind_info->views[i].get<texture_shader_resource_view>().desc();
+						auto& view = p_bind_info->views[i].get<texture_shader_resource_view>();
+						auto& desc = p_bind_info->views[i].get<texture_shader_resource_view>().desc();
 						state_transition(view.resource(), desc.most_detailed_mip, desc.mip_levels, desc.first_array_index, desc.array_size, view.format(), after_state, uav_barrier);
 					}
 				}
 				else
 				{
-					auto &view = p_bind_info->views[i].get<unordered_access_view>();
+					auto& view = p_bind_info->views[i].get<unordered_access_view>();
 					if(view.resource().is_buffer())
 					{
-						auto &desc = p_bind_info->views[i].get<buffer_unordered_access_view>().desc();
+						auto& desc = p_bind_info->views[i].get<buffer_unordered_access_view>().desc();
 						state_transition(view.resource(), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav_barrier);
 					}
 					else
 					{
-						auto &view = p_bind_info->views[i].get<texture_unordered_access_view>();
-						auto &desc = p_bind_info->views[i].get<texture_unordered_access_view>().desc();
+						auto& view = p_bind_info->views[i].get<texture_unordered_access_view>();
+						auto& desc = p_bind_info->views[i].get<texture_unordered_access_view>().desc();
 						state_transition(view.resource(), desc.mip_slice, 1, desc.first_array_index, desc.array_size, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav_barrier);
 					}
 				}
@@ -2156,15 +2197,15 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			blas_build_barrier();
 
 			//InstanceDescsはupdate_bufferでCopyDestになるのでNonPixelShaderResourceにする必要がある
-			auto &command = static_cast<const command::build_top_level_acceleration_structure&>(command_base);
+			auto& command = static_cast<const command::build_top_level_acceleration_structure&>(command_base);
 			state_transition(static_cast<d3d12::buffer&>(command.p_tlas->instance_descs()), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, false);
 			set_tlas_build_pos(static_cast<d3d12::top_level_acceleration_structure&>(*command.p_tlas));
 			break;
 		}
 		case command::type_build_bottom_level_acceleration_structure:
 		{
-			auto &command = static_cast<const command::build_bottom_level_acceleration_structure&>(command_base);
-			auto &blas = *static_cast<d3d12::bottom_level_acceleration_structure*>(command.p_blas);
+			auto& command = static_cast<const command::build_bottom_level_acceleration_structure&>(command_base);
+			auto& blas = *static_cast<d3d12::bottom_level_acceleration_structure*>(command.p_blas);
 			last_blas_build_position = i;
 			break;
 		}
@@ -2175,8 +2216,8 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		}
 		case command::type_compact_bottom_level_acceleration_structure:
 		{
-			auto &command = static_cast<const command::compact_bottom_level_acceleration_structure&>(command_base);
-			auto &blas = *static_cast<d3d12::bottom_level_acceleration_structure*>(command.p_blas);
+			auto& command = static_cast<const command::compact_bottom_level_acceleration_structure&>(command_base);
+			auto& blas = *static_cast<d3d12::bottom_level_acceleration_structure*>(command.p_blas);
 			switch(blas.compaction_state())
 			{
 			case raytracing_compaction_state_ready: //readbackへコピー
@@ -2195,13 +2236,13 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		}
 		case command::type_update_buffer:
 		{
-			auto &command = static_cast<const command::update_buffer&>(command_base);
+			auto& command = static_cast<const command::update_buffer&>(command_base);
 			state_transition(*static_cast<d3d12::buffer*>(command.p_buf), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_COPY_DEST, false);
 			break;
 		}
 		case command::type_copy_buffer:
 		{
-			auto &command = static_cast<const command::copy_buffer&>(command_base);
+			auto& command = static_cast<const command::copy_buffer&>(command_base);
 			if(!command.dst_is_readback)
 				state_transition(*static_cast<d3d12::buffer*>(command.p_dst), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_COPY_DEST, false);
 			if(!command.src_is_upload)
@@ -2210,7 +2251,7 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		}
 		case command::type_copy_texture:
 		{
-			auto &command = static_cast<const command::copy_texture&>(command_base);
+			auto& command = static_cast<const command::copy_texture&>(command_base);
 			auto p_dst = static_cast<d3d12::texture*>(command.p_dst);
 			auto p_src = static_cast<d3d12::texture*>(command.p_src);
 			state_transition(*p_dst, 0, p_dst->mip_levels(), 0, p_dst->array_size(), convert((*p_dst)->GetDesc().Format), D3D12_RESOURCE_STATE_COPY_DEST, false);
@@ -2220,15 +2261,37 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		case command::type_copy_resource:
 		{
 			//TODO: テクスチャ対応
-			auto &command = static_cast<const command::copy_resource&>(command_base);
+			auto& command = static_cast<const command::copy_resource&>(command_base);
 			state_transition(*static_cast<d3d12::resource*const>(command.p_dst), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_COPY_DEST, false);
 			state_transition(*static_cast<d3d12::resource*const>(command.p_src), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_COPY_SOURCE, false);
 			break;
 		}
 		case command::type_present:
 		{
-			auto &command = static_cast<const command::present&>(command_base);
+			auto& command = static_cast<const command::present&>(command_base);
 			state_transition(*static_cast<d3d12::texture*>(command.p_tex), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_PRESENT, false);
+			break;
+		}
+		case command::type_call_function:
+		{
+			auto& command = static_cast<const command::call_function&>(command_base);
+			auto* p_target_state = static_cast<const d3d12::target_state*>(command.p_target_state);
+			if(p_target_state)
+			{
+				for(uint i = 0; i < p_target_state->num_rtvs(); i++)
+				{
+					auto& rtv = p_target_state->rtv(i);
+					state_transition(rtv.resource(), rtv.desc().mip_slice, 1, rtv.desc().first_array_index, 1, rtv.format(), D3D12_RESOURCE_STATE_RENDER_TARGET, true);
+				}
+				if(p_target_state->has_dsv())
+				{
+					auto& dsv = p_target_state->dsv();
+					auto after_state = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+					if((dsv.desc().flags == dsv_flag_readonly_depth) || (dsv.desc().flags == dsv_flag_readonly_stencil))
+						after_state = D3D12_RESOURCE_STATE_DEPTH_READ;
+					state_transition(dsv.resource(), dsv.desc().mip_slice, 1, dsv.desc().first_array_index, 1, dsv.format(), after_state, true);
+				}
+			}
 			break;
 		}
 		default:
@@ -2253,7 +2316,7 @@ inline void render_device::present(render::swapchain &swapchain_base)
 	//命令作成
 	for(uint i = 1, j = 0; i <= command_ptrs.size(); i++)
 	{
-		auto get_name = [&](auto &res)
+		auto get_name = [&](auto& res)
 		{
 			wchar_t name[128];
 			uint size = sizeof(name);
@@ -2266,7 +2329,7 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		D3D12_RESOURCE_BARRIER barriers[128];
 		{
 			//beginバリア
-			auto *p_barrier = m_begin_barrier_table[i];
+			auto* p_barrier = m_begin_barrier_table[i];
 			for(; p_barrier != nullptr; p_barrier = p_barrier->p_next)
 			{
 				barriers[num_barriers].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -2291,7 +2354,7 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		for(; (j < m_end_barrier_table.size()) && (m_end_barrier_table[j]->time <= i); j++)
 		{
 			//endバリア(i==1のときは通常のバリア)
-			auto &barrier = *m_end_barrier_table[j];
+			auto& barrier = *m_end_barrier_table[j];
 			if(barrier.before != barrier.after)
 			{
 				barriers[num_barriers].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -2340,30 +2403,30 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		};
 #define PIX_SCOPED_EVENT(name) pix_scoped_event pix_scoped_event(name, m_graphics_command_list.get_impl(), num_barriers, barriers);
 
-		const auto &command_base = *command_ptrs[i - 1];
+		const auto& command_base = *command_ptrs[i - 1];
 		switch(command_base.type)
 		{
 		case command::type_clear_depth_stencil_view:
 		{
 			PIX_SCOPED_EVENT("clear_depth_stencil_view");
-			auto &command = static_cast<const command::clear_depth_stencil_view&>(command_base);
-			auto &view = static_cast<const d3d12::depth_stencil_view&>(*command.p_dsv);
+			auto& command = static_cast<const command::clear_depth_stencil_view&>(command_base);
+			auto& view = static_cast<const d3d12::depth_stencil_view&>(*command.p_dsv);
 			m_graphics_command_list->ClearDepthStencilView(view, D3D12_CLEAR_FLAGS(command.flags), command.depth, command.stencil, 0, nullptr);
 			break;
 		}
 		case command::type_clear_render_target_view:
 		{
 			PIX_SCOPED_EVENT("clear_render_target_view");
-			auto &command = static_cast<const command::clear_render_target_view&>(command_base);
-			auto &view = static_cast<const d3d12::render_target_view&>(*command.p_rtv);
+			auto& command = static_cast<const command::clear_render_target_view&>(command_base);
+			auto& view = static_cast<const d3d12::render_target_view&>(*command.p_rtv);
 			m_graphics_command_list->ClearRenderTargetView(view, command.color, 0, nullptr);
 			break;
 		}
 		case command::type_clear_unordered_access_view_float:
 		{
 			PIX_SCOPED_EVENT("clear_unordered_access_view_float");
-			auto &command = static_cast<const command::clear_unordered_access_view_float&>(command_base);
-			auto &view = static_cast<const d3d12::unordered_access_view&>(*command.p_uav);
+			auto& command = static_cast<const command::clear_unordered_access_view_float&>(command_base);
+			auto& view = static_cast<const d3d12::unordered_access_view&>(*command.p_uav);
 			auto handle = m_sv_cbv_srv_uav_descriptor_heap.allocate(1);
 			mp_impl->CopyDescriptorsSimple(1, handle.cpu_start, view, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 			m_graphics_command_list->ClearUnorderedAccessViewFloat(handle.gpu_start, view, view.resource().get_impl(), command.value, 0, nullptr);
@@ -2372,8 +2435,8 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		case command::type_clear_unordered_access_view_uint:
 		{
 			PIX_SCOPED_EVENT("clear_unordered_access_view_uint");
-			auto &command = static_cast<const command::clear_unordered_access_view_uint&>(command_base);
-			auto &view = static_cast<const d3d12::unordered_access_view&>(*command.p_uav);
+			auto& command = static_cast<const command::clear_unordered_access_view_uint&>(command_base);
+			auto& view = static_cast<const d3d12::unordered_access_view&>(*command.p_uav);
 			auto handle = m_sv_cbv_srv_uav_descriptor_heap.allocate(1);
 			mp_impl->CopyDescriptorsSimple(1, handle.cpu_start, view, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 			m_graphics_command_list->ClearUnorderedAccessViewUint(handle.gpu_start, view, view.resource().get_impl(), command.value, 0, nullptr);
@@ -2387,11 +2450,11 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			uint stencil;
 			uint constant;
 			bind_info *p_bind_info; 
-			const d3d12::target_state *p_target_state;
-			const d3d12::geometry_state *p_geometry_state;
-			const d3d12::graphics_pipeline_state *p_pipeline_state;
+			const d3d12::target_state* p_target_state;
+			const d3d12::geometry_state* p_geometry_state;
+			const d3d12::graphics_pipeline_state* p_pipeline_state;
 
-			auto init = [&](auto &command)
+			auto init = [&](auto& command)
 			{
 				stencil = command.stencil;
 				constant = command.constant;
@@ -2411,8 +2474,8 @@ inline void render_device::present(render::swapchain &swapchain_base)
 #ifdef RESORUCE_BARRIER_DEBUG
 			std::cout << "[" << i << "] " << p_pipeline_state->name() << std::endl;
 #endif
-			auto &record = p_pipeline_state->get(*this, *p_target_state, *p_geometry_state);
-			auto resource_num = [&](const uint i){ auto &count = record.pipeline_resource_count.shader_resource_count_table[i]; return count.cbv + count.srv + count.uav + count.sampler; };
+			auto& record = p_pipeline_state->get(*this, *p_target_state, *p_geometry_state);
+			auto resource_num = [&](const uint i){ auto& count = record.pipeline_resource_count.shader_resource_count_table[i]; return count.cbv + count.srv + count.uav + count.sampler; };
 
 			m_graphics_command_list->SetGraphicsRootSignature(record.p_root_signature.Get());
 			if(p_bind_info->root_constant_index != uint8_t(-1))
@@ -2423,7 +2486,7 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			uint slot = 0;
 			auto set = [&](const uint shader_index)
 			{
-				const auto &count = record.pipeline_resource_count.shader_resource_count_table[shader_index];
+				const auto& count = record.pipeline_resource_count.shader_resource_count_table[shader_index];
 				if(count.cbv + count.srv + count.uav > 0)
 					m_graphics_command_list->SetGraphicsRootDescriptorTable(slot++, p_bind_info->cbv_srv_uav_heap_start);
 				if(count.sampler > 0)
@@ -2432,24 +2495,27 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			if(p_pipeline_state->p_vs()){ set(0); }
 			if(p_pipeline_state->p_ps()){ set(1); }
 
-			if(p_geometry_state->has_index_buffer())
+			if(p_geometry_state != nullptr)
 			{
-				D3D12_INDEX_BUFFER_VIEW view = {};
-				auto &index_buffer = p_geometry_state->index_buffer();
-				view.Format = (index_buffer.stride() == 2) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
-				view.SizeInBytes = index_buffer.size();
-				view.BufferLocation = index_buffer->GetGPUVirtualAddress();
-				m_graphics_command_list->IASetIndexBuffer(&view);
+				if(p_geometry_state->has_index_buffer())
+				{
+					D3D12_INDEX_BUFFER_VIEW view = {};
+					auto& index_buffer = p_geometry_state->index_buffer();
+					view.Format = (index_buffer.stride() == 2) ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
+					view.SizeInBytes = index_buffer.size();
+					view.BufferLocation = index_buffer->GetGPUVirtualAddress();
+					m_graphics_command_list->IASetIndexBuffer(&view);
+				}
+				D3D12_VERTEX_BUFFER_VIEW vb_views[8];
+				for(uint i = 0; i < p_geometry_state->num_vbs(); i++)
+				{
+					auto& vertex_buffer = p_geometry_state->vertex_buffer(i);
+					vb_views[i].SizeInBytes = vertex_buffer.size() - p_geometry_state->offset(i);
+					vb_views[i].StrideInBytes = p_geometry_state->stride(i);
+					vb_views[i].BufferLocation = vertex_buffer->GetGPUVirtualAddress() + p_geometry_state->offset(i);
+				}
+				m_graphics_command_list->IASetVertexBuffers(0, p_geometry_state->num_vbs(), vb_views);
 			}
-			D3D12_VERTEX_BUFFER_VIEW vb_views[8];
-			for(uint i = 0; i < p_geometry_state->num_vbs(); i++)
-			{
-				auto &vertex_buffer = p_geometry_state->vertex_buffer(i);
-				vb_views[i].SizeInBytes = vertex_buffer.size() - p_geometry_state->offset(i);
-				vb_views[i].StrideInBytes = p_geometry_state->stride(i);
-				vb_views[i].BufferLocation = vertex_buffer->GetGPUVirtualAddress() + p_geometry_state->offset(i);
-			}
-			m_graphics_command_list->IASetVertexBuffers(0, p_geometry_state->num_vbs(), vb_views);
 			m_graphics_command_list->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY(p_pipeline_state->input_layout().topology));
 
 			D3D12_RECT scissor[8];
@@ -2459,7 +2525,7 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			{
 				rt_descriptors[i] = p_target_state->rtv(i);
 				
-				const auto &texture = static_cast<d3d12::texture&>(p_target_state->rtv(i).resource());
+				const auto& texture = static_cast<d3d12::texture&>(p_target_state->rtv(i).resource());
 				scissor[i].left = scissor[i].top = 0;
 				scissor[i].right = texture.width();
 				scissor[i].bottom = texture.height();
@@ -2479,28 +2545,28 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			{
 			case command::type_draw:
 			{
-				auto &command = static_cast<const command::draw&>(command_base);
+				auto& command = static_cast<const command::draw&>(command_base);
 				PIX_SCOPED_EVENT(command.p_pipeline_state->name().c_str());
 				m_graphics_command_list->DrawInstanced(command.vertex_count, command.instance_count, command.start_vertex_location, 0);
 				break;
 			}
 			case command::type_draw_indexed:
 			{
-				auto &command = static_cast<const command::draw_indexed&>(command_base);
+				auto& command = static_cast<const command::draw_indexed&>(command_base);
 				PIX_SCOPED_EVENT(command.p_pipeline_state->name().c_str());
 				m_graphics_command_list->DrawIndexedInstanced(command.index_count, command.instance_count, command.start_index_location, command.base_vertex_location, 0);
 				break;
 			}
 			case command::type_draw_indirect:
 			{
-				auto &command = static_cast<const command::draw_indirect&>(command_base);
+				auto& command = static_cast<const command::draw_indirect&>(command_base);
 				PIX_SCOPED_EVENT(command.p_pipeline_state->name().c_str());
 				m_graphics_command_list->ExecuteIndirect(mp_draw_indirect_cs.Get(), 1, static_cast<d3d12::buffer*>(command.p_buf)->get_impl(), command.offset, nullptr, 0);
 				break;
 			}
 			case command::type_draw_indexed_indirect:
 			{
-				auto &command = static_cast<const command::draw_indexed_indirect&>(command_base);
+				auto& command = static_cast<const command::draw_indexed_indirect&>(command_base);
 				PIX_SCOPED_EVENT(command.p_pipeline_state->name().c_str());
 				m_graphics_command_list->ExecuteIndirect(mp_draw_indexed_indirect_cs.Get(), 1, static_cast<d3d12::buffer*>(command.p_buf)->get_impl(), command.offset, nullptr, 0);
 				break;
@@ -2509,10 +2575,10 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		}
 		case command::type_dispatch:
 		{
-			auto &command = static_cast<const command::dispatch&>(command_base);
-			auto &pipeline_state = static_cast<const d3d12::compute_pipeline_state&>(*command.p_pipeline_state);
-			auto p_bind_info = static_cast<render_device::bind_info*>(command.p_optional);
-			auto &resource_count = pipeline_state.resource_count();
+			auto& command = static_cast<const command::dispatch&>(command_base);
+			auto& pipeline_state = static_cast<const d3d12::compute_pipeline_state&>(*command.p_pipeline_state);
+			auto* p_bind_info = static_cast<render_device::bind_info*>(command.p_optional);
+			auto& resource_count = pipeline_state.resource_count();
 
 #ifdef RESORUCE_BARRIER_DEBUG
 			std::cout << "[" << i << "] " << pipeline_state.name() << std::endl;
@@ -2536,10 +2602,10 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		}
 		case command::type_dispatch_indirect:
 		{
-			auto &command = static_cast<const command::dispatch_indirect&>(command_base);
-			auto &pipeline_state = static_cast<const d3d12::compute_pipeline_state&>(*command.p_pipeline_state);
-			auto p_bind_info = static_cast<render_device::bind_info*>(command.p_optional);
-			auto &resource_count = pipeline_state.resource_count();
+			auto& command = static_cast<const command::dispatch_indirect&>(command_base);
+			auto& pipeline_state = static_cast<const d3d12::compute_pipeline_state&>(*command.p_pipeline_state);
+			auto* p_bind_info = static_cast<render_device::bind_info*>(command.p_optional);
+			auto& resource_count = pipeline_state.resource_count();
 
 			PIX_SCOPED_EVENT(pipeline_state.name().c_str());
 			m_graphics_command_list->SetComputeRootSignature(pipeline_state.p_rs().Get());
@@ -2561,8 +2627,8 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		case command::type_build_top_level_acceleration_structure:
 		{
 			PIX_SCOPED_EVENT("build_top_level_acceleration_structure");
-			auto &command = static_cast<const command::build_top_level_acceleration_structure&>(command_base);
-			auto &tlas = *static_cast<d3d12::top_level_acceleration_structure*>(command.p_tlas);
+			auto& command = static_cast<const command::build_top_level_acceleration_structure&>(command_base);
+			auto& tlas = *static_cast<d3d12::top_level_acceleration_structure*>(command.p_tlas);
 
 			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
 			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = tlas.build_inputs(command.num_instances);
@@ -2578,10 +2644,10 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		case command::type_build_bottom_level_acceleration_structure:
 		case command::type_refit_bottom_level_acceleration_structure:
 		{
-			auto &blas = *static_cast<d3d12::bottom_level_acceleration_structure*>((command_base.type == command::type_build_bottom_level_acceleration_structure) ? 
+			auto& blas = *static_cast<d3d12::bottom_level_acceleration_structure*>((command_base.type == command::type_build_bottom_level_acceleration_structure) ? 
 				static_cast<const command::build_bottom_level_acceleration_structure&>(command_base).p_blas :
 				static_cast<const command::refit_bottom_level_acceleration_structure&>(command_base).p_blas);
-			auto *p_gs = static_cast<const d3d12::geometry_state*>((command_base.type == command::type_build_bottom_level_acceleration_structure) ? 
+			auto* p_gs = static_cast<const d3d12::geometry_state*>((command_base.type == command::type_build_bottom_level_acceleration_structure) ? 
 				static_cast<const command::build_bottom_level_acceleration_structure&>(command_base).p_gs :
 				static_cast<const command::refit_bottom_level_acceleration_structure&>(command_base).p_gs);
 			
@@ -2595,7 +2661,7 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			desc.ScratchAccelerationStructureData = blas.scratch()->GetGPUVirtualAddress();
 
 			D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC info = {};
-			D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC *p_info = nullptr;
+			D3D12_RAYTRACING_ACCELERATION_STRUCTURE_POSTBUILD_INFO_DESC* p_info = nullptr;
 			if(blas.compaction_state() == raytracing_compaction_state_not_ready)
 			{
 				blas.set_compaction_state(*this, raytracing_compaction_state_ready);
@@ -2620,8 +2686,8 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		case command::type_compact_bottom_level_acceleration_structure:
 		{
 			PIX_SCOPED_EVENT("compact_bottom_level_acceleration_structure");
-			auto &command = static_cast<const command::compact_bottom_level_acceleration_structure&>(command_base);
-			auto &blas = *static_cast<d3d12::bottom_level_acceleration_structure*>(command.p_blas);
+			auto& command = static_cast<const command::compact_bottom_level_acceleration_structure&>(command_base);
+			auto& blas = *static_cast<d3d12::bottom_level_acceleration_structure*>(command.p_blas);
 			switch(blas.compaction_state())
 			{
 			case raytracing_compaction_state_ready: //readbackへコピー
@@ -2646,8 +2712,8 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		case command::type_update_buffer:
 		{
 			PIX_SCOPED_EVENT("update_buffer");
-			auto &command = static_cast<const command::update_buffer&>(command_base);
-			auto &dst = *static_cast<d3d12::buffer*>(command.p_buf);
+			auto& command = static_cast<const command::update_buffer&>(command_base);
+			auto& dst = *static_cast<d3d12::buffer*>(command.p_buf);
 			auto src_offset = static_cast<const uint8_t*>(command.p_update) - m_upload_buffer.data<uint8_t>();
 			m_graphics_command_list->CopyBufferRegion(dst.get_impl(), command.offset, m_upload_buffer.get_impl(), src_offset, command.size); 
 			break;
@@ -2655,16 +2721,16 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		case command::type_copy_buffer:
 		{
 			PIX_SCOPED_EVENT("copy_buffer");
-			auto &command = static_cast<const command::copy_buffer&>(command_base);
-			auto *dst = command.dst_is_readback ? static_cast<d3d12::readback_buffer*>(command.p_dst)->get_impl() : static_cast<d3d12::buffer*>(command.p_dst)->get_impl();
-			auto *src = command.src_is_upload ? static_cast<d3d12::upload_buffer*>(command.p_src)->get_impl() : static_cast<d3d12::buffer*>(command.p_src)->get_impl();
+			auto& command = static_cast<const command::copy_buffer&>(command_base);
+			auto* dst = command.dst_is_readback ? static_cast<d3d12::readback_buffer*>(command.p_dst)->get_impl() : static_cast<d3d12::buffer*>(command.p_dst)->get_impl();
+			auto* src = command.src_is_upload ? static_cast<d3d12::upload_buffer*>(command.p_src)->get_impl() : static_cast<d3d12::buffer*>(command.p_src)->get_impl();
 			m_graphics_command_list->CopyBufferRegion(dst, command.dst_offset, src, command.src_offset, command.size);
 			break;
 		}
 		case command::type_copy_texture:
 		{
 			PIX_SCOPED_EVENT("copy_texture");
-			auto &command = static_cast<const command::copy_texture&>(command_base);
+			auto& command = static_cast<const command::copy_texture&>(command_base);
 			auto p_dst = static_cast<d3d12::texture*>(command.p_dst);
 			auto p_src = static_cast<d3d12::texture*>(command.p_src);
 
@@ -2693,9 +2759,9 @@ inline void render_device::present(render::swapchain &swapchain_base)
 		case command::type_copy_resource:
 		{
 			PIX_SCOPED_EVENT("copy_buffer");
-			auto &command = static_cast<const command::copy_resource&>(command_base);
-			auto &dst = *static_cast<d3d12::resource*>(command.p_dst);
-			auto &src = *static_cast<d3d12::resource*>(command.p_src);
+			auto& command = static_cast<const command::copy_resource&>(command_base);
+			auto& dst = *static_cast<d3d12::resource*>(command.p_dst);
+			auto& src = *static_cast<d3d12::resource*>(command.p_src);
 			m_graphics_command_list->CopyResource(dst.get_impl(), src.get_impl());
 			break;
 		}
@@ -2706,23 +2772,67 @@ inline void render_device::present(render::swapchain &swapchain_base)
 			m_graphics_command_list->Close();
 			break;
 		}
+		case command::type_call_function:
+		{
+			PIX_SCOPED_EVENT("call_function");
+			auto& command = static_cast<const command::call_function&>(command_base);
+			auto* p_target_state = static_cast<const d3d12::target_state*>(command.p_target_state);
+			if(p_target_state)
+			{
+				D3D12_RECT scissor[8];
+				D3D12_VIEWPORT viewport[8];
+				D3D12_CPU_DESCRIPTOR_HANDLE rt_descriptors[8];
+				for(uint i = 0; i < p_target_state->num_rtvs(); i++)
+				{
+					rt_descriptors[i] = p_target_state->rtv(i);
+				
+					const auto& texture = static_cast<d3d12::texture&>(p_target_state->rtv(i).resource());
+					scissor[i].left = scissor[i].top = 0;
+					scissor[i].right = texture.width();
+					scissor[i].bottom = texture.height();
+					viewport[i].TopLeftX = viewport[i].TopLeftY = 0;
+					viewport[i].Width = float(texture.width());
+					viewport[i].Height = float(texture.height());
+					viewport[i].MinDepth = 0;
+					viewport[i].MaxDepth = 1;
+				}
+				m_graphics_command_list->RSSetViewports(p_target_state->num_rtvs(), viewport);
+				m_graphics_command_list->RSSetScissorRects(p_target_state->num_rtvs(), scissor);
+				m_graphics_command_list->OMSetRenderTargets(p_target_state->num_rtvs(), rt_descriptors, FALSE, p_target_state->has_dsv() ? p_target_state->dsv() : nullptr);
+			}
+			command.func();
+			break;
+		}
 		default:
 			assert(0);
 		}
 	}
 
-	//前の実行完了を待機
-	wait_idle();
-
-	//前フレームのメモリを解放
-	m_upload_buffer_allocator.dellocate();
-	m_sv_sampler_descriptor_heap.deallocate();
-	m_sv_cbv_srv_uav_descriptor_heap.deallocate();
+	//static auto prev = std::chrono::high_resolution_clock::now();
+	//auto cur = std::chrono::high_resolution_clock::now();
+	//BOOL full = false;
+	//swapchain->GetFullscreenState(&full, nullptr);
+	//std::cout << full << " " << std::chrono::duration_cast<std::chrono::nanoseconds>(cur- prev).count() / 1000.0 / 1000.0 << std::endl;
+	//prev = cur;
 
 	//実行&Present
 	ID3D12CommandList *command_list_ptrs[] = {m_graphics_command_list.get_impl() };
 	m_graphics_command_queue->ExecuteCommandLists(1, command_list_ptrs);
 	swapchain->Present(1, 0);
+
+	//同期ポイント
+	m_graphics_fence_value++;
+	m_graphics_command_queue->Signal(m_graphics_fence.get_impl(), m_graphics_fence_value);
+
+	//前の実行完了を待機
+	m_graphics_fence->SetEventOnCompletion(m_graphics_fence_prev_value, m_graphics_event);
+	m_graphics_fence_prev_value = m_graphics_fence_value;
+	WaitForSingleObject(m_graphics_event, INFINITE);
+
+	//前フレームのメモリを解放
+	m_upload_buffer_allocator.dellocate();
+	m_sv_sampler_descriptor_heap.deallocate();
+	m_sv_cbv_srv_uav_descriptor_heap.deallocate();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2730,13 +2840,8 @@ inline void render_device::present(render::swapchain &swapchain_base)
 //GPU処理完了を待機
 inline void render_device::wait_idle()
 {
-	uint64_t fence_value = m_graphics_fence->GetCompletedValue() + 1;
-	m_graphics_command_queue->Signal(m_graphics_fence.get_impl(), fence_value);
-	if(m_graphics_fence->GetCompletedValue() < fence_value)
-	{
-		m_graphics_fence->SetEventOnCompletion(fence_value, m_graphics_event);
-		WaitForSingleObject(m_graphics_event, INFINITE);
-	}
+	m_graphics_fence->SetEventOnCompletion(m_graphics_fence_value, m_graphics_event);
+	WaitForSingleObject(m_graphics_event, INFINITE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2750,45 +2855,45 @@ inline shader_compiler_ptr render_device::create_shader_compiler()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //スワップチェインを作成
-inline swapchain_ptr render_device::create_swapchain(const HWND hwnd, const uint2 size)
+inline swapchain_ptr render_device::create_swapchain(const uint2 size)
 {
-	return new swapchain(m_graphics_command_queue, hwnd, size);
+	return new swapchain(m_graphics_command_queue, m_hwnd, size);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //テクスチャを作成
-inline texture_ptr render_device::create_texture1d(const texture_format format, const uint width, const uint mip_levels, const resource_flags flags, const void *data)
+inline texture_ptr render_device::create_texture1d(const texture_format format, const uint width, const uint mip_levels, const resource_flags flags, const void* data)
 {
 	return new texture1d(*this, format, width, 1, 1, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE1D);
 }
 
-inline texture_ptr render_device::create_texture2d(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void *data)
+inline texture_ptr render_device::create_texture2d(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data)
 {
 	return new texture2d(*this, format, width, height, 1, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
 }
 
-inline texture_ptr render_device::create_texture3d(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void *data)
+inline texture_ptr render_device::create_texture3d(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data)
 {
 	return new texture3d(*this, format, width, height, depth, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE3D);
 }
 
-inline texture_ptr render_device::create_texture_cube(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void *data)
+inline texture_ptr render_device::create_texture_cube(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data)
 {
 	return new texture_cube(*this, format, width, height, 6, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
 }
 
-inline texture_ptr render_device::create_texture1d_array(const texture_format format, const uint width, const uint depth, const uint mip_levels, const resource_flags flags, const void *data)
+inline texture_ptr render_device::create_texture1d_array(const texture_format format, const uint width, const uint depth, const uint mip_levels, const resource_flags flags, const void* data)
 {
 	return new texture1d_array(*this, format, width, 1, depth, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE1D);
 }
 
-inline texture_ptr render_device::create_texture2d_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void *data)
+inline texture_ptr render_device::create_texture2d_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data)
 {
 	return new texture2d_array(*this, format, width, height, depth, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
 }
 
-inline texture_ptr render_device::create_texture_cube_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void *data)
+inline texture_ptr render_device::create_texture_cube_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data)
 {
 	throw; //要テスト
 	//return new texture_cube_array(*this, format, width, height, 6 * depth, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
@@ -2797,24 +2902,24 @@ inline texture_ptr render_device::create_texture_cube_array(const texture_format
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //バッファを作成
-inline buffer_ptr render_device::create_structured_buffer(const uint stride, const uint num_elements, const resource_flags flags, const void *data)
+inline buffer_ptr render_device::create_structured_buffer(const uint stride, const uint num_elements, const resource_flags flags, const void* data)
 {
 	return new structured_buffer(*this, stride, num_elements, flags, data);
 }
 
-inline buffer_ptr render_device::create_byteaddress_buffer(const uint size, const resource_flags flags, const void *data)
+inline buffer_ptr render_device::create_byteaddress_buffer(const uint size, const resource_flags flags, const void* data)
 {
 	return new byteaddress_buffer(*this, 4, ceil_div(size, 4), flags, data);
 }
 
-inline constant_buffer_ptr render_device::create_temporary_cbuffer(const uint size, const void *data)
+inline constant_buffer_ptr render_device::create_temporary_cbuffer(const uint size, const void* data)
 {
 	const uint alignment = 256;
 	const uint offset = roundup(uint(static_cast<uint8_t*>(get_update_buffer_pointer(size + alignment - 1)) - m_upload_buffer.data<uint8_t>()), alignment);
 	return new temporary_constant_buffer(*this, size, data, m_upload_buffer.data<uint8_t>() + offset, create_constant_buffer_view(m_upload_buffer->GetGPUVirtualAddress() + offset, roundup(size, alignment)));
 }
 
-inline constant_buffer_ptr render_device::create_constant_buffer(const uint size, const void *data)
+inline constant_buffer_ptr render_device::create_constant_buffer(const uint size, const void* data)
 {
 	const uint alignment = 256;
 	return new static_constant_buffer(*this, roundup(size, alignment), data);
@@ -2833,7 +2938,7 @@ inline readback_buffer_ptr render_device::create_readback_buffer(const uint size
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //サンプラを作成
-inline sampler_ptr render_device::create_sampler(const sampler_desc &desc)
+inline sampler_ptr render_device::create_sampler(const sampler_desc& desc)
 {
 	D3D12_SAMPLER_DESC sampler_desc = {};
 	sampler_desc.Filter = D3D12_FILTER(desc.filter);
@@ -2865,7 +2970,7 @@ inline top_level_acceleration_structure_ptr render_device::create_top_level_acce
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //BLASを作成
-inline bottom_level_acceleration_structure_ptr render_device::create_bottom_level_acceleration_structure(const render::geometry_state &gs, const raytracing_geometry_desc *descs, const uint num_descs, const bool allow_update)
+inline bottom_level_acceleration_structure_ptr render_device::create_bottom_level_acceleration_structure(const render::geometry_state& gs, const raytracing_geometry_desc* descs, const uint num_descs, const bool allow_update)
 {
 	return new bottom_level_acceleration_structure(*this, static_cast<const geometry_state&>(gs), descs, num_descs, allow_update);
 }
@@ -2873,54 +2978,54 @@ inline bottom_level_acceleration_structure_ptr render_device::create_bottom_leve
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //Viewを作成
-inline render_target_view_ptr render_device::create_render_target_view(render::texture &tex_base, const texture_rtv_desc &desc)
+inline render_target_view_ptr render_device::create_render_target_view(render::texture& tex_base, const texture_rtv_desc& desc)
 {
-	auto &tex = static_cast<texture&>(tex_base);
+	auto& tex = static_cast<texture&>(tex_base);
 	const D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = tex.create_rtv_desc(desc);
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = m_rtv_descriptor_heap.allocate();
 	mp_impl->CreateRenderTargetView(tex.get_impl(), &rtv_desc, handle);
 	return new render_target_view(rtv_desc.Format, cpu_descriptor(handle, m_rtv_descriptor_heap), tex, desc);
 }
 
-inline depth_stencil_view_ptr render_device::create_depth_stencil_view(render::texture &tex_base, const texture_dsv_desc &desc)
+inline depth_stencil_view_ptr render_device::create_depth_stencil_view(render::texture& tex_base, const texture_dsv_desc& desc)
 {
-	auto &tex = static_cast<texture&>(tex_base);
+	auto& tex = static_cast<texture&>(tex_base);
 	const D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = tex.create_dsv_desc(desc);
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = m_dsv_descriptor_heap.allocate();
 	mp_impl->CreateDepthStencilView(tex.get_impl(), &dsv_desc, handle);
 	return new depth_stencil_view(dsv_desc.Format, cpu_descriptor(handle, m_dsv_descriptor_heap), tex, desc);
 }
 
-inline shader_resource_view_ptr render_device::create_shader_resource_view(render::texture &tex_base, const texture_srv_desc &desc)
+inline shader_resource_view_ptr render_device::create_shader_resource_view(render::texture& tex_base, const texture_srv_desc& desc)
 {
-	auto &tex = static_cast<texture &>(tex_base);
+	auto& tex = static_cast<texture&>(tex_base);
 	const D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = tex.create_srv_desc(desc);
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = m_cbv_srv_uav_descriptor_heap.allocate();
 	mp_impl->CreateShaderResourceView(tex.get_impl(), &srv_desc, handle);
 	return new texture_shader_resource_view(srv_desc.Format, cpu_descriptor(handle, m_cbv_srv_uav_descriptor_heap), tex, desc);
 }
 
-inline unordered_access_view_ptr render_device::create_unordered_access_view(render::texture &tex_base, const texture_uav_desc &desc)
+inline unordered_access_view_ptr render_device::create_unordered_access_view(render::texture& tex_base, const texture_uav_desc& desc)
 {
-	auto &tex = static_cast<texture &>(tex_base);
+	auto& tex = static_cast<texture&>(tex_base);
 	const D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = tex.create_uav_desc(desc);
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = m_cbv_srv_uav_descriptor_heap.allocate();
 	mp_impl->CreateUnorderedAccessView(tex.get_impl(), nullptr, &uav_desc, handle);
 	return new texture_unordered_access_view(cpu_descriptor(handle, m_cbv_srv_uav_descriptor_heap), tex, desc);
 }
 
-inline shader_resource_view_ptr render_device::create_shader_resource_view(render::buffer &buf_base, const buffer_srv_desc &desc)
+inline shader_resource_view_ptr render_device::create_shader_resource_view(render::buffer& buf_base, const buffer_srv_desc& desc)
 {
-	auto &buf = static_cast<buffer &>(buf_base);
+	auto& buf = static_cast<buffer&>(buf_base);
 	const D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = buf.create_srv_desc(desc);
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = m_cbv_srv_uav_descriptor_heap.allocate();
 	mp_impl->CreateShaderResourceView(buf.get_impl(), &srv_desc, handle);
 	return new buffer_shader_resource_view(cpu_descriptor(handle, m_cbv_srv_uav_descriptor_heap), buf, desc);
 }
 
-inline unordered_access_view_ptr render_device::create_unordered_access_view(render::buffer &buf_base, const buffer_uav_desc &desc)
+inline unordered_access_view_ptr render_device::create_unordered_access_view(render::buffer& buf_base, const buffer_uav_desc& desc)
 {
-	auto &buf = static_cast<buffer &>(buf_base);
+	auto& buf = static_cast<buffer&>(buf_base);
 	const D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = buf.create_uav_desc(desc);
 	D3D12_CPU_DESCRIPTOR_HANDLE handle = m_cbv_srv_uav_descriptor_heap.allocate();
 	mp_impl->CreateUnorderedAccessView(buf.get_impl(), nullptr, &uav_desc, handle);
@@ -2941,12 +3046,12 @@ inline cpu_descriptor render_device::create_constant_buffer_view(const D3D12_GPU
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //パイプラインステートを作成
-inline pipeline_state_ptr render_device::create_compute_pipeline_state(const string &name, shader_ptr p_cs)
+inline pipeline_state_ptr render_device::create_compute_pipeline_state(const string& name, shader_ptr p_cs)
 {
 	return new compute_pipeline_state(*this, name, std::move(p_cs));
 }
 
-inline pipeline_state_ptr render_device::create_graphics_pipeline_state(const string &name, shader_ptr p_vs, shader_ptr p_ps, const input_layout_desc &il, const rasterizer_desc &rs, const depth_stencil_desc &dss, const blend_desc &bs)
+inline pipeline_state_ptr render_device::create_graphics_pipeline_state(const string& name, shader_ptr p_vs, shader_ptr p_ps, const input_layout_desc& il, const rasterizer_desc& rs, const depth_stencil_desc& dss, const blend_desc& bs)
 {
 	return new graphics_pipeline_state(name, std::move(p_vs), std::move(p_ps), il, rs, dss, bs);
 }
@@ -2962,15 +3067,15 @@ inline target_state_ptr render_device::create_target_state(const uint num_rtvs, 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //ジオメトリステートを作成
-inline geometry_state_ptr render_device::create_geometry_state(const uint num_vbs, render::buffer *vb_ptrs[8], uint offsets[8], uint strides[8], render::buffer *p_ib)
+inline geometry_state_ptr render_device::create_geometry_state(const uint num_vbs, render::buffer* vb_ptrs[8], uint offsets[8], uint strides[8], render::buffer* p_ib)
 {
 	return new geometry_state(num_vbs, vb_ptrs, offsets, strides, p_ib);
 }
-	
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //バインドレスリソースとして登録
-inline void render_device::register_bindless(render::sampler &sampler)
+inline void render_device::register_bindless(render::sampler& sampler)
 {
 	const auto alloc = m_sv_sampler_descriptor_heap.allocate_bindless();
 	mp_impl->CopyDescriptorsSimple(1, alloc.cpu_start, static_cast<const d3d12::sampler&>(sampler), D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
@@ -2978,7 +3083,7 @@ inline void render_device::register_bindless(render::sampler &sampler)
 	set_bindless_handle(sampler, alloc.index);
 }
 
-inline void render_device::register_bindless(render::constant_buffer &cbv)
+inline void render_device::register_bindless(render::constant_buffer& cbv)
 {
 	const auto alloc = m_sv_cbv_srv_uav_descriptor_heap.allocate_bindless();
 	mp_impl->CopyDescriptorsSimple(1, alloc.cpu_start, static_cast<const d3d12::constant_buffer&>(cbv), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -2986,7 +3091,7 @@ inline void render_device::register_bindless(render::constant_buffer &cbv)
 	set_bindless_handle(cbv, alloc.index);
 }
 
-inline void render_device::register_bindless(render::shader_resource_view &srv)
+inline void render_device::register_bindless(render::shader_resource_view& srv)
 {
 	const auto alloc = m_sv_cbv_srv_uav_descriptor_heap.allocate_bindless();
 	mp_impl->CopyDescriptorsSimple(1, alloc.cpu_start, static_cast<d3d12::shader_resource_view&>(srv), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -2997,21 +3102,21 @@ inline void render_device::register_bindless(render::shader_resource_view &srv)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //バインドレスリソースの登録解除
-inline void render_device::unregister_bindless(render::sampler &sampler)
+inline void render_device::unregister_bindless(render::sampler& sampler)
 {
 	m_sv_sampler_descriptor_heap.deallocate_bindless(sampler.bindless_handle());
 	m_bindless_sampler[sampler.bindless_handle()] = nullptr;
 	set_bindless_handle(sampler, invalid_bindless_handle);
 }
 
-inline void render_device::unregister_bindless(render::constant_buffer &cbv)
+inline void render_device::unregister_bindless(render::constant_buffer& cbv)
 {
 	m_sv_cbv_srv_uav_descriptor_heap.deallocate_bindless(cbv.bindless_handle());
 	m_bindless_cbv_srv_uav[cbv.bindless_handle()] = nullptr;
 	set_bindless_handle(cbv, invalid_bindless_handle);
 }
 
-inline void render_device::unregister_bindless(render::shader_resource_view &srv)
+inline void render_device::unregister_bindless(render::shader_resource_view& srv)
 {
 	m_sv_cbv_srv_uav_descriptor_heap.deallocate_bindless(srv.bindless_handle());
 	m_bindless_cbv_srv_uav[srv.bindless_handle()] = nullptr;
@@ -3021,37 +3126,37 @@ inline void render_device::unregister_bindless(render::shader_resource_view &srv
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //名前を設定
-inline void render_device::set_name(render::buffer &buf, const wchar_t *name)
+inline void render_device::set_name(render::buffer& buf, const wchar_t* name)
 {
 	static_cast<d3d12::buffer&>(buf)->SetName(name);
 }
 
-inline void render_device::set_name(render::upload_buffer &buf, const wchar_t *name)
+inline void render_device::set_name(render::upload_buffer& buf, const wchar_t* name)
 {
 	static_cast<d3d12::upload_buffer&>(buf)->SetName(name);
 }
 
-inline void render_device::set_name(render::constant_buffer &buf, const wchar_t *name)
+inline void render_device::set_name(render::constant_buffer& buf, const wchar_t* name)
 {
 	static_cast<d3d12::static_constant_buffer&>(buf)->SetName(name);
 }
 
-inline void render_device::set_name(render::readback_buffer &buf, const wchar_t *name)
+inline void render_device::set_name(render::readback_buffer& buf, const wchar_t* name)
 {
 	static_cast<d3d12::readback_buffer&>(buf)->SetName(name);
 }
 
-inline void render_device::set_name(render::texture &tex, const wchar_t *name)
+inline void render_device::set_name(render::texture& tex, const wchar_t* name)
 {
 	static_cast<d3d12::texture&>(tex)->SetName(name);
 }
 
-inline void render_device::set_name(render::top_level_acceleration_structure &tlas, const wchar_t *name)
+inline void render_device::set_name(render::top_level_acceleration_structure& tlas, const wchar_t* name)
 {
 	static_cast<d3d12::top_level_acceleration_structure&>(tlas)->SetName(name);
 }
 
-inline void render_device::set_name(render::bottom_level_acceleration_structure &blas, const wchar_t *name)
+inline void render_device::set_name(render::bottom_level_acceleration_structure& blas, const wchar_t* name)
 {
 	static_cast<d3d12::bottom_level_acceleration_structure&>(blas)->SetName(name);
 }
@@ -3059,16 +3164,16 @@ inline void render_device::set_name(render::bottom_level_acceleration_structure 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //リソースをコピー
-inline void render_device::copy_resource(resource &dst, resource &src)
+inline void render_device::copy_resource(resource& dst, resource& src)
 {
 	m_copy_command_allocator->Reset();
 	m_copy_command_list->Reset(m_copy_command_allocator.get_impl(), nullptr);
 	m_copy_command_list->CopyResource(dst.get_impl(), src.get_impl());
 	m_copy_command_list->Close();
 
-	ID3D12CommandList *copy_command_list = m_copy_command_list.get_impl();
+	ID3D12CommandList* copy_command_list = m_copy_command_list.get_impl();
 	m_copy_command_queue->ExecuteCommandLists(1, &copy_command_list);
-	
+
 	const size_t fence_value = m_copy_fence->GetCompletedValue() + 1;
 	m_copy_command_queue->Signal(m_copy_fence.get_impl(), fence_value);
 	m_copy_fence->SetEventOnCompletion(fence_value, m_copy_event);
@@ -3078,16 +3183,16 @@ inline void render_device::copy_resource(resource &dst, resource &src)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //バッファをコピー
-inline void render_device::copy_buffer(buffer &dst, const uint dst_offset, upload_buffer &src, const uint src_offset, const uint size)
+inline void render_device::copy_buffer(buffer& dst, const uint dst_offset, upload_buffer& src, const uint src_offset, const uint size)
 {
 	m_copy_command_allocator->Reset();
 	m_copy_command_list->Reset(m_copy_command_allocator.get_impl(), nullptr);
 	m_copy_command_list->CopyBufferRegion(dst.get_impl(), dst_offset, src.get_impl(), src_offset, size);
 	m_copy_command_list->Close();
 
-	ID3D12CommandList *copy_command_list = m_copy_command_list.get_impl();
+	ID3D12CommandList* copy_command_list = m_copy_command_list.get_impl();
 	m_copy_command_queue->ExecuteCommandLists(1, &copy_command_list);
-	
+
 	const size_t fence_value = m_copy_fence->GetCompletedValue() + 1;
 	m_copy_command_queue->Signal(m_copy_fence.get_impl(), fence_value);
 	m_copy_fence->SetEventOnCompletion(fence_value, m_copy_event);
@@ -3097,7 +3202,7 @@ inline void render_device::copy_buffer(buffer &dst, const uint dst_offset, uploa
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //テクスチャをコピー
-inline void render_device::copy_texture(texture &dst, upload_buffer &src, const D3D12_PLACED_SUBRESOURCE_FOOTPRINT *footprints, const uint num_subresources)
+inline void render_device::copy_texture(texture& dst, upload_buffer& src, const D3D12_PLACED_SUBRESOURCE_FOOTPRINT* footprints, const uint num_subresources)
 {
 	D3D12_TEXTURE_COPY_LOCATION dst_loc;
 	dst_loc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -3116,10 +3221,10 @@ inline void render_device::copy_texture(texture &dst, upload_buffer &src, const 
 		m_copy_command_list->CopyTextureRegion(&dst_loc, 0, 0, 0, &src_loc, nullptr);
 	}
 	m_copy_command_list->Close();
-	
-	ID3D12CommandList *copy_command_list = m_copy_command_list.get_impl();
+
+	ID3D12CommandList* copy_command_list = m_copy_command_list.get_impl();
 	m_copy_command_queue->ExecuteCommandLists(1, &copy_command_list);
-	
+
 	const size_t fence_value = m_copy_fence->GetCompletedValue() + 1;
 	m_copy_command_queue->Signal(m_copy_fence.get_impl(), fence_value);
 	m_copy_fence->SetEventOnCompletion(fence_value, m_copy_event);
@@ -3129,7 +3234,7 @@ inline void render_device::copy_texture(texture &dst, upload_buffer &src, const 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //バッファ更新用のポインタを返す
-inline void *render_device::get_update_buffer_pointer(const uint size)
+inline void* render_device::get_update_buffer_pointer(const uint size)
 {
 	const size_t pos = m_upload_buffer_allocator.allocate(ceil_div(size, upload_buffer_alignment));
 	return m_upload_buffer.data<uint8_t>() + (upload_buffer_alignment * pos);
@@ -3138,31 +3243,31 @@ inline void *render_device::get_update_buffer_pointer(const uint size)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //実行可能かのチェックと実行に必要なデータを作成
-inline void *render_device::validate(const render::pipeline_state &ps_base, const unordered_map<string, bind_resource> &resources)
+inline void* render_device::validate(const render::pipeline_state& ps_base, const unordered_map<string, bind_resource>& resources)
 {
-	auto &pipeline_state = static_cast<const d3d12::compute_pipeline_state&>(ps_base);
-	auto &resource_count = pipeline_state.resource_count();
+	auto& pipeline_state = static_cast<const d3d12::compute_pipeline_state&>(ps_base);
+	auto& resource_count = pipeline_state.resource_count();
 
-	const d3d12::shader *p_shader = static_cast<d3d12::shader*>(pipeline_state.p_cs().get());
+	const d3d12::shader* p_shader = static_cast<d3d12::shader*>(pipeline_state.p_cs().get());
 	return validate_impl(&p_shader, &resource_count, 1, resources);
 }
 
-inline void *render_device::validate(const render::pipeline_state &ps_base, const render::target_state &ts_base, const render::geometry_state &gs_base, const unordered_map<string, bind_resource> &resources)
+inline void* render_device::validate(const render::pipeline_state& ps_base, const render::target_state& ts_base, const render::geometry_state& gs_base, const unordered_map<string, bind_resource>& resources)
 {
-	auto &target_state = static_cast<const d3d12::target_state&>(ts_base);
-	auto &geometry_state = static_cast<const d3d12::geometry_state&>(gs_base);
-	auto &pipeline_state = static_cast<const d3d12::graphics_pipeline_state&>(ps_base);
-	auto &record = pipeline_state.get(*this, target_state, geometry_state);
-	auto &shader_resource_count_table = record.pipeline_resource_count.shader_resource_count_table;
+	auto& target_state = static_cast<const d3d12::target_state&>(ts_base);
+	auto& geometry_state = static_cast<const d3d12::geometry_state&>(gs_base);
+	auto& pipeline_state = static_cast<const d3d12::graphics_pipeline_state&>(ps_base);
+	auto& record = pipeline_state.get(*this, target_state, geometry_state);
+	auto& shader_resource_count_table = record.pipeline_resource_count.shader_resource_count_table;
 
-	const d3d12::shader *shader_ptrs[] = {
+	const d3d12::shader* shader_ptrs[] = {
 		static_cast<d3d12::shader*>(pipeline_state.p_vs().get()),
 		static_cast<d3d12::shader*>(pipeline_state.p_ps().get()),
 	};
 	return validate_impl(shader_ptrs, shader_resource_count_table, 2, resources);
 }
 
-inline void *render_device::validate_impl(const shader **shader_ptrs, const shader_resource_count *resource_count_table, const uint num_shaders, const unordered_map<string, bind_resource> &resources)
+inline void* render_device::validate_impl(const shader** shader_ptrs, const shader_resource_count* resource_count_table, const uint num_shaders, const unordered_map<string, bind_resource>& resources)
 {
 	uint num_cbvs = 0;
 	uint num_srvs = 0;
@@ -3180,10 +3285,11 @@ inline void *render_device::validate_impl(const shader **shader_ptrs, const shad
 	const auto cbv_srv_uav_descriptor_size = m_sv_cbv_srv_uav_descriptor_heap.descriptor_size();
 	const auto sampler_descriptors = m_sv_sampler_descriptor_heap.allocate(num_samplers);
 	const auto cbv_srv_uav_descriptors = m_sv_cbv_srv_uav_descriptor_heap.allocate(num_cbvs + num_srvs + num_uavs);
-	const auto sampler_heap_start = sampler_descriptors.cpu_start.ptr;
-	const auto cbv_srv_uav_heap_start = cbv_srv_uav_descriptors.cpu_start.ptr;
+	
+	auto sampler_heap_start = sampler_descriptors.cpu_start.ptr;
+	auto cbv_srv_uav_heap_start = cbv_srv_uav_descriptors.cpu_start.ptr;
 
-	auto *p_bind_info = static_cast<bind_info*>(m_command_manager.allocate(sizeof(bind_info) + sizeof(bind_info::view) * (num_srvs + num_uavs)));
+	auto* p_bind_info = static_cast<bind_info*>(m_command_manager.allocate(sizeof(bind_info) + sizeof(bind_info::view) * (num_srvs + num_uavs)));
 	p_bind_info->sampler_heap_start = sampler_descriptors.gpu_start;
 	p_bind_info->cbv_srv_uav_heap_start = cbv_srv_uav_descriptors.gpu_start;
 	p_bind_info->root_constant_index = uint8_t(-1);
@@ -3209,8 +3315,8 @@ inline void *render_device::validate_impl(const shader **shader_ptrs, const shad
 			0u,
 		};
 
-		auto &shader = *shader_ptrs[i];
-		auto &reflection = shader.reflection();
+		auto& shader = *shader_ptrs[i];
+		auto& reflection = shader.reflection();
 
 		D3D12_SHADER_DESC shader_desc;
 		reflection.GetDesc(&shader_desc);
@@ -3225,7 +3331,7 @@ inline void *render_device::validate_impl(const shader **shader_ptrs, const shad
 			{
 				std::cout << input_bind_desc.Name << " is not found." << std::endl;
 			};
-			auto type_error = [&](const char *type, const bind_resource &res)
+			auto type_error = [&](const char* type, const bind_resource& res)
 			{
 				std::cout << input_bind_desc.Name << " is " << type << ", but ";
 				if(res.is_sampler()){ std::cout << "sampler"; }
@@ -3293,7 +3399,7 @@ inline void *render_device::validate_impl(const shader **shader_ptrs, const shad
 				auto it = resources.find(input_bind_desc.Name);
 				if(it == resources.end()){ return not_found_error(), nullptr; } 
 				if(not(it->second.is_uav())){ return type_error("uav", it->second), nullptr; }
-				auto &uav = static_cast<const d3d12::unordered_access_view&>(it->second.uav());
+				auto& uav = static_cast<const d3d12::unordered_access_view&>(it->second.uav());
 				
 				mp_impl->CopyDescriptorsSimple(1, D3D12_CPU_DESCRIPTOR_HANDLE{cbv_srv_uav_heap_start + cbv_srv_uav_descriptor_size * offset[2]++}, static_cast<const d3d12::unordered_access_view&>(it->second.uav()), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 				p_bind_info->views[p_bind_info->num_views++].set(&it->second.uav(), false, is_pixel_shader);
@@ -3311,6 +3417,10 @@ inline void *render_device::validate_impl(const shader **shader_ptrs, const shad
 				assert(0);
 			}
 		}
+
+		//次のシェーダの書き込み先を設定
+		sampler_heap_start += sampler_descriptor_size * resource_count_table[i].sampler;
+		cbv_srv_uav_heap_start += cbv_srv_uav_descriptor_size * (resource_count_table[i].cbv + resource_count_table[i].srv + resource_count_table[i].uav);
 	}
 
 	if(use_root_constant)
@@ -3324,7 +3434,7 @@ inline void *render_device::validate_impl(const shader **shader_ptrs, const shad
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //ルートシグネチャを作成
-inline pair<ComPtr<ID3D12RootSignature>, pipeline_resource_count> render_device::create_root_signature(const shader **shader_ptrs, const uint num_shaders)
+inline pair<ComPtr<ID3D12RootSignature>, pipeline_resource_count> render_device::create_root_signature(const shader** shader_ptrs, const uint num_shaders)
 {
 	const uint max_num = 6;
 	assert(num_shaders < max_num);
@@ -3332,9 +3442,9 @@ inline pair<ComPtr<ID3D12RootSignature>, pipeline_resource_count> render_device:
 	D3D12_DESCRIPTOR_RANGE sampler_ranges[max_num] = {};
 	D3D12_DESCRIPTOR_RANGE cbv_srv_uav_ranges[3 * max_num] = {};
 	D3D12_ROOT_PARAMETER root_parameters[max_num + 2] = {};
-	D3D12_ROOT_PARAMETER &root_constant_parameter = root_parameters[max_num + 0];
-	D3D12_ROOT_PARAMETER &root_tlas_srv_parameter = root_parameters[max_num + 1];
-	D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {};
+	D3D12_ROOT_PARAMETER& root_constant_parameter = root_parameters[max_num + 0];
+	D3D12_ROOT_PARAMETER& root_tlas_srv_parameter = root_parameters[max_num + 1];
+	D3D12_ROOT_SIGNATURE_DESC root_signature_desc ={};
 	root_signature_desc.pParameters = root_parameters;
 	root_signature_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 	root_signature_desc.NumParameters = 0;
@@ -3345,10 +3455,10 @@ inline pair<ComPtr<ID3D12RootSignature>, pipeline_resource_count> render_device:
 	pipeline_resource_count pipeline_resource_count;
 	for(uint i = 0; i < num_shaders; i++)
 	{
-		auto &shader = *shader_ptrs[i];
-		auto &reflection = shader.reflection();
-		auto &resource_count = pipeline_resource_count.shader_resource_count_table[i];
-		auto &root_parameter = root_parameters[root_signature_desc.NumParameters];
+		auto& shader = *shader_ptrs[i];
+		auto& reflection = shader.reflection();
+		auto& resource_count = pipeline_resource_count.shader_resource_count_table[i];
+		auto& root_parameter = root_parameters[root_signature_desc.NumParameters];
 
 		const auto flags = reflection.GetRequiresFlags();
 		if(flags & D3D_SHADER_REQUIRES_RESOURCE_DESCRIPTOR_HEAP_INDEXING)
@@ -3421,7 +3531,7 @@ inline pair<ComPtr<ID3D12RootSignature>, pipeline_resource_count> render_device:
 				{
 					if(root_signature_desc.NumStaticSamplers == 0)
 					{
-						auto &static_samplers = get_static_samplers(static_sampler_bind_point, static_sampler_bind_point);
+						auto& static_samplers = get_static_samplers(static_sampler_bind_point, static_sampler_bind_point);
 						root_signature_desc.NumStaticSamplers += uint(static_samplers.size());
 						root_signature_desc.pStaticSamplers = static_samplers.data();
 					}
@@ -3491,7 +3601,7 @@ inline pair<ComPtr<ID3D12RootSignature>, pipeline_resource_count> render_device:
 
 		if(resource_count.sampler > 0)
 		{
-			auto &root_parameter = root_parameters[root_signature_desc.NumParameters++];
+			auto& root_parameter = root_parameters[root_signature_desc.NumParameters++];
 			root_parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 			root_parameter.DescriptorTable.pDescriptorRanges = p_sampler_range;
 			root_parameter.DescriptorTable.NumDescriptorRanges = 1;

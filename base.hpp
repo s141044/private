@@ -4,9 +4,9 @@
 #ifndef NN_RENDER_RENDER_TYPE_HPP
 #define NN_RENDER_RENDER_TYPE_HPP
 
+#include"core.hpp"
 #include"image.hpp"
-#include"core_impl.hpp"
-#include"utility/float3x4.hpp"
+#include"utility.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -33,9 +33,10 @@ enum priority
 	priority_render_hdr = 600, 
 	priority_postprocess = 700,
 	priority_tonemapping = 800, 
+	priority_render_ldr = 900, 
 	
 	priority_draw_picked = 900,
-	priority_render_ui = 1000,
+	priority_render_gui = 1000,
 
 	priority_present = 0xffffffff,
 };
@@ -499,41 +500,38 @@ public:
 	void look_at(const float3 &pos, const float3 &center);
 	void look_at(const float3 &pos, const float3 &dir, const float dist);
 
-	//アスペクト比を設定
-	void set_aspect(const float aspect);
+	//位置
+	const float3 &position() const;
+	void set_position(const float3& position);
 
-	//画角を設定
+	//注視点
+	float3 center() const;
+
+	//注視点までの距離
+	float distance() const;
+
+	//視野角
+	float fovy() const;
 	void set_fovy(const float fovy);
 
-	//クリップ距離を設定
+	//クリップ距離
+	float near_clip() const;
+	float far_clip() const;
 	void set_near_clip(const float near_clip);
 	void set_far_clip(const float far_dist);
+
+	//アスペクト比
+	float aspect() const;
+	void set_aspect(const float aspect);
 
 	//ビュー/射影行列を返す
 	float3x4 view_mat() const;
 	float4x4 proj_mat() const;
 
-	//位置/注視点を返す
-	const float3 &position() const;
-	float3 center() const;
-
 	//軸を返す
 	const float3 &axis_x() const;
 	const float3 &axis_y() const;
 	const float3 &axis_z() const;
-
-	//注視点までの距離を返す
-	float distance() const;
-
-	//アスペクト比を返す
-	float aspect() const;
-
-	//画角を返す
-	float fovy() const;
-
-	//クリップ距離を返す
-	float near_clip() const;
-	float far_clip() const;
 
 public:
 
@@ -568,6 +566,76 @@ private:
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+//base_application
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+class base_application : public application
+{
+public:
+
+	//コンストラクタ
+	using application::application;
+
+private:
+
+	//初期化
+	void initialize() override final;
+
+	//終了処理
+	void finalize() override final;
+
+	//更新
+	int update(render_context& context, const float delta_time) override final;
+
+	//リサイズ
+	void resize(const uint2 size) override final;
+
+protected:
+
+	//コンスタントバッファの更新
+	void update_scene_info(render_context& context, const uint2 screen_size, const float jitter_scale = 1);
+
+	//GUI描画＆Present
+	void composite_gui_and_present(render_context& context, shader_resource_view& src_srv, bool r9g9b9e5 = true);
+
+	//LDRターゲット/RTV/SRVを返す
+	target_state& ldr_target(){ return *mp_ldr_target; }
+	render_target_view& ldr_color_rtv(){ return *mp_ldr_color_rtv; }
+	shader_resource_view& ldr_color_srv(){ return *mp_ldr_color_srv; }
+
+private:
+
+	//初期化
+	virtual void initialize_impl() = 0;
+
+	//終了処理
+	virtual void finalize_impl() = 0;
+
+	//更新
+	virtual int update_impl(render_context& context, const float delta_time) = 0;
+
+	//リサイズ
+	virtual void resize_impl(const uint2 size) = 0;
+
+protected:
+
+	camera						m_camera;
+
+private:
+
+	shader_file_holder			m_present_shaders;
+	shader_file_holder			m_dev_draw_shaders;
+	geometry_state_ptr			mp_dummy_geometry;
+	target_state_ptr			mp_present_target[swapchain::buffer_count()];
+	target_state_ptr			mp_ldr_target;
+	texture_ptr					mp_ldr_color_tex;
+	shader_resource_view_ptr	mp_ldr_color_srv;
+	render_target_view_ptr		mp_ldr_color_rtv;
+	constant_buffer_ptr			mp_camera_info;
+	float4x4					m_inv_view_proj_mat;
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 } //namespace render
 
@@ -577,13 +645,14 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include"render_type/mesh-impl.hpp"
-#include"render_type/camera-impl.hpp"
-#include"render_type/render_entity-impl.hpp"
-#include"render_type/texture_manager-impl.hpp"
-#include"render_type/raytracing_picker-impl.hpp"
-#include"render_type/bindless_geometry-impl.hpp"
-#include"render_type/raytracing_manager-impl.hpp"
+#include"base/mesh-impl.hpp"
+#include"base/camera-impl.hpp"
+#include"base/render_entity-impl.hpp"
+#include"base/texture_manager-impl.hpp"
+#include"base/base_application-impl.hpp"
+#include"base/raytracing_picker-impl.hpp"
+#include"base/bindless_geometry-impl.hpp"
+#include"base/raytracing_manager-impl.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
