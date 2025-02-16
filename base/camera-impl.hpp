@@ -152,12 +152,12 @@ inline float3x4 camera::view_mat() const
 //Ë‰es—ñ‚ğ•Ô‚·
 inline float4x4 camera::proj_mat() const
 {
-	const float f = -m_far_clip;
-	const float n = -m_near_clip;
+	const float f = m_far_clip;
+	const float n = m_near_clip;
 	const float sy = 1 / tan(m_fovy * (PI() / 180) / 2);
 	const float sx = sy / m_aspect;
-	const float sz = -f / (f - n);
-	const float tz = -n * sz;
+	const float sz = n / (f - n);
+	const float tz = f * sz;
 	return float4x4(
 		sx, 0, 0,  0, 
 		0, sy, 0,  0,

@@ -4,7 +4,7 @@
 #ifndef NN_RENDER_MATERIAL_STANDARD_HPP
 #define NN_RENDER_MATERIAL_STANDARD_HPP
 
-#include"../render_type.hpp"
+#include"../base.hpp"
 #include"..//utility/convert.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -227,7 +227,8 @@ public:
 		}
 		if(update)
 		{
-			context.push_priority(priority_initiaize);
+			push_priority push_priority(context);
+			context.set_priority(priority_initiaize);
 			context.set_pipeline_resource("reflectance_table", *mp_diffuse_reflectance_uav);
 			context.set_pipeline_state(*m_shaders.get("calc_diffuse_reflectance"));
 			context.dispatch(32, 32, 1);
@@ -238,7 +239,6 @@ public:
 			context.set_pipeline_resource("reflectance_table_matte", *mp_matte_reflectance_uav);
 			context.set_pipeline_state(*m_shaders.get("calc_matte_reflectance"));
 			context.dispatch(1, 1, 1);
-			context.pop_priority();
 		}
 		context.set_pipeline_resource("diffuse_reflectance_table", *mp_diffuse_reflectance_srv, true);
 		context.set_pipeline_resource("specular_reflectance_table", *mp_specular_reflectance_srv, true);

@@ -1,0 +1,50 @@
+
+#include"../utility.hlsl"
+#include"../packing.hlsl"
+#include"../raytracing.hlsl"
+#include"../raytracing_utility.hlsl"
+#include"../global_constant.hlsl"
+#include"../root_constant.hlsl"
+
+RWTexture2D<uint>	color_uav;
+RWTexture2D<float>	depth_uav;
+
+[numthreads(8, 4, 1)]
+void rt_test(uint2 dtid : SV_DispatchThreadID)
+{
+	if(any(dtid >= screen_size))
+		return;
+
+	float3 pos = screen_to_world(dtid + 0.5f, 1);
+	float3 dir = normalize(pos - camera_pos);
+	
+	ray ray;
+	ray.origin = camera_pos;
+	ray.direction = dir;
+	ray.tmin = 0;
+	ray.tmax = 1000;
+
+	ray_payload payload;
+	if(find_closest(ray, payload))
+	{
+		float3 wo = -ray.direction;
+		float3 pos = ray.origin + ray.direction * payload.ray_t;
+		intersection isect = get_intersection(payload.instance_id, 0, payload.primitive_index, payload.barycentrics, payload.is_front_face);
+
+		depth_uav[dtid] = world_to_screen(pos).z;
+
+		float3 col;
+#if defined(VIEW_DEFAULT)
+		col = max(dot(isect.normal, wo), 0.2f);
+#elif defined(VIEW_NORMAL)
+		col = normalize(isect.normal) * 0.5f + 0.5f;
+#elif defined(VIEW_TANGENT)
+		col = isect.tangent.xyz * 0.5f + 0.5f;
+#elif defined(VIEW_BINORMAL)
+		col = normalize(cross(isect.normal, isect.tangent.xyz)) * isect.tangent.w * 0.5f + 0.5f;
+#elif defined(VIEW_UV)
+		col = float3(isect.uv, 0);
+#endif
+		color_uav[dtid] = f32x3_to_r9g9b9e5(col);
+	}
+}

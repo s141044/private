@@ -4,7 +4,7 @@
 #ifndef NN_RENDER_MESH_PRIMITIVE_HPP
 #define NN_RENDER_MESH_PRIMITIVE_HPP
 
-#include"../render_type.hpp"
+#include"../base.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -4,8 +4,7 @@
 #ifndef NN_RENDER_MESH_OBJ_HPP
 #define NN_RENDER_MESH_OBJ_HPP
 
-#include"../render_type.hpp"
-
+#include"../base.hpp"
 #include<ns/objfile.hpp>
 #include<ns/objfile/ts.hpp>
 

@@ -1,0 +1,44 @@
+{
+  "definitions" : 
+  [
+    {
+      "direct_product" : 
+      [
+        {
+          "definition": 
+          [
+            {
+              "name": "view",
+              "cs": [ "dev/rt_test.hlsl", "rt_test", ""]
+            }
+          ]
+        },
+        {
+          "definition": 
+          [
+            {
+              "name": "_default",
+              "cs": ["", "", "-DVIEW_DEFAULT"]
+            },
+            {
+              "name": "_normal",
+              "cs": ["", "", "-DVIEW_NORMAL"]
+            },
+            {
+              "name": "_tangent",
+              "cs": ["", "", "-DVIEW_TANGENT"]
+            },
+            {
+              "name": "_binormal",
+              "cs": ["", "", "-DVIEW_BINORMAL"]
+            },
+            {
+              "name": "_uv",
+              "cs": ["", "", "-DVIEW_UV"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
