@@ -64,11 +64,11 @@ inline void raytracing_manager::build(render_context &context)
 	const auto raytracing_instance_count = uint(m_raytracing_instance_allocator.last_free_block_index());
 	if(raytracing_instance_count)
 	{
-		context.push_priority(priority_build_top_level_acceleration_structure);
+		push_priority push_priority(context);
+		context.set_priority(priority_build_top_level_acceleration_structure);
 		context.copy_buffer(mp_tlas->instance_descs(), 0, *mp_raytracing_instance_descs_ubuf, 0, sizeof(raytracing_instance_desc) * raytracing_instance_count);
 		context.copy_buffer(*mp_bindless_instance_descs_buf, 0, *mp_bindless_instance_descs_ubuf, 0, sizeof(bindless_instance_desc) * bindless_instance_count);
 		context.build_top_level_acceleration_structure(*mp_tlas, raytracing_instance_count);
-		context.pop_priority();
 	}
 }
 

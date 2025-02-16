@@ -7,7 +7,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define NOMINMAX
 
-#include"utility.hpp"
+#include"render_device.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -32,22 +32,29 @@ public:
 	//コンストラクタ
 	render_context(iface::render_device& device);
 
-	//優先度を設定
+	//優先度
+	uint get_priority() const;
 	void set_priority(uint priority);
-	void push_priority(uint priority);
-	void pop_priority();
 
 	//リソースを設定
 	template<class Resource>
 	void set_pipeline_resource(string name, Resource& resource, const bool global = false);
 
-	//ステートを設定
-	void set_target_state(const target_state& ts);
-	void set_pipeline_state(const pipeline_state& ps);
-	void set_geometry_state(const geometry_state& gs);
+	//ステート
+	const target_state* get_target_state() const;
+	const pipeline_state* get_pipeline_state() const;
+	const geometry_state* get_geometry_state() const;
+	void set_target_state(const render::target_state& ts);
+	void set_pipeline_state(const render::pipeline_state& ps);
+	void set_geometry_state(const render::geometry_state& gs);
 
-	//ステンシル値を設定
+	//ステンシル値
+	uint get_stencil_value() const;
 	void set_stencil_value(const uint stencil);
+
+	//ビューポート
+	const viewport& get_viewport() const;
+	void set_viewport(const render::viewport& viewport);
 
 	//描画
 	void draw(const uint vertex_count, const uint instance_count, const uint start_vertex_location, const bool uav_barrier = true);
@@ -90,8 +97,8 @@ public:
 
 	//TLAS/BLASの構築
 	void build_top_level_acceleration_structure(top_level_acceleration_structure& tlas, const uint num_instances);
-	void build_bottom_level_acceleration_structure(bottom_level_acceleration_structure& blas, const geometry_state* p_gs = nullptr);
-	void refit_bottom_level_acceleration_structure(bottom_level_acceleration_structure& blas, const geometry_state* p_gs = nullptr);
+	void build_bottom_level_acceleration_structure(bottom_level_acceleration_structure& blas, const render::geometry_state* p_gs = nullptr);
+	void refit_bottom_level_acceleration_structure(bottom_level_acceleration_structure& blas, const render::geometry_state* p_gs = nullptr);
 
 	//BLASのコンパクション
 	void compact_bottom_level_acceleration_structure(bottom_level_acceleration_structure& blas);
@@ -110,16 +117,56 @@ private:
 	};
 
 	uint									m_priority;
-	stack<uint>								m_priority_stack;
 	iface::render_device&					m_device;
 
 	uint									m_stencil;
-	const target_state*						mp_ts;
-	const pipeline_state*					mp_ps;
-	const geometry_state*					mp_gs;
+	const render::target_state*				mp_ts;
+	const render::pipeline_state*			mp_ps;
+	const render::geometry_state*			mp_gs;
+	render::viewport						m_viewport;
 	unordered_map<string, bind_resource>	m_bind_resources;
 	queue<erase_queue_elem>					m_bind_resource_erase_queue;
 	uint									m_timestamp;
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//push_priority
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+class push_priority
+{
+public:
+
+	//コンストラクタ
+	push_priority(render_context& context) : m_context(context), m_priority(context.get_priority()){}
+
+	//デストラクタ
+	~push_priority(){ m_context.set_priority(m_priority); }
+
+private:
+
+	render_context& m_context;
+	uint			m_priority;
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//push_viewport
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+class push_viewport
+{
+public:
+
+	//コンストラクタ
+	push_viewport(render_context& context) : m_context(context), m_viewport(context.get_viewport()){}
+
+	//デストラクタ
+	~push_viewport(){ m_context.set_viewport(m_viewport); }
+
+private:
+
+	render_context& m_context;
+	viewport		m_viewport;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

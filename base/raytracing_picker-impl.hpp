@@ -49,14 +49,14 @@ inline void raytracing_picker::pick_request(render_context &context, const uint2
 	else if(m_shaders.is_invalid())
 		return;
 
-	context.push_priority(priority_pick);
+	push_priority push_priority(context);
+	context.set_priority(priority_pick);
 	context.set_pipeline_resource("AS", gp_raytracing_manager->tlas());
 	context.set_pipeline_resource("raytracing_instance_descs", gp_raytracing_manager->raytracing_instance_descs_srv());
 	context.set_pipeline_resource("result", *mp_result_uav);
 	context.set_pipeline_state(*m_shaders.get("pick"));
 	context.dispatch_with_32bit_constant(1, 1, 1, pixel_pos.x | (pixel_pos.y << 16));
 	context.copy_buffer(*mp_readback_buf, 0, *mp_result_buf, 0, 4);
-	context.pop_priority();
 
 	m_past = m_current;
 	m_complete_frame = gp_render_device->frame_count() + 3;

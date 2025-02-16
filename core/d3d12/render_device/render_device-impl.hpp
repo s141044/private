@@ -2447,6 +2447,7 @@ inline void render_device::present_impl(render::swapchain& swapchain_base)
 		{
 			uint stencil;
 			uint constant;
+			viewport viewport;
 			bind_info *p_bind_info; 
 			const d3d12::target_state* p_target_state;
 			const d3d12::geometry_state* p_geometry_state;
@@ -2456,6 +2457,7 @@ inline void render_device::present_impl(render::swapchain& swapchain_base)
 			{
 				stencil = command.stencil;
 				constant = command.constant;
+				memcpy(&viewport, command.viewport, sizeof(viewport));
 				p_bind_info = static_cast<render_device::bind_info*>(command.p_optional);
 				p_target_state = static_cast<const d3d12::target_state*>(command.p_target_state);
 				p_geometry_state = static_cast<const d3d12::geometry_state*>(command.p_geometry_state);
@@ -2516,25 +2518,26 @@ inline void render_device::present_impl(render::swapchain& swapchain_base)
 			}
 			m_graphics_command_list->IASetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY(p_pipeline_state->input_layout().topology));
 
-			D3D12_RECT scissor[8];
-			D3D12_VIEWPORT viewport[8];
 			D3D12_CPU_DESCRIPTOR_HANDLE rt_descriptors[8];
 			for(uint i = 0; i < p_target_state->num_rtvs(); i++)
-			{
 				rt_descriptors[i] = p_target_state->rtv(i);
-				
-				const auto& texture = static_cast<d3d12::texture&>(p_target_state->rtv(i).resource());
-				scissor[i].left = scissor[i].top = 0;
-				scissor[i].right = texture.width();
-				scissor[i].bottom = texture.height();
-				viewport[i].TopLeftX = viewport[i].TopLeftY = 0;
-				viewport[i].Width = float(texture.width());
-				viewport[i].Height = float(texture.height());
-				viewport[i].MinDepth = 0;
-				viewport[i].MaxDepth = 1;
-			}
-			m_graphics_command_list->RSSetViewports(p_target_state->num_rtvs(), viewport);
-			m_graphics_command_list->RSSetScissorRects(p_target_state->num_rtvs(), scissor);
+
+			D3D12_RECT scissor_rect;
+			scissor_rect.top = 0;
+			scissor_rect.left = 0;
+			scissor_rect.right = static_cast<d3d12::texture&>((p_target_state->num_rtvs() > 0) ? p_target_state->rtv(0).resource() : p_target_state->dsv().resource()).width();
+			scissor_rect.bottom = static_cast<d3d12::texture&>((p_target_state->num_rtvs() > 0) ? p_target_state->rtv(0).resource() : p_target_state->dsv().resource()).height();
+
+			D3D12_VIEWPORT viewport3d;
+			viewport3d.TopLeftX = float(viewport.left_top.x);
+			viewport3d.TopLeftY = float(viewport.left_top.y);
+			viewport3d.Width = float(viewport.size.x);
+			viewport3d.Height = float(viewport.size.y);
+			viewport3d.MinDepth = 0;
+			viewport3d.MaxDepth = 1;
+
+			m_graphics_command_list->RSSetViewports(1, &viewport3d);
+			m_graphics_command_list->RSSetScissorRects(1, &scissor_rect);
 			m_graphics_command_list->OMSetRenderTargets(p_target_state->num_rtvs(), rt_descriptors, FALSE, p_target_state->has_dsv() ? p_target_state->dsv() : nullptr);
 			m_graphics_command_list->OMSetStencilRef(stencil);
 

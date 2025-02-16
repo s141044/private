@@ -1,0 +1,48 @@
+{
+  "input_layout":
+  [
+    {
+      "name": "lines",
+      "topology": "line_list"
+    }
+  ],
+  "blend_state" :
+  [
+    {
+      "name": "none",
+      "independent_blend": false,
+      "render_target": 
+      [
+        {
+          "enable": false
+        }
+      ]
+    }
+  ],
+  "depth_stencil_state":
+  [
+    {
+      "name": "none",
+      "depth_enable": false,
+      "stencil_enable": false
+    }
+  ],
+  "rasterizer_state":
+  [
+    {
+      "name": "default"
+    }
+  ],
+  "definition" : 
+  [
+    {
+      "name": "draw_axes",
+      "bs": "none",
+      "il": "lines",
+      "rs": "default",
+      "dss": "none",
+      "vs": [ "dev/axes.hlsl", "draw_axes_vs", ""],
+      "ps": [ "dev/axes.hlsl", "draw_axes_ps", ""]
+    }
+  ]
+}

@@ -24,22 +24,18 @@ inline render_context::render_context(iface::render_device& device) : m_device(d
 	
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+//優先度を返す
+inline uint render_context::get_priority() const
+{
+	return m_priority;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 //優先度を設定
 inline void render_context::set_priority(uint priority)
 {
 	m_priority = priority;
-}
-
-inline void render_context::push_priority(uint priority)
-{
-	m_priority_stack.push(m_priority);
-	m_priority = priority;
-}
-
-inline void render_context::pop_priority()
-{
-	m_priority = m_priority_stack.top();
-	m_priority_stack.pop();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -70,23 +66,49 @@ template<class Resource> inline void render_context::set_pipeline_resource(strin
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+//ステートを返す
+inline const target_state* render_context::get_target_state() const
+{
+	return mp_ts;
+}
+
+inline const pipeline_state* render_context::get_pipeline_state() const
+{
+	return mp_ps;
+}
+
+inline const geometry_state* render_context::get_geometry_state() const
+{
+	return mp_gs;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 //ステートを設定
-inline void render_context::set_target_state(const target_state& ts)
+inline void render_context::set_target_state(const render::target_state& ts)
 {
 	assert(&ts != nullptr);
 	mp_ts = &ts;
 }
 
-inline void render_context::set_pipeline_state(const pipeline_state& ps)
+inline void render_context::set_pipeline_state(const render::pipeline_state& ps)
 {
 	assert(&ps != nullptr);
 	mp_ps = &ps;
 }
 
-inline void render_context::set_geometry_state(const geometry_state& gs)
+inline void render_context::set_geometry_state(const render::geometry_state& gs)
 {
 	assert(&gs != nullptr);
 	mp_gs = &gs;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//ステンシル値を返す
+inline uint render_context::get_stencil_value() const
+{
+	return m_stencil;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -95,6 +117,22 @@ inline void render_context::set_geometry_state(const geometry_state& gs)
 inline void render_context::set_stencil_value(const uint stencil)
 {
 	m_stencil = stencil;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//ビューポートを返す
+inline const viewport& render_context::get_viewport() const
+{
+	return m_viewport;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//ビューポートを設定
+inline void render_context::set_viewport(const render::viewport& viewport)
+{
+	m_viewport = viewport;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -113,13 +151,13 @@ inline void render_context::draw(buffer& buf, const uint offset, const bool uav_
 inline void render_context::draw_with_32bit_constant(const uint vertex_count, const uint instance_count, const uint start_vertex_location, const uint constant, const bool uav_barrier)
 {
 	void *p_optional = m_device.validate(*mp_ps, *mp_ts, mp_gs, m_bind_resources);
-	if(p_optional){ m_device.m_command_manager.construct<command::draw>(m_priority, vertex_count, instance_count, start_vertex_location, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, mp_gs, p_optional); }
+	if(p_optional){ m_device.m_command_manager.construct<command::draw>(m_priority, vertex_count, instance_count, start_vertex_location, constant, uav_barrier, m_stencil, reinterpret_cast<float*>(&m_viewport), *mp_ps, *mp_ts, mp_gs, p_optional); }
 }
 
 inline void render_context::draw_with_32bit_constant(buffer& buf, const uint offset, const uint constant, const bool uav_barrier)
 {
 	void *p_optional = m_device.validate(*mp_ps, *mp_ts, mp_gs, m_bind_resources);
-	if(p_optional){ m_device.m_command_manager.construct<command::draw_indirect>(m_priority, buf, offset, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, mp_gs, p_optional); }
+	if(p_optional){ m_device.m_command_manager.construct<command::draw_indirect>(m_priority, buf, offset, constant, uav_barrier, m_stencil, reinterpret_cast<float*>(&m_viewport), *mp_ps, *mp_ts, mp_gs, p_optional); }
 }
 
 inline void render_context::draw_indexed(const uint index_count, const uint instance_count, const uint start_index_location, const uint base_vertex_location, const bool uav_barrier)
@@ -135,13 +173,13 @@ inline void render_context::draw_indexed(buffer& buf, const uint offset, const b
 inline void render_context::draw_indexed_with_32bit_constant(const uint index_count, const uint instance_count, const uint start_index_location, const uint base_vertex_location, const uint constant, const bool uav_barrier)
 {
 	void *p_optional = m_device.validate(*mp_ps, *mp_ts, mp_gs, m_bind_resources);
-	if(p_optional){ m_device.m_command_manager.construct<command::draw_indexed>(m_priority, index_count, instance_count, start_index_location, base_vertex_location, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, mp_gs, p_optional); }
+	if(p_optional){ m_device.m_command_manager.construct<command::draw_indexed>(m_priority, index_count, instance_count, start_index_location, base_vertex_location, constant, uav_barrier, m_stencil, reinterpret_cast<float*>(&m_viewport), *mp_ps, *mp_ts, mp_gs, p_optional); }
 }
 
 inline void render_context::draw_indexed_with_32bit_constant(buffer& buf, const uint offset, const uint constant, const bool uav_barrier)
 {
 	void *p_optional = m_device.validate(*mp_ps, *mp_ts, mp_gs, m_bind_resources);
-	if(p_optional){ m_device.m_command_manager.construct<command::draw_indexed_indirect>(m_priority, buf, offset, constant, m_stencil, uav_barrier, *mp_ps, *mp_ts, mp_gs, p_optional); }
+	if(p_optional){ m_device.m_command_manager.construct<command::draw_indexed_indirect>(m_priority, buf, offset, constant, uav_barrier, m_stencil, reinterpret_cast<float*>(&m_viewport), *mp_ps, *mp_ts, mp_gs, p_optional); }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -263,12 +301,12 @@ inline void render_context::build_top_level_acceleration_structure(top_level_acc
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //BLASの構築
-inline void render_context::build_bottom_level_acceleration_structure(bottom_level_acceleration_structure& blas, const geometry_state* p_gs)
+inline void render_context::build_bottom_level_acceleration_structure(bottom_level_acceleration_structure& blas, const render::geometry_state* p_gs)
 {
 	m_device.m_command_manager.construct<command::build_bottom_level_acceleration_structure>(m_priority, blas, p_gs);
 }
 
-inline void render_context::refit_bottom_level_acceleration_structure(bottom_level_acceleration_structure& blas, const geometry_state* p_gs)
+inline void render_context::refit_bottom_level_acceleration_structure(bottom_level_acceleration_structure& blas, const render::geometry_state* p_gs)
 {
 	m_device.m_command_manager.construct<command::refit_bottom_level_acceleration_structure>(m_priority, blas, p_gs);
 }
@@ -286,7 +324,7 @@ inline void render_context::compact_bottom_level_acceleration_structure(bottom_l
 //任意の関数を呼ぶ
 inline void render_context::call_function(std::function<void()> func, bool use_target_state)
 {
-	const target_state* p_target_state = nullptr;
+	const render::target_state* p_target_state = nullptr;
 	if(use_target_state){ p_target_state = mp_ts; }
 	m_device.m_command_manager.construct<command::call_function>(m_priority, std::move(func), p_target_state);
 }

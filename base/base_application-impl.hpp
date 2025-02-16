@@ -92,6 +92,11 @@ inline int base_application::update(render_context& context, const float delta_t
 	}
 
 	gp_texture_manager->update(context);
+
+	viewport viewport;
+	viewport.left_top = uint2(0, 0);
+	viewport.size = present_size();
+	context.set_viewport(viewport);
 	return update_impl(context, delta_time);
 }
 
