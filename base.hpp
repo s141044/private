@@ -163,7 +163,7 @@ public:
 	material(const material_type type) : m_type(type), m_blas_group_key(0){}
 
 	//デストラクタ
-	virtual ~material(){ if(mp_srv->bindless_handle() != invalid_bindless_handle){ gp_render_device->unregister_bindless(*mp_srv); } }
+	virtual ~material(){ if((mp_srv != nullptr) && (mp_srv->bindless_handle() != invalid_bindless_handle)){ gp_render_device->unregister_bindless(*mp_srv); } }
 
 	//バインドレスの管理
 	virtual void register_bindless() = 0;
