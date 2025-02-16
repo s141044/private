@@ -37,7 +37,9 @@ void rt_test(uint2 dtid : SV_DispatchThreadID)
 #if defined(VIEW_DEFAULT)
 		col = max(dot(isect.normal, wo), 0.2f);
 #elif defined(VIEW_NORMAL)
-		col = normalize(isect.normal) * 0.5f + 0.5f;
+		col = isect.normal * 0.5f + 0.5f;
+#elif defined(VIEW_GEOMETRY_NORMAL)
+		col = isect.geometry_normal * 0.5f + 0.5f;
 #elif defined(VIEW_TANGENT)
 		col = isect.tangent.xyz * 0.5f + 0.5f;
 #elif defined(VIEW_BINORMAL)

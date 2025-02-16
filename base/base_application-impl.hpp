@@ -57,7 +57,6 @@ inline int base_application::update(render_context& context, const float delta_t
 	auto& device_input = *gp_device_input;
 	if(device_input.pressed(device_input.key_lalt))
 	{
-
 		if(device_input.pressed(device_input.mouse1))
 		{
 			if(device_input.mouse_delta_x()){ m_camera.pan(device_input.mouse_delta_x() * m_pan_speed); }

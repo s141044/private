@@ -67,17 +67,17 @@ public:
 			for(uint j = 0; j < phi_div; j++)
 			{
 				const uint i0 = (phi_div + 1) * (i + 0) + (j + 0);
-				const uint i1 = (phi_div + 1) * (i + 1) + (j + 0);
+				const uint i1 = (phi_div + 1) * (i + 0) + (j + 1);
 				const uint i2 = (phi_div + 1) * (i + 1) + (j + 1);
-				const uint i3 = (phi_div + 1) * (i + 0) + (j + 1);
+				const uint i3 = (phi_div + 1) * (i + 1) + (j + 0);
 
-				if(i != theta_div - 1)
+				if(i != 0)
 				{
 					indexes[num_indexes++] = i0;
 					indexes[num_indexes++] = i1;
 					indexes[num_indexes++] = i2;
 				}
-				if(i != 0)
+				if(i != theta_div - 1)
 				{
 					indexes[num_indexes++] = i0;
 					indexes[num_indexes++] = i2;

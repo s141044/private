@@ -25,6 +25,10 @@
               "cs": ["", "", "-DVIEW_NORMAL"]
             },
             {
+              "name": "_geometry_normal",
+              "cs": ["", "", "-DVIEW_GEOMETRY_NORMAL"]
+            },
+            {
               "name": "_tangent",
               "cs": ["", "", "-DVIEW_TANGENT"]
             },

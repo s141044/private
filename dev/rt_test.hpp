@@ -30,6 +30,7 @@ public:
 	{
 		debug_view_default, 
 		debug_view_normal, 
+		debug_view_geometry_normal, 
 		debug_view_tangent, 
 		debug_view_binormal, 
 		debug_view_uv,
@@ -52,6 +53,7 @@ public:
 		const char* shader_names[] = {
 			"view_default", 
 			"view_normal", 
+			"view_geometry_normal", 
 			"view_tangent", 
 			"view_binormal", 
 			"view_uv", 
