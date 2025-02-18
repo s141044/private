@@ -84,7 +84,7 @@ protected:
 	uint back_buffer_index() const { return m_back_buffer_index; }
 
 	//ldrフォーマットを返す
-	texture_format ldr_texture_format() const { return texture_format_r10g10b10a2_unorm; }
+	texture_format ldr_texture_format() const { return texture_format_r8g8b8a8_unorm_srgb; }
 
 private:
 

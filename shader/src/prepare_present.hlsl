@@ -8,7 +8,7 @@ Texture2D<uint>		hdr_srv;
 #else
 Texture2D<float3>	hdr_srv;
 #endif
-Texture2D<float3>	ldr_srv;
+Texture2D<float4>	ldr_srv;
 
 float3 apply_pq_curve(float3 x)
 {
@@ -24,14 +24,13 @@ float3 apply_pq_curve(float3 x)
 
 float3 present_ps(fullscreen_triangle_vs_output input): SV_TARGET
 {
-	float3 col;
+	float4 col = ldr_srv.SampleLevel(bilinear_clamp, input.uv, 0);
 #if defined(R9G9B9E5)
-	col = bilinear_sample(hdr_srv, bilinear_clamp, input.uv);
+	col.rgb += bilinear_sample(hdr_srv, bilinear_clamp, input.uv) * (1 - col.a);
 #else
-	col = hdr_srv.SampleLevel(bilinear_clamp, input.uv, 0);
+	col.rgb += hdr_srv.SampleLevel(bilinear_clamp, input.uv, 0) * (1 - col.a);
 #endif
-	col += ldr_srv.SampleLevel(bilinear_clamp, input.uv, 0);
 	col *= 300.0 / 10000.0; //1を300nitにマッピング
 	//col = rec709_to_rec2020(col);
-	return apply_pq_curve(col);
+	return apply_pq_curve(col.rgb);
 }

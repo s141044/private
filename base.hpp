@@ -1,8 +1,8 @@
 
 #pragma once
 
-#ifndef NN_RENDER_RENDER_TYPE_HPP
-#define NN_RENDER_RENDER_TYPE_HPP
+#ifndef NN_RENDER_RENDER_BASE_HPP
+#define NN_RENDER_RENDER_BASE_HPP
 
 #include"core.hpp"
 #include"image.hpp"
