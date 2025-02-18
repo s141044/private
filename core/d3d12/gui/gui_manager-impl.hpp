@@ -82,7 +82,7 @@ inline void gui_manager::new_frame()
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
