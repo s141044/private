@@ -631,7 +631,6 @@ private:
 
 	shader_file_holder			m_present_shaders;
 	shader_file_holder			m_dev_draw_shaders;
-	geometry_state_ptr			mp_dummy_geometry;
 	target_state_ptr			mp_present_target[swapchain::buffer_count()];
 	target_state_ptr			mp_ldr_target;
 	texture_ptr					mp_ldr_color_tex;

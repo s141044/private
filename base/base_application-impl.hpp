@@ -40,7 +40,6 @@ inline void base_application::finalize()
 	mp_ldr_color_tex.reset();
 	mp_ldr_color_rtv.reset();
 	mp_ldr_color_srv.reset();
-	mp_dummy_geometry.reset();
 	for(uint i = 0; i < swapchain::buffer_count(); i++)
 		mp_present_target[i].reset();
 
@@ -104,7 +103,6 @@ inline int base_application::update(render_context& context, const float delta_t
 //ƒŠƒTƒCƒY
 inline void base_application::resize(const uint2 size)
 {
-	mp_dummy_geometry = gp_render_device->create_geometry_state(0, nullptr, nullptr, nullptr, nullptr);
 	mp_ldr_color_tex = gp_render_device->create_texture2d(ldr_texture_format(), size.x, size.y, 1, resource_flags(resource_flag_allow_render_target | resource_flag_allow_shader_resource | resource_flag_scratch));
 	mp_ldr_color_rtv = gp_render_device->create_render_target_view(*mp_ldr_color_tex, texture_rtv_desc(*mp_ldr_color_tex));
 	mp_ldr_color_srv = gp_render_device->create_shader_resource_view(*mp_ldr_color_tex, texture_srv_desc(*mp_ldr_color_tex));
@@ -188,7 +186,7 @@ inline void base_application::composite_gui_and_present(render_context& context,
 	context.set_pipeline_resource("hdr_srv", hdr_srv);
 	context.set_pipeline_resource("ldr_srv", *mp_ldr_color_srv);
 	context.set_target_state(*mp_present_target[back_buffer_index()]);
-	context.set_geometry_state(*mp_dummy_geometry);
+	context.set_geometry_state(nullptr);
 	context.set_pipeline_state(*m_present_shaders.get(r9g9b9e5 ? "prepare_present_r9g9b9e5" : "prepare_present"));
 	context.draw(3, 1, 1);
 }

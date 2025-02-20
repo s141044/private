@@ -47,6 +47,7 @@ public:
 	void set_target_state(const render::target_state& ts);
 	void set_pipeline_state(const render::pipeline_state& ps);
 	void set_geometry_state(const render::geometry_state& gs);
+	void set_geometry_state(std::nullptr_t);
 
 	//ステンシル値
 	uint get_stencil_value() const;

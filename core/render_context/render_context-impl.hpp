@@ -103,6 +103,11 @@ inline void render_context::set_geometry_state(const render::geometry_state& gs)
 	mp_gs = &gs;
 }
 
+inline void render_context::set_geometry_state(std::nullptr_t)
+{
+	mp_gs = nullptr;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //ステンシル値を返す
