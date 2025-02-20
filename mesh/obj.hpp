@@ -94,7 +94,7 @@ public:
 
 				for(int i = 0, nf = sub.num_faces(); i < nf; i++)
 				{
-					if(vertex_count + sub.num_vertices(i) - 1 >= USHRT_MAX) //USRT_MAXをストリップカット用なので使えない
+					if(vertex_count + sub.num_vertices(i) - 1 >= USHRT_MAX) //USRT_MAXはストリップカット用なので使えない
 					{
 						auto &cluster = m_clusters.emplace_back();
 						cluster.index_count = index_count;

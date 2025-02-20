@@ -30,41 +30,50 @@ namespace render{
 class standard_material : public material
 {
 public:
+	
+	struct bindless_material : bindless_material_base
+	{
+		bindless_material(texture_resource_ptr &p) : bindless_material_base(material_type_standard, p ? p->srv().bindless_handle() : -1){}
+			
+		uint	coat_normal_map;
+		uint	base_normal_map;
+		uint	sheen_color_map;
+		uint	sheen_roughness_map;
+		uint	coat_scale_map;
+		uint	coat_color0_map;
+		uint	coat_roughness_map;
+		uint	emission_scale_map;
+		uint	emission_color_map;
+		uint	specular_scale_map;
+		uint	specular_color0_map;
+		uint	specular_roughness_map;
+		uint	diffuse_color_map;
+		uint	diffuse_roughness_map;
+		uint	subsurface_map;
+		uint	emission_color;
+		uint	subsurface_radius;
+		uint	sheen_coat_color; //sheen.xyz,coat.x
+		uint	coat_specular_color; //coat.yz,specular.xy
+		uint	specular_diffuse_color; //specular.z,diffuse_xyz
+	};
 
 	//コンストラクタ
 	standard_material() : material(material_type_standard)
 	{
+		m_has_update = true;
 	}
 
 	//バインドレスの管理
 	void register_bindless()
 	{
-		struct bindless_material : bindless_material_base
-		{
-			bindless_material(texture_resource_ptr &p) : bindless_material_base(material_type_standard, p ? p->srv().bindless_handle() : -1){}
-			
-			uint	coat_normal_map;
-			uint	base_normal_map;
-			uint	sheen_color_map;
-			uint	sheen_roughness_map;
-			uint	coat_scale_map;
-			uint	coat_color0_map;
-			uint	coat_roughness_map;
-			uint	emission_scale_map;
-			uint	emission_color_map;
-			uint	specular_scale_map;
-			uint	specular_color0_map;
-			uint	specular_roughness_map;
-			uint	diffuse_color_map;
-			uint	diffuse_roughness_map;
-			uint	subsurface_map;
-			uint	emission_color;
-			uint	subsurface_radius;
-			uint	sheen_coat_color; //sheen.xyz,coat.x
-			uint	coat_specular_color; //coat.yz,specular.xy
-			uint	specular_diffuse_color; //specular.z,diffuse_xyz
-		};
+		mp_buf = gp_render_device->create_byteaddress_buffer(sizeof(bindless_material), resource_flag_allow_shader_resource);
+		mp_srv = gp_render_device->create_shader_resource_view(*mp_buf, buffer_srv_desc(*mp_buf));
+		gp_render_device->register_bindless(*mp_srv);
+	}
 
+	//パラメータを更新
+	void update(render_context& context) override
+	{
 		auto set_texture_and_u8_unorm = [&](uint &dst, texture_resource_ptr &p, float f = 0)
 		{
 			assert((f >= 0) && (f <= 1));
@@ -95,43 +104,56 @@ public:
 		params.coat_specular_color = f32x4_to_u8x4_unorm(float4(m_coat_color0.yz, m_specular_color0.xy));
 		params.specular_diffuse_color = f32x4_to_u8x4_unorm(float4(m_specular_color0.z, m_diffuse_color));
 
-		mp_buf = gp_render_device->create_byteaddress_buffer(sizeof(params), resource_flag_allow_shader_resource, &params);
-		mp_srv = gp_render_device->create_shader_resource_view(*mp_buf, buffer_srv_desc(*mp_buf));
-		gp_render_device->register_bindless(*mp_srv);
+		push_priority push_priority(context);
+		context.set_priority(priority_initiaize);
+		void* dst = context.update_buffer(*mp_buf, 0, sizeof(params));
+		memcpy(dst, &params, sizeof(params));
+		m_has_update = false;
 	}
 
 	//パラメータを設定
-	void set_alpha_map(texture_resource_ptr t){ mp_alpha_map = std::move(t); }
-	void set_coat_normal_map(texture_resource_ptr t){ mp_coat_normal_map = std::move(t); }
-	void set_base_normal_map(texture_resource_ptr t){ mp_base_normal_map = std::move(t); }
-	void set_sheen_color(const float3 &c){ m_sheen_color = c; }
-	void set_sheen_color_map(texture_resource_ptr t){ mp_sheen_color_map = std::move(t); }
-	void set_sheen_roughness(const float s){ m_sheen_roughness = s; }
-	void set_sheen_roughness_map(texture_resource_ptr t){ mp_sheen_roughness_map = std::move(t); }
-	void set_coat_scale(const float s){ m_coat_scale = s; }
-	void set_coat_scale_map(texture_resource_ptr t){ mp_coat_scale_map = std::move(t); }
-	void set_coat_color0(const float3 &c){ m_coat_color0 = c; }
-	void set_coat_color0_map(texture_resource_ptr t){ mp_coat_color0_map = std::move(t); }
-	void set_coat_roughness(const float s){ m_coat_roughness = s; }
-	void set_coat_roughness_map(texture_resource_ptr t){ mp_coat_roughness_map = std::move(t); }
-	void set_emission_scale(const float s){ m_emission_scale = s; }
-	void set_emission_scale_map(texture_resource_ptr t){ mp_emission_scale_map = std::move(t); }
-	void set_emission_color(const float3 &c){ m_emission_color = c; }
-	void set_emission_color_map(texture_resource_ptr t){ mp_emission_color_map = std::move(t); }
-	void set_specular_scale(const float s){ m_specular_scale = s; }
-	void set_specular_scale_map(texture_resource_ptr t){ mp_specular_scale_map = std::move(t); }
-	void set_specular_color0(const float3 &c){ m_specular_color0 = c; }
-	void set_specular_color0_map(texture_resource_ptr t){ mp_specular_color0_map = std::move(t); }
-	void set_specular_roughness(const float s){ m_specular_roughness = s; }
-	void set_specular_roughness_map(texture_resource_ptr t){ mp_specular_roughness_map = std::move(t); }
-	void set_diffuse_color(const float3 &c){ m_diffuse_color = c; }
-	void set_diffuse_color_map(texture_resource_ptr t){ mp_diffuse_color_map = std::move(t); }
-	void set_diffuse_roughness(const float s){ m_diffuse_roughness = s; }
-	void set_diffuse_roughness_map(texture_resource_ptr t){ mp_diffuse_roughness_map = std::move(t); }
-	void set_subsurface(const float s){ m_subsurface = s; }
-	void set_subsurface_map(texture_resource_ptr t){ mp_subsurface_map = std::move(t); }
-	void set_subsurface_radius(const float3 &c){ m_subsurface_radius = c; }
-	void set_subsurface_radius_scale(const float s){ m_subsurface_radius_scale = s; }
+	void set_alpha_map(texture_resource_ptr t){ set_impl(mp_alpha_map, t); }
+	void set_coat_normal_map(texture_resource_ptr t){ set_impl(mp_coat_normal_map, t); }
+	void set_base_normal_map(texture_resource_ptr t){ set_impl(mp_base_normal_map, t); }
+	void set_sheen_color(const float3 &c){ set_impl(m_sheen_color, c); }
+	void set_sheen_color_map(texture_resource_ptr t){ set_impl(mp_sheen_color_map, t); }
+	void set_sheen_roughness(const float s){ set_impl(m_sheen_roughness, s); }
+	void set_sheen_roughness_map(texture_resource_ptr t){ set_impl(mp_sheen_roughness_map, t); }
+	void set_coat_scale(const float s){ set_impl(m_coat_scale, s); }
+	void set_coat_scale_map(texture_resource_ptr t){ set_impl(mp_coat_scale_map, t); }
+	void set_coat_color0(const float3 &c){ set_impl(m_coat_color0, c); }
+	void set_coat_color0_map(texture_resource_ptr t){ set_impl(mp_coat_color0_map, t); }
+	void set_coat_roughness(const float s){ set_impl(m_coat_roughness, s); }
+	void set_coat_roughness_map(texture_resource_ptr t){ set_impl(mp_coat_roughness_map, t); }
+	void set_emission_scale(const float s){ set_impl(m_emission_scale, s); }
+	void set_emission_scale_map(texture_resource_ptr t){ set_impl(mp_emission_scale_map, t); }
+	void set_emission_color(const float3 &c){ set_impl(m_emission_color, c); }
+	void set_emission_color_map(texture_resource_ptr t){ set_impl(mp_emission_color_map, t); }
+	void set_specular_scale(const float s){ set_impl(m_specular_scale, s); }
+	void set_specular_scale_map(texture_resource_ptr t){ set_impl(mp_specular_scale_map, t); }
+	void set_specular_color0(const float3 &c){ set_impl(m_specular_color0, c); }
+	void set_specular_color0_map(texture_resource_ptr t){ set_impl(mp_specular_color0_map, t); }
+	void set_specular_roughness(const float s){ set_impl(m_specular_roughness, s); }
+	void set_specular_roughness_map(texture_resource_ptr t){ set_impl(mp_specular_roughness_map, t); }
+	void set_diffuse_color(const float3 &c){ set_impl(m_diffuse_color, c); }
+	void set_diffuse_color_map(texture_resource_ptr t){ set_impl(mp_diffuse_color_map, t); }
+	void set_diffuse_roughness(const float s){ set_impl(m_diffuse_roughness, s); }
+	void set_diffuse_roughness_map(texture_resource_ptr t){ set_impl(mp_diffuse_roughness_map, t); }
+	void set_subsurface(const float s){ set_impl(m_subsurface, s); }
+	void set_subsurface_map(texture_resource_ptr t){ set_impl(mp_subsurface_map, t); }
+	void set_subsurface_radius(const float3 &c){ set_impl(m_subsurface_radius, c); }
+	void set_subsurface_radius_scale(const float s){ set_impl(m_subsurface_radius_scale, s); }
+
+private:
+
+	template<class T, class U> void set_impl(T& dst, U& src)
+	{
+		if(dst != src)
+		{
+			dst = std::move(src);
+			m_has_update = true;
+		}
+	}
 
 private:
 

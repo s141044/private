@@ -71,12 +71,12 @@ public:
 		m_wtol(float4(1,0,0,0),float4(0,1,0,0),float4(0,0,1,0),float4(0,0,0,1)){}
 
 	//変換行列を返す
-	const float4x4 &ltow_matrix() const { return m_ltow; }
-	const float4x4 &wtol_matrix() const { return m_wtol; }
+	const float4x4& ltow_matrix() const { return m_ltow; }
+	const float4x4& wtol_matrix() const { return m_wtol; }
 
 	//変換行列を設定
-	void set_ltow_matrix(const float4x4 &ltow){ m_ltow = ltow; m_wtol = inverse(m_ltow); }
-	void set_wtol_matrix(const float4x4 &wtol){ m_wtol = wtol; m_ltow = inverse(m_wtol); }
+	void set_ltow_matrix(const float4x4& ltow){ m_ltow = ltow; m_wtol = inverse(m_ltow); }
+	void set_wtol_matrix(const float4x4& wtol){ m_wtol = wtol; m_ltow = inverse(m_wtol); }
 
 private:
 
@@ -107,10 +107,10 @@ public:
 	virtual ~render_entity();
 
 	//更新
-	virtual void update(render_context &context, const float dt){}
+	virtual void update(render_context& context, const float dt){}
 
 	//描画
-	virtual void draw(render_context &context, draw_type type){}
+	virtual void draw(render_context& context, draw_type type){}
 
 	//インスタンスインデックスを返す
 	uint bindless_instance_index() const { return m_bindless_instance_index; }
@@ -160,7 +160,7 @@ public:
 	};
 
 	//コンストラクタ
-	material(const material_type type) : m_type(type), m_blas_group_key(0){}
+	material(const material_type type) : m_type(type), m_blas_group_key(0), m_has_update(false){}
 
 	//デストラクタ
 	virtual ~material(){ if((mp_srv != nullptr) && (mp_srv->bindless_handle() != invalid_bindless_handle)){ gp_render_device->unregister_bindless(*mp_srv); } }
@@ -168,6 +168,12 @@ public:
 	//バインドレスの管理
 	virtual void register_bindless() = 0;
 	virtual void unregister_bindless(){ gp_render_device->unregister_bindless(*mp_srv); }
+
+	//パラメータの更新があるか
+	bool has_update() const { return m_has_update; }
+
+	//パラメータを更新
+	virtual void update(render_context& context) = 0;
 
 	//マテリアルタイプを返す
 	material_type type() const { return m_type; }
@@ -183,6 +189,7 @@ protected:
 	uint						m_blas_group_key;
 	buffer_ptr					mp_buf;
 	shader_resource_view_ptr	mp_srv;
+	bool						m_has_update;
 
 private:
 
@@ -209,7 +216,7 @@ public:
 
 	//コンストラクタ
 	bindless_geometry() = default;
-	bindless_geometry(const geometry_state &gs, const uint offset[8]);
+	bindless_geometry(const geometry_state& gs, const uint offset[8]);
 
 	//デストラクタ
 	~bindless_geometry();
@@ -263,20 +270,20 @@ public:
 	mesh();
 
 	//更新
-	void update(render_context &context, const float dt) final;
+	void update(render_context& context, const float dt) final;
 
 	//描画
-	void draw(render_context &context, draw_type type) final;
+	void draw(render_context& context, draw_type type) final;
 
 	//ジオメトリステートを返す
-	const geometry_state &geometry_state() const { return *m_gs_ptrs[gp_render_device->frame_count() % 2]; }
-	const bindless_geometry &bindless_geometry() const { return *m_bindless_gs_ptrs[gp_render_device->frame_count() % 2]; }
+	const geometry_state& geometry_state() const { return *m_gs_ptrs[gp_render_device->frame_count() % 2]; }
+	const bindless_geometry& bindless_geometry() const { return *m_bindless_gs_ptrs[gp_render_device->frame_count() % 2]; }
 
 	//マテリアルを返す
-	const vector<material_ptr> &material_ptrs() const { return m_material_ptrs; }
+	const vector<material_ptr>& material_ptrs() const { return m_material_ptrs; }
 
 	//クラスタを返す
-	const vector<cluster> &clusters() const { return m_clusters; }
+	const vector<cluster>& clusters() const { return m_clusters; }
 
 protected:
 
@@ -284,11 +291,14 @@ protected:
 	virtual void update_geometry(render_context&){}
 
 	//レイトレ用データの更新
-	void update_raytracing(render_context &context);
+	void update_raytracing(render_context& context);
 	
+	//マテリアルの更新
+	void update_material(render_context& context);
+
 	//法線/接線/UVを圧縮
-	static uint encode_normal(const float3 &normal);
-	static uint encode_tangent(const float3 &tangent, const float3 &binormal, const float3 &normal);
+	static uint encode_normal(const float3& normal);
+	static uint encode_tangent(const float3& tangent, const float3& binormal, const float3& normal);
 	//static uint encode_uv(const float2 &uv);
 
 protected:
@@ -328,12 +338,12 @@ public:
 	void unregister_instance(const uint bindless_instance_index, const uint raytracing_instance_index);
 
 	//TLAS構築
-	void build(render_context &context);
+	void build(render_context& context);
 
 	//リソースを返す
-	top_level_acceleration_structure &tlas() const { return *mp_tlas; }
-	shader_resource_view &bindless_instance_descs_srv() const { return *mp_bindless_isntance_descs_srv; }
-	shader_resource_view &raytracing_instance_descs_srv() const { return *mp_raytracing_isntance_descs_srv; }
+	top_level_acceleration_structure& tlas() const { return *mp_tlas; }
+	shader_resource_view& bindless_instance_descs_srv() const { return *mp_bindless_isntance_descs_srv; }
+	shader_resource_view& raytracing_instance_descs_srv() const { return *mp_raytracing_isntance_descs_srv; }
 
 	//更新用アドレスを返す
 	bindless_instance_desc *update_bindless_instance(const uint i){ return mp_bindless_instance_descs_ubuf->data<bindless_instance_desc>() + i; }
@@ -368,11 +378,11 @@ public:
 	raytracing_picker(const uint max_size);
 
 	//インスタンス登録/解除
-	void register_instance(render_entity &entity);
-	void unregister_instance(render_entity &entity);
+	void register_instance(render_entity& entity);
+	void unregister_instance(render_entity& entity);
 
 	//ピック要求
-	void pick_request(render_context &context, const uint2 &pixel_pos);
+	void pick_request(render_context& context, const uint2& pixel_pos);
 
 	//ピック結果を返す
 	render_entity* get();
@@ -425,10 +435,10 @@ public:
 	texture_manager();
 
 	//作成
-	shared_ptr<texture_resource> create(const string &filename, const texture_type type);
+	shared_ptr<texture_resource> create(const string& filename, const texture_type type);
 
 	//更新
-	bool update(render_context &context);
+	bool update(render_context& context);
 
 private:
 
@@ -455,7 +465,7 @@ public:
 	~texture_resource();
 
 	//SRVを返す
-	shader_resource_view &srv() const;
+	shader_resource_view& srv() const;
 
 private:
 
@@ -497,11 +507,11 @@ public:
 	camera() = default;
 
 	//位置&注視点を設定
-	void look_at(const float3 &pos, const float3 &center);
-	void look_at(const float3 &pos, const float3 &dir, const float dist);
+	void look_at(const float3& pos, const float3& center);
+	void look_at(const float3& pos, const float3& dir, const float dist);
 
 	//位置
-	const float3 &position() const;
+	const float3& position() const;
 	void set_position(const float3& position);
 
 	//注視点
@@ -529,14 +539,14 @@ public:
 	float4x4 proj_mat() const;
 
 	//軸を返す
-	const float3 &axis_x() const;
-	const float3 &axis_y() const;
-	const float3 &axis_z() const;
+	const float3& axis_x() const;
+	const float3& axis_y() const;
+	const float3& axis_z() const;
 
 public:
 
 	//平行移動
-	void translate(const float3 &t);
+	void translate(const float3& t);
 
 	//水平/垂直首振り
 	void pan(const float radian);
