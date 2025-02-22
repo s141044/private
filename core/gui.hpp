@@ -67,26 +67,19 @@ class property_editor
 {
 public:
 
+	//コンストラクタ
+	property_editor(string name) : m_name(std::move(name)){}
+
 	//デストラクタ
 	virtual ~property_editor(){}
 
 	//編集
 	virtual void edit() = 0;
 
+	//名前を返す
+	const string& name() const { return m_name; }
+
 protected:
-
-	class window
-	{
-	public:
-
-		window(const char* label){ m_is_open = ImGui::Begin(label);  }
-		~window(){ ImGui::End(); }
-		bool is_open() const { return m_is_open; }
-
-	private:
-
-		bool m_is_open;
-	};
 
 	class tree_node
 	{
@@ -135,6 +128,10 @@ protected:
 	//色
 	bool color_edit(const char* label, float3& color);
 	bool color_edit(const char* label, float4& color);
+
+private:
+
+	string m_name;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

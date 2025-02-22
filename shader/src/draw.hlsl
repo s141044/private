@@ -11,7 +11,7 @@ struct vs_input
 
 cbuffer draw_cb
 {
-	float4x4 ltow;
+	float4x3 ltow;
 };
 
 float4 draw_mask_vs(vs_input input) : SV_POSITION

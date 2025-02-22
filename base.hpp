@@ -58,7 +58,7 @@ struct bindless_instance_desc
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //transform
 /*/////////////////////////////////////////////////////////////////////////////////////////////////
-m*vの順
+T*Rz*Ry*Rx*S*vの順
 /////////////////////////////////////////////////////////////////////////////////////////////////*/
 
 class transform
@@ -66,22 +66,33 @@ class transform
 public:
 
 	//コンストラクタ
-	transform() : 
-		m_ltow(float4(1,0,0,0),float4(0,1,0,0),float4(0,0,1,0),float4(0,0,0,1)), 
-		m_wtol(float4(1,0,0,0),float4(0,1,0,0),float4(0,0,1,0),float4(0,0,0,1)){}
+	transform() : m_t(0, 0, 0), m_r(0, 0, 0), m_s(1, 1, 1), m_update_frame(){}
 
 	//変換行列を返す
-	const float4x4& ltow_matrix() const { return m_ltow; }
-	const float4x4& wtol_matrix() const { return m_wtol; }
+	float3x4 ltow_matrix() const;
+	float3x4 wtol_matrix() const;
 
-	//変換行列を設定
-	void set_ltow_matrix(const float4x4& ltow){ m_ltow = ltow; m_wtol = inverse(m_ltow); }
-	void set_wtol_matrix(const float4x4& wtol){ m_wtol = wtol; m_ltow = inverse(m_wtol); }
+	//平行移動
+	const float3& translation() const { return m_t; }
+	void set_translation(const float3& t){ if(m_t != t){ m_update_frame = gp_render_device->frame_count(); m_t = t; }}
+
+	//回転
+	const float3& rotation() const { return m_r; }
+	void set_rotation(const float3& r){ if(m_r != r){ m_update_frame = gp_render_device->frame_count(); m_r = r; }}
+
+	//スケーリング
+	const float3& scaling() const { return m_s; }
+	void set_scaling(const float3& s){ if(m_s != s){ m_update_frame = gp_render_device->frame_count(); m_s = s; }}
+
+	//更新フレームを返す
+	uint update_frame() const { return m_update_frame; }
 
 private:
 
-	float4x4 m_ltow;
-	float4x4 m_wtol;
+	float3	m_t;
+	float3	m_r;
+	float3	m_s;
+	uint	m_update_frame;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -279,11 +290,14 @@ public:
 	const geometry_state& geometry_state() const { return *m_gs_ptrs[gp_render_device->frame_count() % 2]; }
 	const bindless_geometry& bindless_geometry() const { return *m_bindless_gs_ptrs[gp_render_device->frame_count() % 2]; }
 
-	//マテリアルを返す
-	const vector<material_ptr>& material_ptrs() const { return m_material_ptrs; }
-
 	//クラスタを返す
 	const vector<cluster>& clusters() const { return m_clusters; }
+
+	//マテリアルを返す
+	const vector<material_ptr>& material_ptrs() const { return m_material_ptrs; }
+	
+	//マテリアルを設定
+	void set_material(const uint i, material_ptr p_mtl){ m_material_ptrs[i] = std::move(p_mtl); }
 
 protected:
 
@@ -313,6 +327,7 @@ private:
 	shader_file_holder								m_shaders;
 	vector<bottom_level_acceleration_structure_ptr> m_blas_ptrs;
 	bindless_geometry_ptr							m_bindless_gs_ptrs[2];
+	uint											m_update_frame = 0;
 	bool											m_compaction_completed = false;
 };
 
@@ -662,6 +677,7 @@ private:
 
 #include"base/mesh-impl.hpp"
 #include"base/camera-impl.hpp"
+#include"base/transform-impl.hpp"
 #include"base/render_entity-impl.hpp"
 #include"base/texture_manager-impl.hpp"
 #include"base/base_application-impl.hpp"

@@ -111,7 +111,7 @@ public:
 		m_has_update = false;
 	}
 
-	//パラメータを設定
+	//パラメータ
 	void set_alpha_map(texture_resource_ptr t){ set_impl(mp_alpha_map, t); }
 	void set_coat_normal_map(texture_resource_ptr t){ set_impl(mp_coat_normal_map, t); }
 	void set_base_normal_map(texture_resource_ptr t){ set_impl(mp_base_normal_map, t); }
@@ -143,6 +143,22 @@ public:
 	void set_subsurface_map(texture_resource_ptr t){ set_impl(mp_subsurface_map, t); }
 	void set_subsurface_radius(const float3 &c){ set_impl(m_subsurface_radius, c); }
 	void set_subsurface_radius_scale(const float s){ set_impl(m_subsurface_radius_scale, s); }
+
+	float3	sheen_color() const { return m_sheen_color; }
+	float	sheen_roughness() const { return m_sheen_roughness; }
+	float	coat_scale() const { return m_coat_scale; }
+	float3	coat_color0() const { return m_coat_color0; }
+	float	coat_roughness() const { return m_coat_roughness; }
+	float	emission_scale() const { return m_emission_scale; }
+	float3	emission_color() const { return m_emission_color; }
+	float	specular_scale() const { return m_specular_scale; }
+	float3	specular_color0() const { return m_specular_color0; }
+	float	specular_roughness() const { return m_specular_roughness; }
+	float3	diffuse_color() const { return m_diffuse_color; }
+	float	diffuse_roughness() const { return m_diffuse_roughness; }
+	float	subsurface() const { return m_subsurface; }
+	float3	subsurface_radius() const { return m_subsurface_radius; }
+	float	subsurface_radius_scale() const { return m_subsurface_radius_scale; }
 
 private:
 

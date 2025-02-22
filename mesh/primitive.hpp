@@ -108,12 +108,6 @@ public:
 		m_material_ptrs.resize(1, nullptr);
 	}
 
-	//ƒ}ƒeƒŠƒAƒ‹‚ğİ’è
-	void set_material(material_ptr p_mtl)
-	{
-		m_material_ptrs[0] = std::move(p_mtl);
-	}
-
 private:
 
 	buffer_ptr			mp_vb;

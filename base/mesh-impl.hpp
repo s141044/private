@@ -37,7 +37,8 @@ inline void mesh::draw(render_context& context, draw_type type)
 	else if(m_shaders.is_invalid())
 		return;
 
-	context.set_pipeline_resource("draw_cb", *gp_render_device->create_temporary_cbuffer(sizeof(float4x4), &ltow_matrix()));
+	const auto ltow = ltow_matrix();
+	context.set_pipeline_resource("draw_cb", *gp_render_device->create_temporary_cbuffer(sizeof(float3x4), &ltow));
 	context.set_geometry_state(geometry_state());
 
 	switch(type){
@@ -132,11 +133,13 @@ inline void mesh::update_raytracing(render_context& context)
 				p_raytracing_instance_desc->mask = raytracing_instance_mask_default;
 				p_raytracing_instance_desc->flags = raytracing_instance_flag_triangle_front_ccw;
 				p_raytracing_instance_desc->blas_address = p_blas->gpu_virtual_address();
-				memcpy(p_raytracing_instance_desc->transform, &ltow_matrix(), sizeof(float4) * 3);
+
+				const auto ltow = ltow_matrix();
+				memcpy(p_raytracing_instance_desc->transform, &ltow, sizeof(float4) * 3);
 				num_blas++;
 			}
 
-			auto *p_bindless_instance_desc = gp_raytracing_manager->update_bindless_instance(bindless_instance_index + offset);
+			auto* p_bindless_instance_desc = gp_raytracing_manager->update_bindless_instance(bindless_instance_index + offset);
 			p_bindless_instance_desc->start_index_location = cluster.start_index_location;
 			p_bindless_instance_desc->base_vertex_location = cluster.base_vertex_location;
 			p_bindless_instance_desc->bindless_geometry_handle = bindless_geometry().bindless_handle();
@@ -145,6 +148,17 @@ inline void mesh::update_raytracing(render_context& context)
 	
 		context.set_priority(priority_build_bottom_level_acceleration_structure);
 		for(auto& p_blas : m_blas_ptrs){ context.build_bottom_level_acceleration_structure(*p_blas); }
+
+		m_update_frame = gp_render_device->frame_count();
+	}
+	else if(m_update_frame < transform::update_frame())
+	{
+		const auto ltow = ltow_matrix();
+		for(uint i = 0; i < uint(m_blas_ptrs.size()); i++)
+		{
+			auto* p_raytracing_instance_desc = gp_raytracing_manager->update_raytracing_instance(raytracing_instance_index() + i);
+			memcpy(p_raytracing_instance_desc->transform, &ltow, sizeof(float4) * 3);
+		}
 	}
 
 	if(is_static)
@@ -164,7 +178,7 @@ inline void mesh::update_raytracing(render_context& context)
 	
 				if(state == raytracing_compaction_state_completed)
 				{
-					auto *p_raytracing_instance_desc = gp_raytracing_manager->update_raytracing_instance(raytracing_instance_index() + i);
+					auto* p_raytracing_instance_desc = gp_raytracing_manager->update_raytracing_instance(raytracing_instance_index() + i);
 					p_raytracing_instance_desc->blas_address = p_blas->gpu_virtual_address();
 					continue;
 				}
@@ -187,8 +201,8 @@ inline void mesh::update_raytracing(render_context& context)
 
 			for(uint i = 0; i < uint(m_clusters.size()); i++)
 			{
-				auto* p_bindless_geometry_desc = gp_raytracing_manager->update_bindless_instance(bindless_instance_index() + i);
-				p_bindless_geometry_desc->bindless_geometry_handle = bindless_geometry().bindless_handle();
+				auto* p_bindless_instance_desc = gp_raytracing_manager->update_bindless_instance(bindless_instance_index() + i);
+				p_bindless_instance_desc->bindless_geometry_handle = bindless_geometry().bindless_handle();
 			}
 		}
 	}
