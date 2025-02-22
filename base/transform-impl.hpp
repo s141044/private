@@ -14,12 +14,12 @@ namespace render{
 //ïœä∑çsóÒÇï‘Ç∑
 inline float3x4 transform::ltow_matrix() const
 {
-	const float sx = sin(m_r.x);
-	const float cx = cos(m_r.x);
-	const float sy = sin(m_r.y);
-	const float cy = cos(m_r.y);
-	const float sz = sin(m_r.z);
-	const float cz = cos(m_r.z);
+	const float sx = sin(to_radian(m_r.x));
+	const float cx = cos(to_radian(m_r.x));
+	const float sy = sin(to_radian(m_r.y));
+	const float cy = cos(to_radian(m_r.y));
+	const float sz = sin(to_radian(m_r.z));
+	const float cz = cos(to_radian(m_r.z));
 	const float r00 = cy * cz;
 	const float r01 = sx * sy * cz - cx * sz;
 	const float r02 = cx * sy * cz + sx * sz;
@@ -38,12 +38,12 @@ inline float3x4 transform::ltow_matrix() const
 
 inline float3x4 transform::wtol_matrix() const
 {
-	const float sx = sin(m_r.x);
-	const float cx = cos(m_r.x);
-	const float sy = sin(m_r.y);
-	const float cy = cos(m_r.y);
-	const float sz = sin(m_r.z);
-	const float cz = cos(m_r.z);
+	const float sx = sin(to_radian(m_r.x));
+	const float cx = cos(to_radian(m_r.x));
+	const float sy = sin(to_radian(m_r.y));
+	const float cy = cos(to_radian(m_r.y));
+	const float sz = sin(to_radian(m_r.z));
+	const float cz = cos(to_radian(m_r.z));
 	const float r00 = cy * cz;
 	const float r01 = sx * sy * cz - cx * sz;
 	const float r02 = cx * sy * cz + sx * sz;

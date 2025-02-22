@@ -16,17 +16,18 @@ namespace iface{
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //登録
-inline bool gui_manager::register_editor(const size_t key, property_editor* p_editor)
+inline gui_manager::handle gui_manager::register_editor(property_editor* p_editor)
 {
-	return m_editor_ptrs.try_emplace(key, p_editor).second;
+	auto result = m_editor_ptrs.emplace(unique_ptr<property_editor>(p_editor));
+	return result.second ? result.first : handle();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //登録解除
-inline bool gui_manager::unregister_editor(const size_t key)
+inline void gui_manager::unregister_editor(const handle handle)
 {
-	return m_editor_ptrs.erase(key);
+	m_editor_ptrs.erase(handle);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,11 +35,61 @@ inline bool gui_manager::unregister_editor(const size_t key)
 //編集実行
 inline void gui_manager::property_edit()
 {
-	for(auto& [key, p_editor] : m_editor_ptrs)
+	for(auto& p_editor : m_editor_ptrs)
 	{
 		if(ImGui::Begin(p_editor->name().c_str())){ p_editor->edit(); }
 		ImGui::End();
 	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//シリアライズ
+inline void gui_manager::serialize(string filename)
+{
+	try
+	{
+		json_file file;
+		for(auto& p_editor : m_editor_ptrs)
+		{
+			auto result = file.values().try_emplace(p_editor->name());
+			if(result.second){ p_editor->serialize(result.first->second.emplace_back(new json_file::values_t)); }
+		}
+		file.save(filename);
+	}
+	catch(const std::exception& e)
+	{
+		std::cout << "gui_manager::serialize: " << e.what() << std::endl;
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//デシリアライズ
+inline void gui_manager::deserialize(string filename)
+{
+	try
+	{
+		json_file file(filename);
+		for(auto& p_editor : m_editor_ptrs)
+		{
+			auto it = file.values().find(p_editor->name());
+			if(it != file.values().end()){ p_editor->deserialize(it->second[0]); }
+		}
+	}
+	catch(const std::exception& e)
+	{
+		std::cout << "gui_manager::deserialize: " << e.what() << std::endl;
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//gui_manager::hasher
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+inline size_t gui_manager::hasher::operator()(const unique_ptr<property_editor>& p_editor) const
+{
+	return std::hash<string>{}(p_editor->name());
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

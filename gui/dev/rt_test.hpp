@@ -49,6 +49,14 @@ public:
 		auto view = m_rt_test.debug_view();
 		if(combobox("view", reinterpret_cast<int&>(view), names, sizeof(names) / sizeof(names[0]))){ m_rt_test.set_debug_view(view); }
 	}
+	
+	void serialize(json_file::values_t&)
+	{
+	}
+
+	void deserialize(const json_file::values_t&)
+	{
+	}
 
 private:
 

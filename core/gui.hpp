@@ -7,6 +7,7 @@
 #include"utility.hpp"
 #include"imgui/imgui.h"
 #include"render_device.hpp"
+#include"../../utility/json.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -47,16 +48,24 @@ public:
 
 public:
 
+	struct hasher{ size_t operator()(const unique_ptr<property_editor>& p) const; };
+	using unordered_set = unordered_set<unique_ptr<property_editor>, hasher>;
+	using handle = unordered_set::iterator;
+
 	//登録/解除
-	bool register_editor(const size_t key, property_editor* p_editor);
-	bool unregister_editor(const size_t key);
+	handle register_editor(property_editor* p_editor);
+	void unregister_editor(handle handle);
 
 	//編集実行
 	void property_edit();
 
+	//シリアライズ/デシリアライズ
+	void serialize(string filename);
+	void deserialize(string filename);
+
 private:
 
-	unordered_map<size_t, unique_ptr<property_editor>> m_editor_ptrs;
+	unordered_set m_editor_ptrs;
 };}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -75,6 +84,10 @@ public:
 
 	//編集
 	virtual void edit() = 0;
+
+	//シリアライズ/デシリアライズ
+	virtual void serialize(json_file::values_t& json) = 0;
+	virtual void deserialize(const json_file::values_t& json) = 0;
 
 	//名前を返す
 	const string& name() const { return m_name; }
@@ -100,6 +113,7 @@ protected:
 	bool header(const char* label);
 
 	//セパレータ
+	void separator();
 	void separator(const char* label);
 
 	//ボタン
@@ -128,6 +142,32 @@ protected:
 	//色
 	bool color_edit(const char* label, float3& color);
 	bool color_edit(const char* label, float4& color);
+
+protected:
+
+	//json書き込み
+	static void write_int(json_file::values_t& json, const char* label, const int& value);
+	static void write_int2(json_file::values_t& json, const char* label, const int2& value);
+	static void write_int3(json_file::values_t& json, const char* label, const int3& value);
+	static void write_int4(json_file::values_t& json, const char* label, const int4& value);
+	static void write_bool(json_file::values_t& json, const char* label, const bool& value);
+	static void write_float(json_file::values_t& json, const char* label, const float& value);
+	static void write_float2(json_file::values_t& json, const char* label, const float2& value);
+	static void write_float3(json_file::values_t& json, const char* label, const float3& value);
+	static void write_float4(json_file::values_t& json, const char* label, const float4& value);
+	static json_file::values_t* write_tree_node(json_file::values_t& json, const char* label);
+
+	//json読み込み
+	static bool read_int(const json_file::values_t& json, const char* label, int& value);
+	static bool read_int2(const json_file::values_t& json, const char* label, int2& value);
+	static bool read_int3(const json_file::values_t& json, const char* label, int3& value);
+	static bool read_int4(const json_file::values_t& json, const char* label, int4& value);
+	static bool read_bool(const json_file::values_t& json, const char* label, bool& value);
+	static bool read_float(const json_file::values_t& json, const char* label, float& value);
+	static bool read_float2(const json_file::values_t& json, const char* label, float2& value);
+	static bool read_float3(const json_file::values_t& json, const char* label, float3& value);
+	static bool read_float4(const json_file::values_t& json, const char* label, float4& value);
+	static const json_file::values_t* read_tree_node(const json_file::values_t& json, const char* label);
 
 private:
 

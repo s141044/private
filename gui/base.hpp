@@ -41,6 +41,25 @@ public:
 		float3 scaling = m_transform.scaling();
 		if(input_float3("scaling", scaling)){ m_transform.set_scaling(scaling); }
 	}
+	
+	void serialize(json_file::values_t& json)
+	{
+		write_float3(json, "translation", m_transform.translation());
+		write_float3(json, "rotation", m_transform.rotation());
+		write_float3(json, "scaling", m_transform.scaling());
+	}
+
+	void deserialize(const json_file::values_t& json)
+	{
+		float3 translation;
+		if(read_float3(json, "translation", translation)){ m_transform.set_translation(translation); }
+
+		float3 rotation;
+		if(read_float3(json, "rotation", rotation)){ m_transform.set_rotation(rotation); }
+
+		float3 scaling;
+		if(read_float3(json, "scaling", scaling)){ m_transform.set_scaling(scaling); }
+	}
 
 private:
 
@@ -67,6 +86,26 @@ public:
 		{
 			tree_node tree_node(p_editor->name().c_str());
 			if(tree_node.is_open()){ p_editor->edit(); }
+		}
+	}
+	
+	void serialize(json_file::values_t& json)
+	{
+		m_transform.serialize(json);
+		for(auto& p_editor : m_material_ptrs)
+		{
+			auto* p_json_node = write_tree_node(json, p_editor->name().c_str());
+			if(p_json_node){ p_editor->serialize(*p_json_node); }
+		}
+	}
+
+	void deserialize(const json_file::values_t& json)
+	{
+		m_transform.deserialize(json);
+		for(auto& p_editor : m_material_ptrs)
+		{
+			const auto* p_json_node = read_tree_node(json, p_editor->name().c_str());
+			if(p_json_node){ p_editor->deserialize(*p_json_node); }
 		}
 	}
 
@@ -113,6 +152,33 @@ public:
 
 		float far_clip = m_camera.far_clip();
 		if(input_float("far_clip", far_clip)){ m_camera.set_far_clip(far_clip); }
+	}
+	
+	void serialize(json_file::values_t& json)
+	{
+		write_float3(json, "position", m_camera.position());
+		write_float3(json, "center", m_camera.center());
+		write_float3(json, "fovy", m_camera.fovy());
+		write_float3(json, "near_clip", m_camera.near_clip());
+		write_float3(json, "far_clip", m_camera.far_clip());
+	}
+
+	void deserialize(const json_file::values_t& json)
+	{
+		float3 center = m_camera.center();
+		float3 position = m_camera.position();
+		read_float3(json, "center", center);
+		read_float3(json, "position", position);
+		m_camera.look_at(position, center);
+
+		float fovy;
+		if(read_float(json, "fovy", fovy)){ m_camera.set_fovy(fovy); }
+
+		float near_clip;
+		if(read_float(json, "near_clip", near_clip)){ m_camera.set_near_clip(near_clip); }
+
+		float far_clip;
+		if(read_float(json, "far_clip", far_clip)){ m_camera.set_far_clip(far_clip); }
 	}
 
 private:
