@@ -134,6 +134,7 @@ protected:
 	bool input_float2(const char* label, float2& value);
 	bool input_float3(const char* label, float3& value);
 	bool input_float4(const char* label, float4& value);
+	bool input_text(const char* label, char* buf, size_t bus_size);
 
 	//スライダー
 	bool slider_int(const char* label, int& value, int min, int max);

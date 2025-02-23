@@ -5,6 +5,8 @@
 #define NN_RENDER_UTILITY_HPP
 
 #include"../utility.hpp"
+#include"../utility/string.hpp"
+
 #include"core/utility.hpp"
 #include"utility/half.hpp"
 #include"utility/math.hpp"

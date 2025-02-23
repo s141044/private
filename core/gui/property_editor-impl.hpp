@@ -97,6 +97,11 @@ inline bool property_editor::input_float4(const char* label, float4& value)
 	return ImGui::InputFloat4(label, &value[0]);
 }
 
+inline bool property_editor::input_text(const char* label, char* buf, size_t buf_size)
+{
+	return ImGui::InputText(label, buf, buf_size);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //スライダー

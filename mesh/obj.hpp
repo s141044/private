@@ -85,11 +85,10 @@ public:
 		{
 			for(uint sub_id = subset_offsets[mtl_id]; sub_id < subset_offsets[mtl_id + 1]; sub_id++)
 			{
-				using namespace enum_op;
 				const auto &sub = *subset_ptrs[sub_id];
-				const bool has_vp = ((sub.face_type() & objfile::face_types::has_vp) != 0);
-				const bool has_vt = ((sub.face_type() & objfile::face_types::has_vt) != 0);
-				const bool has_vn = ((sub.face_type() & objfile::face_types::has_vn) != 0) && not(recalc_normals);
+				const bool has_vp = ((int(sub.face_type()) & int(objfile::face_types::has_vp)) != 0);
+				const bool has_vt = ((int(sub.face_type()) & int(objfile::face_types::has_vt)) != 0);
+				const bool has_vn = ((int(sub.face_type()) & int(objfile::face_types::has_vn)) != 0) && not(recalc_normals);
 				ts_calculator.initialize(file, sub, smoothing_angle);
 
 				for(int i = 0, nf = sub.num_faces(); i < nf; i++)

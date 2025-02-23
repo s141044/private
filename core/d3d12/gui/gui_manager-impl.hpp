@@ -34,6 +34,7 @@ inline void gui_manager::initialize(iface::render_device& iface_device, const te
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 	//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
+	io.Fonts->AddFontFromFileTTF("font/meiryo.ttc", 14.0f, nullptr, io.Fonts->GetGlyphRangesJapanese()); //日本語フォント
 		
 	// Setup Platform/Renderer backends
 	ImGui_ImplDX12_InitInfo init_info = {};
