@@ -11,7 +11,7 @@ cbuffer scene_info
 	float3		camera_pos;
 	float		pixel_size;		//距離1におけるピクセルのサイズ
 	float2		frustum_size;	//距離1におけるフラスタムのサイズ
-	float2		reserved0;
+	float2		scene_info_reserved0;
 	float4x3	view_mat;
 	float4x4	proj_mat;
 	float4x4	view_proj_mat;
@@ -36,6 +36,15 @@ cbuffer light_info
 	uint	environment_light_presample_count;
 	float	environment_light_power_scale;
 	uint	environment_light_reserved;
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+cbuffer system_info
+{
+	float	delta_time;
+	uint	frame_count;
+	uint2	system_info_reserved0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

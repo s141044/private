@@ -109,6 +109,9 @@ public:
 		void* dst = context.update_buffer(*mp_buf, 0, sizeof(params));
 		memcpy(dst, &params, sizeof(params));
 		m_has_update = false;
+
+		//テクスチャの考慮はできない
+		m_emissive_power = luminance(m_emission_color * m_emission_scale);
 	}
 
 	//パラメータ

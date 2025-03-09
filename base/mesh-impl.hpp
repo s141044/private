@@ -60,6 +60,32 @@ inline void mesh::update_material(render_context& context)
 		if(p_mtl->has_update())
 			p_mtl->update(context);
 	}
+
+	for(size_t i = 0; i < m_clusters.size(); i++)
+	{
+		auto& cluster = m_clusters[i];
+		auto& info = m_emissive_info[i];
+
+		float power = m_material_ptrs[cluster.material_index]->emissive_power();
+		if(power > 0)
+		{
+			if(info.emissive_instance_index == 0xffffffff)
+			{
+				info.p_emissive_blas.reset(new emissive_blas());
+				if(info.p_emissive_blas->build(context, raytracing_instance_index(), info.bindless_instance_index, cluster.index_count / 3, power))
+					info.emissive_instance_index = gp_raytracing_manager->register_emissive(*info.p_emissive_blas);
+			}
+			else if(info.power != power)
+				info.p_emissive_blas->update(context, power);
+		}
+		else if(info.emissive_instance_index != 0xffffffff)
+		{
+			info.p_emissive_blas.reset();
+			gp_raytracing_manager->unregister_emissive(info.emissive_instance_index);
+			info.emissive_instance_index = 0xffffffff;
+		}
+		info.power = power;
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -144,6 +170,10 @@ inline void mesh::update_raytracing(render_context& context)
 			p_bindless_instance_desc->base_vertex_location = cluster.base_vertex_location;
 			p_bindless_instance_desc->bindless_geometry_handle = bindless_geometry().bindless_handle();
 			p_bindless_instance_desc->bindless_material_handle = material.bindless_handle();
+
+			m_emissive_info.emplace_back();
+			m_emissive_info.back().emissive_instance_index = 0xffffffff;
+			m_emissive_info.back().bindless_instance_index = bindless_instance_index + offset;
 		}
 	
 		context.set_priority(priority_build_bottom_level_acceleration_structure);

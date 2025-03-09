@@ -186,6 +186,9 @@ public:
 	//パラメータを更新
 	virtual void update(render_context& context) = 0;
 
+	//発光パワーを返す
+	float emissive_power() const { return m_emissive_power; }
+
 	//マテリアルタイプを返す
 	material_type type() const { return m_type; }
 
@@ -200,6 +203,7 @@ protected:
 	uint						m_blas_group_key;
 	buffer_ptr					mp_buf;
 	shader_resource_view_ptr	mp_srv;
+	float						m_emissive_power;
 	bool						m_has_update;
 
 private:
@@ -246,6 +250,75 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 using bindless_geometry_ptr = shared_ptr<bindless_geometry>;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//emissive_blas
+/*/////////////////////////////////////////////////////////////////////////////////////////////////
+木を作るのは今後.
+/////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+class emissive_blas
+{
+public:
+
+	//コンストラクタ
+	emissive_blas();
+
+	//デストラクタ
+	~emissive_blas();
+
+	//ビルド
+	bool build(render_context& context, const uint raytracing_instance_index, const uint bindless_instance_index, const uint primitive_count, const float power);
+
+	//更新
+	void update(render_context& context, const float power);
+
+	//バインドレスハンドルを返す
+	uint bindless_handle() const { return mp_blas_srv->bindless_handle(); }
+
+private:
+
+	shader_file_holder			m_shaders;
+	buffer_ptr					mp_blas_buf;
+	shader_resource_view_ptr	mp_blas_srv;
+	unordered_access_view_ptr	mp_blas_uav;
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//emissive_tlas
+/*/////////////////////////////////////////////////////////////////////////////////////////////////
+木を作るのは今後.
+/////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+class emissive_tlas
+{
+public:
+
+	//コンストラクタ
+	emissive_tlas(const uint max_instance);
+
+	//登録/解除
+	uint register_blas(const emissive_blas& blas);
+	void unregister_blas(uint index);
+
+	//ビルド
+	bool build(render_context& context);
+
+	//リソースをバインド
+	void bind(render_context& context);
+
+private:
+
+	shader_file_holder			m_shaders;
+	default_allocator			m_instance_allocator;
+	upload_buffer_ptr			mp_instance_list_ubuf;
+	buffer_ptr					mp_instance_list_buf[2];
+	shader_resource_view_ptr	mp_instance_list_srv[2];
+	unordered_access_view_ptr	mp_instance_list_uav[2];
+	buffer_ptr					mp_instance_list_size_buf;
+	shader_resource_view_ptr	mp_instance_list_size_srv;
+	unordered_access_view_ptr	mp_instance_list_size_uav;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //mesh
@@ -329,6 +402,15 @@ private:
 	bindless_geometry_ptr							m_bindless_gs_ptrs[2];
 	uint											m_update_frame = 0;
 	bool											m_compaction_completed = false;
+	
+	struct emissive_info
+	{
+		uint										bindless_instance_index;
+		uint										emissive_instance_index;
+		unique_ptr<emissive_blas>					p_emissive_blas;
+		float										power;
+	};
+	vector<emissive_info>							m_emissive_info;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -352,25 +434,28 @@ public:
 	register_result register_instance(const uint bindless_instance_count, const uint raytracing_instance_count);
 	void unregister_instance(const uint bindless_instance_index, const uint raytracing_instance_index);
 
+	//Emissiveインスタンス登録/解除
+	uint register_emissive(const emissive_blas& blas);
+	void unregister_emissive(const uint index);
+
 	//TLAS構築
 	void build(render_context& context);
 
-	//リソースを返す
-	top_level_acceleration_structure& tlas() const { return *mp_tlas; }
-	shader_resource_view& bindless_instance_descs_srv() const { return *mp_bindless_isntance_descs_srv; }
-	shader_resource_view& raytracing_instance_descs_srv() const { return *mp_raytracing_isntance_descs_srv; }
+	//リソースをバインド
+	void bind(render_context& context);
 
 	//更新用アドレスを返す
-	bindless_instance_desc *update_bindless_instance(const uint i){ return mp_bindless_instance_descs_ubuf->data<bindless_instance_desc>() + i; }
-	raytracing_instance_desc *update_raytracing_instance(const uint i){ return mp_raytracing_instance_descs_ubuf->data<raytracing_instance_desc>() + i; }
+	bindless_instance_desc* update_bindless_instance(const uint i){ return mp_bindless_instance_descs_ubuf->data<bindless_instance_desc>() + i; }
+	raytracing_instance_desc* update_raytracing_instance(const uint i){ return mp_raytracing_instance_descs_ubuf->data<raytracing_instance_desc>() + i; }
 
 private:
 
 	top_level_acceleration_structure_ptr	mp_tlas;
+	emissive_tlas							m_emissive_tlas;
 	buffer_ptr								mp_bindless_instance_descs_buf;
-	shader_resource_view_ptr				mp_bindless_isntance_descs_srv;
+	shader_resource_view_ptr				mp_bindless_instance_descs_srv;
 	upload_buffer_ptr						mp_bindless_instance_descs_ubuf;
-	shader_resource_view_ptr				mp_raytracing_isntance_descs_srv;
+	shader_resource_view_ptr				mp_raytracing_instance_descs_srv;
 	upload_buffer_ptr						mp_raytracing_instance_descs_ubuf;
 	default_allocator						m_bindless_instance_allocator;
 	default_allocator						m_raytracing_instance_allocator;
@@ -379,6 +464,39 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 static inline std::unique_ptr<raytracing_manager> gp_raytracing_manager;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//emissive_sampler
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+class emissive_sampler
+{
+public:
+
+	//コンストラクタ
+	emissive_sampler();
+
+	//サンプリング
+	bool sample(render_context& context, const uint sample_count);
+
+	//リソースをバインド
+	void bind(render_context& context);
+
+private:
+
+	struct sample_t
+	{
+		float3	position;
+		uint	normal;
+		uint	power;
+		uint	pdf_approx;
+	};
+
+	shader_file_holder			m_shaders;
+	buffer_ptr					mp_emissive_sample_list_buf;
+	shader_resource_view_ptr	mp_emissive_sample_list_srv;
+	unordered_access_view_ptr	mp_emissive_sample_list_uav;
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //raytracing_picker
@@ -678,8 +796,11 @@ private:
 #include"base/mesh-impl.hpp"
 #include"base/camera-impl.hpp"
 #include"base/transform-impl.hpp"
+#include"base/emissive_blas-impl.hpp"
+#include"base/emissive_tlas-impl.hpp"
 #include"base/render_entity-impl.hpp"
 #include"base/texture_manager-impl.hpp"
+#include"base/emissive_sampler-impl.hpp"
 #include"base/base_application-impl.hpp"
 #include"base/raytracing_picker-impl.hpp"
 #include"base/bindless_geometry-impl.hpp"

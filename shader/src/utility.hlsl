@@ -61,4 +61,20 @@ float3 bilinear_sample(Texture2D<uint> tex, sampler s, float2 uv)
 		r9g9b9e5_to_f32x3(vals.w) * bilinear_weight.x * bilinear_weight.y;
 }
 
+void InterlockedAdd(RWByteAddressBuffer buf, uint offset, float v, out float original)
+{
+	while(true)
+	{
+		uint original_uint, old = buf.Load(offset);
+		buf.InterlockedCompareExchange(offset, old, asuint(asfloat(old) + v), original_uint);
+		if(original_uint == old){ original = asfloat(original_uint); break; }
+	}
+}
+
+void InterlockedAdd(RWByteAddressBuffer buf, uint offset, float v)
+{
+	float original;
+	InterlockedAdd(buf, offset, v, original);
+}
+
 #endif

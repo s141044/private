@@ -1,0 +1,9 @@
+{
+  "definition":
+  [
+    {
+      "name": "emissive_sample", 
+      "cs": [ "emissive.hlsl", "emissive_sample", "-DEMISSIVE_SAMPLE_INITIALIZATION" ]
+    }
+  ]
+}

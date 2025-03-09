@@ -12,18 +12,18 @@ namespace render{
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline raytracing_manager::raytracing_manager(const uint max_size) : m_bindless_instance_allocator(max_size), m_raytracing_instance_allocator(max_size)
+inline raytracing_manager::raytracing_manager(const uint max_size) : m_emissive_tlas(max_size), m_bindless_instance_allocator(max_size), m_raytracing_instance_allocator(max_size)
 {
 	mp_tlas = gp_render_device->create_top_level_acceleration_structure(max_size);
-	mp_bindless_instance_descs_buf = gp_render_device->create_structured_buffer(sizeof(bindless_instance_desc), max_size, resource_flag_allow_shader_resource);
-	mp_bindless_isntance_descs_srv = gp_render_device->create_shader_resource_view(*mp_bindless_instance_descs_buf, buffer_srv_desc(*mp_bindless_instance_descs_buf));
+	mp_bindless_instance_descs_buf = gp_render_device->create_structured_buffer(sizeof(bindless_instance_desc), max_size, resource_flags(resource_flag_allow_shader_resource | resource_flag_scratch));
+	mp_bindless_instance_descs_srv = gp_render_device->create_shader_resource_view(*mp_bindless_instance_descs_buf, buffer_srv_desc(*mp_bindless_instance_descs_buf));
 	mp_bindless_instance_descs_ubuf = gp_render_device->create_upload_buffer(sizeof(bindless_instance_desc) * max_size);
-	mp_raytracing_isntance_descs_srv = gp_render_device->create_shader_resource_view(mp_tlas->instance_descs(), buffer_srv_desc(mp_tlas->instance_descs()));
+	mp_raytracing_instance_descs_srv = gp_render_device->create_shader_resource_view(mp_tlas->instance_descs(), buffer_srv_desc(mp_tlas->instance_descs()));
 	mp_raytracing_instance_descs_ubuf = gp_render_device->create_upload_buffer(sizeof(raytracing_instance_desc) * max_size);
 
 	gp_render_device->set_name(*mp_tlas, L"tlas");
-	gp_render_device->set_name(*mp_bindless_instance_descs_buf, L"bindless_isntance_descs_buf");
-	gp_render_device->set_name(*mp_bindless_instance_descs_ubuf, L"bindless_isntance_descs_ubuf");
+	gp_render_device->set_name(*mp_bindless_instance_descs_buf, L"bindless_instance_descs_buf");
+	gp_render_device->set_name(*mp_bindless_instance_descs_ubuf, L"bindless_instance_descs_ubuf");
 	gp_render_device->set_name(*mp_raytracing_instance_descs_ubuf, L"raytracing_instance_descs_ubuf");
 	gp_render_device->set_name(mp_tlas->instance_descs(), L"raytracing_instance_descs_buf");
 
@@ -57,8 +57,24 @@ inline void raytracing_manager::unregister_instance(const uint bindless_instance
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+//Emissiveインスタンス登録
+inline uint raytracing_manager::register_emissive(const emissive_blas& blas)
+{
+	return m_emissive_tlas.register_blas(blas);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//Emissiveインスタンス登録解除
+inline void raytracing_manager::unregister_emissive(const uint emissive_instance_index)
+{
+	m_emissive_tlas.unregister_blas(emissive_instance_index);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 //TLAS構築
-inline void raytracing_manager::build(render_context &context)
+inline void raytracing_manager::build(render_context& context)
 {
 	const auto bindless_instance_count = uint(m_bindless_instance_allocator.last_free_block_index());
 	const auto raytracing_instance_count = uint(m_raytracing_instance_allocator.last_free_block_index());
@@ -70,6 +86,18 @@ inline void raytracing_manager::build(render_context &context)
 		context.copy_buffer(*mp_bindless_instance_descs_buf, 0, *mp_bindless_instance_descs_ubuf, 0, sizeof(bindless_instance_desc) * bindless_instance_count);
 		context.build_top_level_acceleration_structure(*mp_tlas, raytracing_instance_count);
 	}
+	m_emissive_tlas.build(context);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//リソースをバインド
+inline void raytracing_manager::bind(render_context& context)
+{
+	context.set_pipeline_resource("AS", *mp_tlas, true);
+	context.set_pipeline_resource("bindless_instance_descs", *mp_bindless_instance_descs_srv, true);
+	context.set_pipeline_resource("raytracing_instance_descs", *mp_raytracing_instance_descs_srv, true);
+	m_emissive_tlas.bind(context);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
