@@ -94,6 +94,216 @@ void initialize2(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupThreadID)
 	}
 }
 
+#elif defined(SCAN1)
+
+ByteAddressBuffer	weight_srv;
+ByteAddressBuffer	max_weight_srv;
+ByteAddressBuffer	sum_weight_srv;
+RWByteAddressBuffer	block_light_count_uav;
+RWByteAddressBuffer	block_heavy_count_uav;
+RWByteAddressBuffer	block_light_sum_weight_uav;
+RWByteAddressBuffer	block_heavy_sum_weight_uav;
+groupshared uint	shared_light_count[8];
+groupshared uint	shared_heavy_count[8];
+groupshared uint	shared_light_sum_weight[8];
+groupshared uint	shared_heavy_sum_weight[8];
+
+[numthreads(256, 1, 1)]
+void scan1(uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID, uint group_index : SV_GroupIndex)
+{
+	uint weight = 0;
+	if(dtid < primitive_count)
+		weight = to_fixed_point(weight_srv.Load<float>(4 * dtid), max_weight_srv.Load<float>(0));
+
+	bool is_heavy = (weight * primitive_count >= sum_weight_srv.Load(0));
+	bool is_light = (dtid < primitive_count) && !is_heavy;
+
+	uint light_count = WaveActiveCountBits(is_light);
+	uint heavy_count = WaveActiveCountBits(is_heavy);
+	uint light_sum_weight = WaveActiveSum(is_light ? weight : 0);
+	uint heavy_sum_weight = WaveActiveSum(is_heavy ? weight : 0);
+
+	if((group_index % 32) == 0)
+	{
+		shared_light_count[group_index / 32] = light_count;
+		shared_heavy_count[group_index / 32] = heavy_count;
+		shared_light_sum_weight[group_index / 32] = light_sum_weight;
+		shared_heavy_sum_weight[group_index / 32] = heavy_sum_weight;
+	}
+	GroupMemoryBarrierWithGroupSync();
+
+	if(group_index < 8)
+	{
+		light_count = WaveActiveSum(shared_light_count[group_index]);
+		heavy_count = WaveActiveSum(shared_heavy_count[group_index]);
+		light_sum_weight = WaveActiveSum(shared_light_sum_weight[group_index]);
+		heavy_sum_weight = WaveActiveSum(shared_heavy_sum_weight[group_index]);
+
+		block_light_count_uav.Store(4 * gid, light_count);
+		block_heavy_count_uav.Store(4 * gid, heavy_count);
+		block_light_sum_weight_uav.Store(4 * gid, light_sum_weight);
+		block_heavy_sum_weight_uav.Store(4 * gid, heavy_sum_weight);
+	}
+}
+
+#elif defined(SCAN2)
+
+RWByteAddressBuffer	block_light_count_uav;
+RWByteAddressBuffer	block_heavy_count_uav;
+RWByteAddressBuffer	block_light_sum_weight_uav;
+RWByteAddressBuffer	block_heavy_sum_weight_uav;
+groupshared uint	shared_light_count[8];
+groupshared uint	shared_heavy_count[8];
+groupshared uint	shared_light_sum_weight[8];
+groupshared uint	shared_heavy_sum_weight[8];
+
+[numthreads(256, 1, 1)]
+void scan2(uint dtid : SV_DispatchThreadID, uint group_index : SV_GroupIndex)
+{
+	uint light_count = 0;
+	uint heavy_count = 0;
+	uint light_sum_weight = 0;
+	uint heavy_sum_weight = 0;
+	if(dtid < (primitive_count + 255) / 256)
+	{
+		light_count = block_light_count_uav.Load(4 * dtid);
+		heavy_count = block_heavy_count_uav.Load(4 * dtid);
+		light_sum_weight = block_light_sum_weight_uav.Load(4 * dtid);
+		heavy_sum_weight = block_heavy_sum_weight_uav.Load(4 * dtid);
+	}
+	
+	uint sum_light_count = WavePrefixSum(light_count);
+	uint sum_heavy_count = WavePrefixSum(heavy_count);
+	uint sum_light_sum_weight = WavePrefixSum(light_sum_weight);
+	uint sum_heavy_sum_weight = WavePrefixSum(heavy_sum_weight);
+
+	if((group_index % 32) == 31)
+	{
+		shared_light_count[group_index / 32] = sum_light_count + light_count;
+		shared_heavy_count[group_index / 32] = sum_heavy_count + heavy_count;
+		shared_light_sum_weight[group_index / 32] = sum_light_sum_weight + light_sum_weight;
+		shared_heavy_sum_weight[group_index / 32] = sum_heavy_sum_weight + heavy_sum_weight;
+	}
+	GroupMemoryBarrierWithGroupSync();
+
+	if(group_index < 8)
+	{
+		shared_light_count[group_index] = WavePrefixSum(shared_light_count[group_index]);
+		shared_heavy_count[group_index] = WavePrefixSum(shared_heavy_count[group_index]);
+		shared_light_sum_weight[group_index] = WavePrefixSum(shared_light_sum_weight[group_index]);
+		shared_heavy_sum_weight[group_index] = WavePrefixSum(shared_heavy_sum_weight[group_index]);
+	}
+	GroupMemoryBarrierWithGroupSync();
+	
+	if(dtid < (primitive_count + 255) / 256 + 1)
+	{
+		block_light_count_uav.Store(4 * dtid, shared_light_count[group_index / 32] + sum_light_count);
+		block_heavy_count_uav.Store(4 * dtid, shared_heavy_count[group_index / 32] + sum_heavy_count);
+		block_light_sum_weight_uav.Store(4 * dtid, shared_light_sum_weight[group_index / 32] + sum_light_sum_weight);
+		block_heavy_sum_weight_uav.Store(4 * dtid, shared_heavy_sum_weight[group_index / 32] + sum_heavy_sum_weight);
+	}
+}
+
+#elif defined(SCAN3)
+
+ByteAddressBuffer	weight_srv;
+ByteAddressBuffer	max_weight_srv;
+ByteAddressBuffer	sum_weight_srv;
+ByteAddressBuffer	block_light_count_srv;
+ByteAddressBuffer	block_heavy_count_srv;
+ByteAddressBuffer	block_light_sum_weight_srv;
+ByteAddressBuffer	block_heavy_sum_weight_srv;
+RWByteAddressBuffer	light_sum_weight_uav;
+RWByteAddressBuffer	heavy_sum_weight_uav;
+RWByteAddressBuffer	light_index_uav;
+RWByteAddressBuffer	heavy_index_uav;
+groupshared uint	shared_light_count[9];
+groupshared uint	shared_heavy_count[9];
+groupshared uint	shared_light_sum_weight[9];
+groupshared uint	shared_heavy_sum_weight[9];
+groupshared uint	shared_index[256];
+groupshared uint	shared_weight[256];
+
+[numthreads(256, 1, 1)]
+void scan3(uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID, uint group_index : SV_GroupIndex)
+{
+	float max_weight = max_weight_srv.Load<float>(0);
+
+	uint weight = 0;
+	if(dtid < primitive_count)
+		weight = to_fixed_point(weight_srv.Load<float>(4 * dtid), max_weight);
+
+	bool is_heavy = (weight * primitive_count >= sum_weight_srv.Load(0));
+	bool is_light = (dtid < primitive_count) && !is_heavy;
+
+	uint light_count = WavePrefixCountBits(is_light);
+	uint heavy_count = WavePrefixCountBits(is_heavy);
+	uint light_sum_weight = WavePrefixSum(is_light ? weight : 0);
+	uint heavy_sum_weight = WavePrefixSum(is_heavy ? weight : 0);
+
+	if(is_light)
+		light_sum_weight += weight;
+	else
+		heavy_sum_weight += weight;
+
+	if((group_index % 32) == 31)
+	{
+		shared_light_count[group_index / 32] = light_count + (is_light ? 1 : 0);
+		shared_heavy_count[group_index / 32] = heavy_count + (is_heavy ? 1 : 0);
+		shared_light_sum_weight[group_index / 32] = light_sum_weight;
+		shared_heavy_sum_weight[group_index / 32] = heavy_sum_weight;
+	}
+	GroupMemoryBarrierWithGroupSync();
+
+	if(group_index < 9)
+	{
+		shared_light_count[group_index] = WavePrefixSum(shared_light_count[group_index]);
+		shared_heavy_count[group_index] = WavePrefixSum(shared_heavy_count[group_index]);
+		shared_light_sum_weight[group_index] = WavePrefixSum(shared_light_sum_weight[group_index]);
+		shared_heavy_sum_weight[group_index] = WavePrefixSum(shared_heavy_sum_weight[group_index]);
+		shared_light_sum_weight[group_index] += block_light_sum_weight_srv.Load(4 * gid);
+		shared_heavy_sum_weight[group_index] += block_heavy_sum_weight_srv.Load(4 * gid);
+	}
+	GroupMemoryBarrierWithGroupSync();
+
+	uint block_light_count = shared_light_count[8];
+	uint block_heavy_count = shared_heavy_count[8];
+
+	light_count += shared_light_count[group_index / 32];
+	heavy_count += shared_heavy_count[group_index / 32];
+	light_sum_weight += shared_light_sum_weight[group_index / 32];
+	heavy_sum_weight += shared_heavy_sum_weight[group_index / 32];
+
+	if(is_light)
+	{
+		shared_index[light_count] = dtid;
+		shared_weight[light_count] = light_sum_weight;
+	}
+	else if(is_heavy)
+	{
+		shared_index[block_light_count + heavy_count] = dtid;
+		shared_weight[block_light_count + heavy_count] = heavy_sum_weight;
+	}
+	GroupMemoryBarrierWithGroupSync();
+
+	uint global_light_offset = block_light_count_srv.Load(4 * gid);
+	uint global_heavy_offset = block_heavy_count_srv.Load(4 * gid);
+
+	//buildŽž‚Éthreshold=1‚É‚È‚é‚æ‚¤‚É’²®
+	float W = to_floating_point(sum_weight_srv.Load(0), max_weight);
+	float inv_threshold = primitive_count / W;
+	if(group_index < block_light_count)
+	{
+		light_index_uav.Store(4 * (global_light_offset + group_index), shared_index[group_index]);
+		light_sum_weight_uav.Store<float>(4 * (global_light_offset + group_index + 1), to_floating_point(shared_weight[group_index], max_weight) * inv_threshold);
+	}
+	if(group_index < block_heavy_count)
+	{
+		heavy_index_uav.Store(4 * (global_heavy_offset + group_index), shared_index[block_light_count + group_index]);
+		heavy_sum_weight_uav.Store<float>(4 * (global_heavy_offset + group_index + 1), to_floating_point(shared_weight[block_light_count + group_index], max_weight) * inv_threshold);
+	}
+}
+
 #elif defined(SCAN)
 
 ByteAddressBuffer	weight_srv;
@@ -212,6 +422,7 @@ void scan(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupThreadID)
 #elif defined(BUILD)
 
 RWByteAddressBuffer	blas_uav;
+RWByteAddressBuffer	debug_uav;
 ByteAddressBuffer	weight_srv;
 ByteAddressBuffer	sum_weight_srv;
 ByteAddressBuffer	max_weight_srv;
@@ -219,7 +430,11 @@ ByteAddressBuffer	light_sum_weight_srv;
 ByteAddressBuffer	heavy_sum_weight_srv;
 ByteAddressBuffer	light_index_srv;
 ByteAddressBuffer	heavy_index_srv;
+
 ByteAddressBuffer	scan_scratch_srv;
+
+ByteAddressBuffer	block_light_count_srv;
+ByteAddressBuffer	block_heavy_count_srv;
 
 struct state
 {
@@ -233,8 +448,17 @@ void build(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupThreadID)
 	if(dtid >= primitive_count)
 		return;
 
+	{
+		float w = weight_srv.Load<float>(4 * dtid);
+		float W = to_floating_point(sum_weight_srv.Load(0), max_weight_srv.Load<float>(0));
+		float threshold = W / primitive_count;
+		debug_uav.Store<float>(4 * dtid, w / threshold);
+	}
+
 	uint light_count = scan_scratch_srv.Load(0);
 	uint heavy_count = scan_scratch_srv.Load(8);
+	//uint light_count = block_light_count_srv.Load(4 * ((primitive_count + 255) / 256));
+	//uint heavy_count = block_heavy_count_srv.Load(4 * ((primitive_count + 255) / 256));
 
 	state state;
 	if(dtid == 0)
@@ -247,7 +471,7 @@ void build(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupThreadID)
 	{
 		state.i = 1;
 		state.j = 0;
-		state.spill = heavy_sum_weight_srv.Load<float>(4) - light_sum_weight_srv.Load<float>(4);
+		state.spill = heavy_sum_weight_srv.Load<float>(4) - (1 - light_sum_weight_srv.Load<float>(4));
 	}
 	else if(dtid == primitive_count - 1)
 	{
@@ -258,34 +482,35 @@ void build(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupThreadID)
 	else
 	{
 		uint n = dtid;
-		uint a = 0;
-		uint b = n - 1;
-		//uint a = (n > light_count) ? n - light_count : 0;
-		//uint b = min(n, heavy_count) - 1;
+		//uint a = 0;
+		//uint b = n - 1;
+		uint a = (n > light_count) ? n - light_count : 0;
+		uint b = min(n, heavy_count) - 1;
 
+		//while(true)
 		for(uint k = 0; k < 16; k++)
 		{
 			uint j = (a + b) / 2;
 			uint i = n - j;
 
 			//”ÍˆÍŠO‚Ísum‚ª0‚É‚È‚Á‚Ä‚é‚Ì‚Å‚¢‚é
-			if(j > heavy_count)
-			{
-				b = j - 1;
-				continue;
-			}
-			if(i > light_count)
-			{
-				a = j - 1;
-				continue;
-			}
+			//if(j > heavy_count)
+			//{
+			//	b = j - 1;
+			//	continue;
+			//}
+			//if(i > light_count)
+			//{
+			//	a = j - 1;
+			//	continue;
+			//}
 
 			//light‚ªŽg‚í‚ê‚È‚¢‚±‚Æ‚Í‚È‚¢
-			if(i == 0)
-			{
-				a = j - 1;
-				continue;
-			}
+			//if(i == 0)
+			//{
+			//	a = j - 1;
+			//	continue;
+			//}
 
 			float light_sum_weight = light_sum_weight_srv.Load<float>(4 * i);
 			float heavy_sum_weight = heavy_sum_weight_srv.Load<float>(4 * j);
@@ -322,12 +547,8 @@ void build(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupThreadID)
 	if(state.spill > 1)
 	{
 		uint light_index = light_index_srv.Load(4 * state.i);
-		float2 light_weights = light_sum_weight_srv.Load<float2>(4 * (state.i - 1));
+		float2 light_weights = light_sum_weight_srv.Load<float2>(4 * state.i);
 		blas_uav.Store2(8 * light_index, uint2(asuint(light_weights[1] - light_weights[0]), heavy_index));
-		
-		//float W = sum_weight_srv.Load<float>(0);
-		//float threshold = W / primitive_count;
-		//blas_uav.Store2(8 * light_index, uint2(asuint((light_weights[1] - light_weights[0]) * threshold), heavy_index));
 	}
 	else
 	{

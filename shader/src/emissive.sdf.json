@@ -14,6 +14,18 @@
       "cs": [ "emissive.hlsl", "scan", "-DSCAN" ]
     },
     {
+      "name": "scan1", 
+      "cs": [ "emissive.hlsl", "scan1", "-DSCAN1" ]
+    },
+    {
+      "name": "scan2", 
+      "cs": [ "emissive.hlsl", "scan2", "-DSCAN2" ]
+    },
+    {
+      "name": "scan3", 
+      "cs": [ "emissive.hlsl", "scan3", "-DSCAN3" ]
+    },
+    {
       "name": "build_blas", 
       "cs": [ "emissive.hlsl", "build", "-DBUILD -DBUILD_BLAS" ]
     },
