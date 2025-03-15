@@ -37,7 +37,7 @@ struct bindless_instance_desc
 
 struct raytracing_instance_desc
 {
-	float		transform[3][4];
+	float4x3	transform;
 	uint		id		: 24;
 	uint		mask	: 8;
 	uint		unused	: 24;

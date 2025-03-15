@@ -266,10 +266,10 @@ public:
 	~emissive_blas();
 
 	//ビルド
-	bool build(render_context& context, const uint raytracing_instance_index, const uint bindless_instance_index, const uint primitive_count, const float power);
+	bool build(render_context& context, const uint raytracing_instance_index, const uint bindless_instance_index, const uint primitive_count, const float base_power);
 
 	//更新
-	void update(render_context& context, const float power);
+	void update(render_context& context, const float base_power);
 
 	//バインドレスハンドルを返す
 	uint bindless_handle() const { return mp_blas_srv->bindless_handle(); }
@@ -279,7 +279,7 @@ private:
 	struct header
 	{
 		float		area;
-		float		power;
+		float		base_power;
 		uint16_t	primitive_count;
 		uint16_t	raytracing_instance_index;
 		uint		bindless_instance_index;
@@ -319,15 +319,53 @@ public:
 
 private:
 
+	struct header
+	{
+		float	power;
+		float	inv_power;
+		uint	blas_count;
+		uint	padding;
+	};
+	struct bucket
+	{
+		float	w;
+		uint	a; 
+	};
+
 	shader_file_holder			m_shaders;
-	default_allocator			m_instance_allocator;
-	upload_buffer_ptr			mp_instance_list_ubuf;
-	buffer_ptr					mp_instance_list_buf[2];
-	shader_resource_view_ptr	mp_instance_list_srv[2];
-	unordered_access_view_ptr	mp_instance_list_uav[2];
-	buffer_ptr					mp_instance_list_size_buf;
-	shader_resource_view_ptr	mp_instance_list_size_srv;
-	unordered_access_view_ptr	mp_instance_list_size_uav;
+	default_allocator			m_blas_allocator;
+	upload_buffer_ptr			mp_blas_handle_ubuf;
+	buffer_ptr					mp_blas_handle_buf;
+	shader_resource_view_ptr	mp_blas_handle_srv;
+	unordered_access_view_ptr	mp_blas_handle_uav;
+	buffer_ptr					mp_tlas_buf;
+	shader_resource_view_ptr	mp_tlas_srv;
+	unordered_access_view_ptr	mp_tlas_uav;
+
+	buffer_ptr					mp_weight_buf;
+	shader_resource_view_ptr	mp_weight_srv;
+	unordered_access_view_ptr	mp_weight_uav;
+	buffer_ptr					mp_sum_weight_buf;
+	shader_resource_view_ptr	mp_sum_weight_srv;
+	unordered_access_view_ptr	mp_sum_weight_uav;
+	buffer_ptr					mp_max_weight_buf;
+	shader_resource_view_ptr	mp_max_weight_srv;
+	unordered_access_view_ptr	mp_max_weight_uav;
+	buffer_ptr					mp_light_index_buf;
+	shader_resource_view_ptr	mp_light_index_srv;
+	unordered_access_view_ptr	mp_light_index_uav;
+	buffer_ptr					mp_heavy_index_buf;
+	shader_resource_view_ptr	mp_heavy_index_srv;
+	unordered_access_view_ptr	mp_heavy_index_uav;
+	buffer_ptr					mp_light_sum_weight_buf;
+	shader_resource_view_ptr	mp_light_sum_weight_srv;
+	unordered_access_view_ptr	mp_light_sum_weight_uav;
+	buffer_ptr					mp_heavy_sum_weight_buf;
+	shader_resource_view_ptr	mp_heavy_sum_weight_srv;
+	unordered_access_view_ptr	mp_heavy_sum_weight_uav;
+	buffer_ptr					mp_scan_scratch_buf;
+	shader_resource_view_ptr	mp_scan_scratch_srv;
+	unordered_access_view_ptr	mp_scan_scratch_uav;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -6,8 +6,12 @@
       "cs": [ "emissive.hlsl", "initialize", "-DINITIALIZE -DBUILD_BLAS" ]
     },
     {
-      "name": "initialize_blas2", 
-      "cs": [ "emissive.hlsl", "initialize2", "-DINITIALIZE2 -DBUILD_BLAS" ]
+      "name": "initialize_tlas", 
+      "cs": [ "emissive.hlsl", "initialize", "-DINITIALIZE -DBUILD_TLAS" ]
+    },
+    {
+      "name": "initialize2", 
+      "cs": [ "emissive.hlsl", "initialize2", "-DINITIALIZE2" ]
     },
     {
       "name": "scan", 

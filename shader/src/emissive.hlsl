@@ -6,15 +6,14 @@
 #include"packing.hlsl"
 #include"raytracing.hlsl"
 #include"root_constant.hlsl"
+#include"emissive_utility.hlsl"
 
-#define EMISSIVE_BLAS_HEADER_SIZE 16
-
-cbuffer emissive_blas_cbuf
+cbuffer emissive_build_cbuf
 {
-	uint primitive_count;
-	uint raytracing_instance_index;
-	uint bindless_instance_index;
-	float power;
+	uint	primitive_count;
+	uint	raytracing_instance_index;
+	uint	bindless_instance_index;
+	float	base_power;
 };
 
 uint to_fixed_point(float x, float max_x)
@@ -31,6 +30,9 @@ float to_floating_point(uint x, float max_x)
 
 #if defined(INITIALIZE)
 
+#if defined(BUILD_TLAS)
+ByteAddressBuffer	blas_handle_srv;
+#endif
 RWByteAddressBuffer	weight_uav;
 RWByteAddressBuffer	max_weight_uav;
 groupshared float	shared_weight[8];
@@ -39,6 +41,7 @@ groupshared float	shared_weight[8];
 void initialize(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupThreadID)
 {
 	float weight = 0;
+#if defined(BUILD_BLAS)
 	if(dtid < primitive_count)
 	{
 		bindless_instance_desc instance = bindless_instance_descs[bindless_instance_index];
@@ -55,6 +58,20 @@ void initialize(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupThreadID)
 		if(area > 0){ weight = area; }
 		weight_uav.Store<float>(4 * dtid, weight);
 	}
+#elif defined(BUILD_TLAS)
+	if(dtid < primitive_count)
+	{
+		uint blas_handle = blas_handle_srv.Load(4 * dtid);
+		if(blas_handle != 0xffffffff)
+		{
+			ByteAddressBuffer blas = get_byteaddress_buffer(blas_handle);
+			emissive_blas_header header = load_emissive_blas_header(blas);
+			raytracing_instance_desc desc = raytracing_instance_descs[header.raytracing_instance_index];
+			weight = header.base_power * header.area * extract_scaling(desc.transform).x;
+			weight_uav.Store<float>(4 * dtid, weight);
+		}
+	}
+#endif
 
 	weight = WaveActiveMax(weight);
 	if(WaveIsFirstLane())
@@ -205,8 +222,10 @@ void scan(uint dtid : SV_DispatchThreadID, uint group_index : SV_GroupIndex)
 
 #elif defined(BUILD)
 
-RWByteAddressBuffer	blas_uav;
-RWByteAddressBuffer	debug_uav;
+#if defined(BUILD_TLAS)
+ByteAddressBuffer	blas_handle_srv;
+#endif
+RWByteAddressBuffer	as_uav;
 ByteAddressBuffer	weight_srv;
 ByteAddressBuffer	sum_weight_srv;
 ByteAddressBuffer	max_weight_srv;
@@ -231,6 +250,33 @@ void build(uint dtid : SV_DispatchThreadID)
 	uint W = sum_weight_srv.Load(0);
 	uint light_count = scan_scratch_srv.Load(0);
 	uint heavy_count = scan_scratch_srv.Load(8);
+
+	if(dtid == 0)
+	{
+		float sum_weight = to_floating_point(W, max_weight_srv.Load<float>(0));
+#if defined(BUILD_BLAS)
+		as_uav.Store4(0, uint4(asuint(sum_weight), asuint(base_power), primitive_count | (raytracing_instance_index << 16), bindless_instance_index));
+#elif defined(BUILD_TLAS)
+		as_uav.Store4(0, uint4(asuint(sum_weight), asuint(1 / sum_weight), primitive_count, 0));
+#endif
+	}
+
+#if defined(BUILD_BLAS)
+	uint header_size = EMISSIVE_BLAS_HEADER_SIZE;
+#elif defined(BUILD_TLAS)
+	uint header_size = EMISSIVE_TLAS_HEADER_SIZE;
+#endif
+
+	//‘S‚Ä‚Ìd‚Ý‚ª“¯‚¶ê‡
+	if((light_count == primitive_count) || (heavy_count == primitive_count))
+	{
+		uint index = dtid;
+#if defined(BUILD_TLAS)
+		index = blas_handle_srv.Load(4 * index);
+#endif
+		as_uav.Store2(header_size + 8 * dtid, uint2(asuint(-1), index));
+		return;
+	}
 
 	state state;
 	if(dtid == 0)
@@ -277,7 +323,7 @@ void build(uint dtid : SV_DispatchThreadID)
 
 					uint light_sum_weight_prev = light_sum_weight_srv.Load(4 * (i - 1));
 					uint sigma1_ = light_sum_weight_prev + heavy_sum_weight_next;
-					if(!(uint64_t(sigma1_) * primitive_count  <= uint64_t(W) * n))
+					if(!(uint64_t(sigma1_) * primitive_count <= uint64_t(W) * n))
 					{
 						state.i = i;
 						state.j = j;
@@ -300,33 +346,20 @@ void build(uint dtid : SV_DispatchThreadID)
 		uint light_index = light_index_srv.Load(4 * state.i);
 		uint2 light_weights = light_sum_weight_srv.Load<uint2>(4 * state.i);
 		float light_weight = (light_weights[1] - light_weights[0]) * primitive_count / float(W);
-		blas_uav.Store2(EMISSIVE_BLAS_HEADER_SIZE + 8 * light_index, uint2(asuint(light_weight), heavy_index));
+#if defined(BUILD_TLAS)
+		heavy_index = blas_handle_srv.Load(4 * heavy_index);
+#endif
+		as_uav.Store2(header_size + 8 * light_index, uint2(asuint(light_weight), heavy_index));
 	}
 	else
 	{
 		uint next_heavy_index = heavy_index_srv.Load(4 * (state.j + 1));
-		blas_uav.Store2(EMISSIVE_BLAS_HEADER_SIZE + 8 * heavy_index, uint2(asuint(state.spill_N / float(W)), next_heavy_index));
-	}
-
-	if(dtid == 0)
-	{
-		float area = to_floating_point(W, max_weight_srv.Load<float>(0));
-		blas_uav.Store4(0, uint4(asuint(area), asuint(power), primitive_count | (raytracing_instance_index << 16), bindless_instance_index));
+#if defined(BUILD_TLAS)
+		next_heavy_index = blas_handle_srv.Load(4 * next_heavy_index);
+#endif
+		as_uav.Store2(header_size + 8 * heavy_index, uint2(asuint(state.spill_N / float(W)), next_heavy_index));
 	}
 }
-
-//#elif defined(BUILD_TLAS)
-//
-//ByteAddressBuffer	emissive_instance_list_srv;
-//RWByteAddressBuffer	emissive_instance_list_uav;
-//RWByteAddressBuffer	emissive_instance_list_size_uav;
-//groupshared	float	shared_power[8];
-//groupshared	uint	shared_offset[8];
-//
-//[numthreads(256, 1, 1)]
-//void build_tlas(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupThreadID)
-//{
-//}
 
 #endif
 #endif

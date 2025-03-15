@@ -29,7 +29,7 @@ inline emissive_blas::~emissive_blas()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //ƒrƒ‹ƒh
-inline bool emissive_blas::build(render_context& context, const uint raytracing_instance_index, const uint bindless_instance_index, const uint primitive_count, const float power)
+inline bool emissive_blas::build(render_context& context, const uint raytracing_instance_index, const uint bindless_instance_index, const uint primitive_count, const float base_power)
 {
 	if(m_shaders.has_update())
 		m_shaders.update();
@@ -41,6 +41,7 @@ inline bool emissive_blas::build(render_context& context, const uint raytracing_
 		mp_blas_buf = gp_render_device->create_byteaddress_buffer(sizeof(header) + sizeof(bucket) * primitive_count, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
 		mp_blas_srv = gp_render_device->create_shader_resource_view(*mp_blas_buf, buffer_srv_desc(*mp_blas_buf));
 		mp_blas_uav = gp_render_device->create_unordered_access_view(*mp_blas_buf, buffer_uav_desc(*mp_blas_buf));
+		gp_render_device->set_name(*mp_blas_buf, L"emissive_blas_buf");
 		gp_render_device->register_bindless(*mp_blas_srv);
 	}
 
@@ -76,21 +77,21 @@ inline bool emissive_blas::build(render_context& context, const uint raytracing_
 		uint	primitive_count;
 		uint	raytracing_instance_index;
 		uint	bindless_instance_index;
-		float	power;
+		float	base_power;
 	};
 	cbuffer cbuffer;
 	cbuffer.primitive_count = primitive_count;
 	cbuffer.raytracing_instance_index = raytracing_instance_index;
 	cbuffer.bindless_instance_index = bindless_instance_index;
-	cbuffer.power = power;
+	cbuffer.base_power = base_power;
 	
 	auto p_cbuf = gp_render_device->create_temporary_cbuffer(sizeof(cbuffer), &cbuffer);
-	context.set_pipeline_resource("emissive_blas_cbuf", *p_cbuf);
+	context.set_pipeline_resource("emissive_build_cbuf", *p_cbuf);
 
 	gp_raytracing_manager->bind(context); //‚¿‚å‚Á‚ÆŒ™...
 
 	push_priority push_priority(context);
-	context.set_priority(priority_initiaize);
+	context.set_priority(priority_build_top_level_acceleration_structure + 1);
 	context.set_pipeline_resource("weight_uav", *p_weight_uav);
 	context.set_pipeline_resource("max_weight_uav", *p_max_weight_uav);
 	context.set_pipeline_state(*m_shaders.get("initialize_blas"));
@@ -99,7 +100,7 @@ inline bool emissive_blas::build(render_context& context, const uint raytracing_
 	context.set_pipeline_resource("weight_srv", *p_weight_srv);
 	context.set_pipeline_resource("max_weight_srv", *p_max_weight_srv);
 	context.set_pipeline_resource("sum_weight_uav", *p_sum_weight_uav);
-	context.set_pipeline_state(*m_shaders.get("initialize_blas2"));
+	context.set_pipeline_state(*m_shaders.get("initialize2"));
 	context.dispatch(ceil_div(primitive_count, 256), 1, 1);
 
 	context.set_pipeline_resource("weight_srv", *p_weight_srv);
@@ -113,7 +114,7 @@ inline bool emissive_blas::build(render_context& context, const uint raytracing_
 	context.set_pipeline_state(*m_shaders.get("scan"));
 	context.dispatch(ceil_div(primitive_count, 256), 1, 1);
 
-	context.set_pipeline_resource("blas_uav", *mp_blas_uav);
+	context.set_pipeline_resource("as_uav", *mp_blas_uav);
 	context.set_pipeline_resource("weight_srv", *p_weight_srv);
 	context.set_pipeline_resource("sum_weight_srv", *p_sum_weight_srv);
 	context.set_pipeline_resource("max_weight_srv", *p_max_weight_srv);

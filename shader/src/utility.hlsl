@@ -61,6 +61,19 @@ float3 bilinear_sample(Texture2D<uint> tex, sampler s, float2 uv)
 		r9g9b9e5_to_f32x3(vals.w) * bilinear_weight.x * bilinear_weight.y;
 }
 
+float3 extract_squared_scaling(float4x3 ltow)
+{
+	return float3(
+		ltow[0][0] * ltow[0][0] + ltow[0][1] * ltow[0][1] + ltow[0][2] * ltow[0][2], 
+		ltow[1][0] * ltow[1][0] + ltow[1][1] * ltow[1][1] + ltow[1][2] * ltow[1][2], 
+		ltow[2][0] * ltow[2][0] + ltow[2][1] * ltow[2][1] + ltow[2][2] * ltow[2][2]);
+}
+
+float3 extract_scaling(float4x3 ltow)
+{
+	return sqrt(extract_squared_scaling(ltow));
+}
+
 void InterlockedAdd(RWByteAddressBuffer buf, uint offset, float v, out float original)
 {
 	while(true)
