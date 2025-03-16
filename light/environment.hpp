@@ -4,8 +4,8 @@
 #ifndef NN_RENDER_LIGHT_ENVIRONMENT_HPP
 #define NN_RENDER_LIGHT_ENVIRONMENT_HPP
 
+#include"../base.hpp"
 #include"../image.hpp"
-#include"../core_impl.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 

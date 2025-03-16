@@ -146,7 +146,7 @@ inline void base_application::update_scene_info(render_context& context, const u
 
 	const uint frame_count = gp_render_device->frame_count();
 	const float jitter_x = (van_der_corput_sequence(frame_count % 64, 2) - 0.5f) / screen_size.x * jitter_scale;
-	const float jitter_y = (van_der_corput_sequence(frame_count % 64, 2) - 0.5f) / screen_size.y * jitter_scale;
+	const float jitter_y = (van_der_corput_sequence(frame_count % 64, 3) - 0.5f) / screen_size.y * jitter_scale;
 	const auto jitter_mat = translate(jitter_x, jitter_y, 0);
 
 	auto &scene_info = *p_scene_info->data<scene_info_t>();
@@ -164,6 +164,22 @@ inline void base_application::update_scene_info(render_context& context, const u
 	scene_info.frustum_size.y = tan(to_radian(m_camera.fovy() / 2)) * 2;
 	scene_info.frustum_size.x = scene_info.frustum_size.y * m_camera.aspect();
 	scene_info.pixel_size = scene_info.frustum_size.y / screen_size.y;
+}
+
+inline void base_application::update_system_info(render_context& context, const float delta_time)
+{
+	struct system_info_t
+	{
+		float	delta_time;
+		uint	frame_count;
+		uint2	system_info_reserved0;
+	};
+	auto p_system_info = gp_render_device->create_temporary_cbuffer(sizeof(system_info_t));
+	context.set_pipeline_resource("system_info", *p_system_info, true);
+
+	auto& system_info = *p_system_info->data<system_info_t>();
+	system_info.frame_count = gp_render_device->frame_count();
+	system_info.delta_time = delta_time;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

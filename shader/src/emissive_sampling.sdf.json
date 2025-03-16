@@ -2,8 +2,8 @@
   "definition":
   [
     {
-      "name": "emissive_sample", 
-      "cs": [ "emissive.hlsl", "emissive_sample", "-DEMISSIVE_SAMPLE_INITIALIZATION" ]
+      "name": "emissive_presample", 
+      "cs": [ "emissive_sampling.hlsl", "emissive_presample", "-DEMISSIVE_PRESAMPLE" ]
     }
   ]
 }

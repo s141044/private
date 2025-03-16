@@ -4,6 +4,10 @@
 
 #include"utility.hlsl"
 #include"packing.hlsl"
+#include"sampling.hlsl"
+#include"raytracing.hlsl"
+#include"emissive_utility.hlsl"
+#include"material/standard.hlsl"
 
 struct compressed_emissive_sample
 {
@@ -21,7 +25,9 @@ struct emissive_sample
 	float	pdf_approx;
 };
 
-StructuredBuffer<compressed_emissive_sample>	sample_list_srv;
+ByteAddressBuffer								emissive_tlas_srv;
+StructuredBuffer<compressed_emissive_sample>	emissive_sample_srv;
+ByteAddressBuffer								emissive_blas_handle_srv;
 
 emissive_sample decompress(compressed_emissive_sample cs)
 {
@@ -43,74 +49,104 @@ compressed_emissive_sample compress(emissive_sample s)
 	return cs;
 }
 
-float emissive_sample_pdf(float power)
+bool exists_emissive()
 {
-	return power / asfloat(emissive_total_power_srv.Load(4));
+	return (load_emissive_tlas_header(emissive_tlas_srv).blas_count > 0);
 }
 
-#if defined(EMISSIVE_SAMPLE)
+float emissive_sample_pdf(float3 power)
+{
+	return luminance(power) * load_emissive_tlas_header(emissive_tlas_srv).inv_total_power;
+}
+
+emissive_sample sample_emissive(float u0, float u1, uint dtid = 0)
+{
+	emissive_tlas_header tlas_header = load_emissive_tlas_header(emissive_tlas_srv);
+
+	uint index = u0 * tlas_header.blas_count;
+	u0 = frac(u0 * tlas_header.blas_count);
+
+	emissive_bucket bucket = emissive_tlas_srv.Load<emissive_bucket>(EMISSIVE_TLAS_HEADER_SIZE + 8 * index);
+	if(u0 >= bucket.weight)
+		index = bucket.alias; //handle‚ª“ü‚Á‚Ä‚¢‚é
+	else
+		index = emissive_blas_handle_srv.Load(4 * index);
+
+	ByteAddressBuffer blas = get_byteaddress_buffer(index);
+	emissive_blas_header blas_header = load_emissive_blas_header(blas);
+
+	index = u1 * blas_header.primitive_count;
+	u1 = frac(u1 * blas_header.primitive_count);
+
+	bucket = blas.Load<emissive_bucket>(EMISSIVE_BLAS_HEADER_SIZE + 8 * index);
+	if(u1 >= bucket.weight)
+		index = bucket.alias;
+
+	float2 b12 = sample_uniform_triangle(u0, u1).yz;
+	intersection isect = get_intersection(blas_header.raytracing_instance_index, blas_header.bindless_instance_index, 0, index, b12, true);
+
+	emissive_sample s;
+	s.position = isect.position;
+	s.normal = isect.normal;
+
+	standard_material mtl = load_standard_material(isect.material_handle, isect.normal, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv);
+	s.power = get_emissive_color(mtl);
+	s.pdf_approx = emissive_sample_pdf(s.power);
+	return s;
+}
+
+#if defined(EMISSIVE_PRESAMPLE)
 
 #include"random.hlsl"
-#include"sampling.hlsl"
-#include"raytracing.hlsl"
 #include"root_constant.hlsl"
 #include"global_constant.hlsl"
-#include"material/standard.hlsl"
 
-ByteAddressBuffer								emissive_instance_list_srv;
-ByteAddressBuffer								emissive_instance_list_size_srv;
-RWStructuredBuffer<compressed_emissive_sample>	sample_list_uav;
+RWStructuredBuffer<compressed_emissive_sample>	emissive_sample_uav;
 
 [numthreads(256, 1, 1)]
-void emissive_sample(uint dtid : SV_DispatchThreadID)
+void emissive_presample(uint dtid : SV_DispatchThreadID)
 {
-	//uint sample_count = root_constant;
-	//if(dtid >= sample_count)
-	//	return;
-	//
-	//uint instance_list_size = emissive_instance_list_size_srv.Load(0);
-	//if(instance_list_size == 0)
-	//	return;
-	//
-	//rng rng = create_rng(dtid + sample_count * frame_count);
-	//float u0 = randF(u0);
-	//
-	//uint blas_info_xy;
-	//float sum_weight = 0;
-	//float sample_weight;
-	//
-	//const uint M = 4;
-	//for(uint i = 0; i < M; i++)
-	//{
-	//	uint index = rand(rng) % instance_list_size;
-	//	uint2 blas_info = emissive_instance_list_srv.Load(8 * index);
-	//	
-	//	float weight = asfloat(blas_info.y);
-	//	sum_weight += weight;
-	//
-	//	float pmf = weight / sum_weight;
-	//	if(u0 < pmf)
-	//	{
-	//		u0 /= pmf;
-	//		blas_info_xy = blas_info.xy;
-	//		sample_weight = weight;
-	//	}
-	//	else
-	//	{
-	//		u0 = (pmf - u0) / (1 - u0);
-	//	}
-	//}
-	//
-	//uint raytracing_instance_index = blas_info_xy[0] & 0xffff;
-	//uint bindless_instance_index = blas_info_xy[0] >> 16;
-	//uint primitive_count = blas_info_xy[1];
-	//uint primitive_index = u0 * primitive_count;
-	//float3 bary = sample_uniform_triangle(randF(rng), randF(rng));
-	//
-	//intersection isect = get_intersection(bindless_instance_index, 0, primitive_index, bary.yz, true);
-	//
-	//standard_material load_standard_material(uint handle, float3 wo, float3 normal, float3 tangent, float3 binormal, float2 uv, float lod = 0, uint2 dtid = 0)
+	uint sample_count = root_constant;
+	if(dtid >= sample_count)
+		return;
 
+	rng rng;
+	rng.state = dtid + sample_count * frame_count;
+	float u = randF(rng);
+
+	float sum_weight = 0;
+	emissive_sample s;
+
+	const uint M = 4;
+	for(uint i = 0; i < M; i++)
+	{
+		emissive_sample candidate = sample_emissive(randF(rng), randF(rng), dtid);
+
+		float weight = luminance(candidate.power);
+		if(weight <= 0)
+			continue;
+
+		sum_weight += weight;
+		
+		float pmf = weight / sum_weight;
+		if(u < pmf)
+		{
+			u /= pmf;
+			s = candidate;
+			s.power /= weight; //ÅŒã‚Ésum_weight‚ðæŽZ‚µ‚Ä€pmf‚ðŠ®¬
+		}
+		else
+		{
+			u = (u - pmf) / (1 - pmf);
+		}
+	}
+
+	if(sum_weight > 0)
+		s.power *= sum_weight;
+	else
+		s = (emissive_sample)0;
+
+	emissive_sample_uav[dtid] = compress(s);
 }
 
 #endif

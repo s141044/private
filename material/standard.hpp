@@ -20,7 +20,7 @@ namespace render{
 /*/////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 ・result = sheen * sheen_brdf + (1 - sheen * reflectance(sheen_brdf)) * coat_layer
-・coat_layer = coat * coat_brdf + lerp(1, coat_color * (1 - reflectance(coat_brdf)), coat) * (emission + metal_layer);
+・coat_layer = coat * coat_brdf + lerp(1, coat_color * (1 - reflectance(coat_brdf)), coat) * (emissive + metal_layer);
 ・metal_layer = metalness * metal_brdf + (1 - metalness) * specular_layer
 ・specular_layer = specular * specular_brdf + (1 - specular * reflectance(specular_brdf)) * diffuse_layer
 ・diffuse_layer = diffuse * (1 - subsurface) * diffuse_brdf + subsurface * subsurface_layer
@@ -42,15 +42,15 @@ public:
 		uint	coat_scale_map;
 		uint	coat_color0_map;
 		uint	coat_roughness_map;
-		uint	emission_scale_map;
-		uint	emission_color_map;
+		uint	emissive_scale_map;
+		uint	emissive_color_map;
 		uint	specular_scale_map;
 		uint	specular_color0_map;
 		uint	specular_roughness_map;
 		uint	diffuse_color_map;
 		uint	diffuse_roughness_map;
 		uint	subsurface_map;
-		uint	emission_color;
+		uint	emissive_color;
 		uint	subsurface_radius;
 		uint	sheen_coat_color; //sheen.xyz,coat.x
 		uint	coat_specular_color; //coat.yz,specular.xy
@@ -89,8 +89,8 @@ public:
 		set_texture_and_u8_unorm(params.coat_scale_map, mp_coat_scale_map, m_coat_scale);
 		set_texture_and_u8_unorm(params.coat_color0_map, mp_coat_color0_map);
 		set_texture_and_u8_unorm(params.coat_roughness_map, mp_coat_roughness_map, m_coat_roughness);
-		set_texture_and_u8_unorm(params.emission_scale_map, mp_emission_scale_map);
-		set_texture_and_u8_unorm(params.emission_color_map, mp_emission_color_map);
+		set_texture_and_u8_unorm(params.emissive_scale_map, mp_emissive_scale_map);
+		set_texture_and_u8_unorm(params.emissive_color_map, mp_emissive_color_map);
 		set_texture_and_u8_unorm(params.specular_scale_map, mp_specular_scale_map, m_specular_scale);
 		set_texture_and_u8_unorm(params.specular_color0_map, mp_specular_color0_map);
 		set_texture_and_u8_unorm(params.specular_roughness_map, mp_specular_roughness_map, m_specular_roughness);
@@ -98,7 +98,7 @@ public:
 		set_texture_and_u8_unorm(params.diffuse_roughness_map, mp_diffuse_roughness_map, m_diffuse_roughness);
 		set_texture_and_u8_unorm(params.subsurface_map, mp_subsurface_map, m_subsurface);
 
-		params.emission_color = f32x3_to_r9g9b9e5(m_emission_color * m_emission_scale);
+		params.emissive_color = f32x3_to_r9g9b9e5(m_emissive_color * m_emissive_scale);
 		params.subsurface_radius = f32x3_to_r9g9b9e5(m_subsurface_radius * m_subsurface_radius_scale);
 		params.sheen_coat_color = f32x4_to_u8x4_unorm(float4(m_sheen_color, m_coat_color0.x));
 		params.coat_specular_color = f32x4_to_u8x4_unorm(float4(m_coat_color0.yz, m_specular_color0.xy));
@@ -111,7 +111,7 @@ public:
 		m_has_update = false;
 
 		//テクスチャの考慮はできない
-		m_emissive_power = luminance(m_emission_color * m_emission_scale);
+		m_emissive_power = luminance(m_emissive_color * m_emissive_scale);
 	}
 
 	//パラメータ
@@ -128,10 +128,10 @@ public:
 	void set_coat_color0_map(texture_resource_ptr t){ set_impl(mp_coat_color0_map, t); }
 	void set_coat_roughness(const float s){ set_impl(m_coat_roughness, s); }
 	void set_coat_roughness_map(texture_resource_ptr t){ set_impl(mp_coat_roughness_map, t); }
-	void set_emission_scale(const float s){ set_impl(m_emission_scale, s); }
-	void set_emission_scale_map(texture_resource_ptr t){ set_impl(mp_emission_scale_map, t); }
-	void set_emission_color(const float3 &c){ set_impl(m_emission_color, c); }
-	void set_emission_color_map(texture_resource_ptr t){ set_impl(mp_emission_color_map, t); }
+	void set_emissive_scale(const float s){ set_impl(m_emissive_scale, s); }
+	void set_emissive_scale_map(texture_resource_ptr t){ set_impl(mp_emissive_scale_map, t); }
+	void set_emissive_color(const float3 &c){ set_impl(m_emissive_color, c); }
+	void set_emissive_color_map(texture_resource_ptr t){ set_impl(mp_emissive_color_map, t); }
 	void set_specular_scale(const float s){ set_impl(m_specular_scale, s); }
 	void set_specular_scale_map(texture_resource_ptr t){ set_impl(mp_specular_scale_map, t); }
 	void set_specular_color0(const float3 &c){ set_impl(m_specular_color0, c); }
@@ -152,8 +152,8 @@ public:
 	float	coat_scale() const { return m_coat_scale; }
 	float3	coat_color0() const { return m_coat_color0; }
 	float	coat_roughness() const { return m_coat_roughness; }
-	float	emission_scale() const { return m_emission_scale; }
-	float3	emission_color() const { return m_emission_color; }
+	float	emissive_scale() const { return m_emissive_scale; }
+	float3	emissive_color() const { return m_emissive_color; }
 	float	specular_scale() const { return m_specular_scale; }
 	float3	specular_color0() const { return m_specular_color0; }
 	float	specular_roughness() const { return m_specular_roughness; }
@@ -192,10 +192,10 @@ private:
 	texture_resource_ptr	mp_coat_color0_map;
 	texture_resource_ptr	mp_coat_roughness_map;
 
-	float					m_emission_scale = 0;
-	float3					m_emission_color = float3(0.0f);
-	texture_resource_ptr	mp_emission_color_map;
-	texture_resource_ptr	mp_emission_scale_map;
+	float					m_emissive_scale = 0;
+	float3					m_emissive_color = float3(0.0f);
+	texture_resource_ptr	mp_emissive_color_map;
+	texture_resource_ptr	mp_emissive_scale_map;
 
 	float					m_specular_scale = 0;
 	float3					m_specular_color0 = float3(0.03f);

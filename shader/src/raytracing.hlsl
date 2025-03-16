@@ -131,7 +131,7 @@ uint3 load_index(uint ib_handle, uint offset)
 		return uint3(index.x & 0xffff, index.x >> 16, index.y & 0xffff);
 }
 
-intersection get_intersection(uint instance_id, uint geometry_index, uint primitive_index, float2 b12, bool is_front_face)
+intersection get_intersection(uint instance_index, uint instance_id, uint geometry_index, uint primitive_index, float2 b12, bool is_front_face)
 {
 	float3 b;
 	b.yz = b12;
@@ -157,9 +157,7 @@ intersection get_intersection(uint instance_id, uint geometry_index, uint primit
 	isect.position = p0 * b[0] + p1 * b[1] + p2 * b[2];
 	isect.geometry_normal = normalize(cross(p1 - p0, p2 - p0));
 
-	if(geom.vb_handles[4] == invalid_bindless_handle)
-		isect.prev_position = isect.position; //本当はPrevのワールド変換行列の考慮が必要
-	else
+	if(geom.vb_handles[4] != invalid_bindless_handle)
 	{
 		float3 p0 = asfloat(vb0.Load3(geom.offsets[4] + (geom.strides[1] & 0xff) * index.x));
 		float3 p1 = asfloat(vb0.Load3(geom.offsets[4] + (geom.strides[1] & 0xff) * index.y));
@@ -192,6 +190,17 @@ intersection get_intersection(uint instance_id, uint geometry_index, uint primit
 		isect.normal = -isect.normal;
 		isect.tangent = -isect.tangent;
 		isect.geometry_normal = -isect.geometry_normal;
+	}
+
+	//スタティックはワールド空間に変換が必要
+	if(geom.vb_handles[4] == invalid_bindless_handle)
+	{
+		float4x3 ltow = raytracing_instance_descs[instance_index].transform;
+		isect.position = mul(float4(isect.position, 1), ltow);
+		isect.prev_position = isect.position; //スタティックは動かない
+		isect.normal = normalize(mul(isect.normal, (float3x3)ltow)); //等方スケーリングを仮定
+		isect.geometry_normal = normalize(mul(isect.geometry_normal, (float3x3)ltow));
+		isect.tangent.xyz = normalize(mul(isect.tangent.xyz, (float3x3)ltow));
 	}
 	return isect;
 }

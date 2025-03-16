@@ -19,6 +19,12 @@ struct emissive_tlas_header
 	uint	reserved;
 };
 
+struct emissive_bucket
+{
+	float	weight;
+	uint	alias;
+};
+
 #define EMISSIVE_BLAS_HEADER_SIZE 16
 #define EMISSIVE_TLAS_HEADER_SIZE 16
 			

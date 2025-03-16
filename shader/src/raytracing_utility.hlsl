@@ -36,7 +36,7 @@ ray_payload decode_payload(uint4 data)
 
 intersection get_intersection(ray_payload payload)
 {
-	return get_intersection(payload.instance_id, 0, payload.primitive_index, payload.barycentrics, payload.is_front_face);
+	return get_intersection(payload.instance_index, payload.instance_id, 0, payload.primitive_index, payload.barycentrics, payload.is_front_face);
 }
 
 void ch_default(ray r, inout uint4 payload, hit_info info)

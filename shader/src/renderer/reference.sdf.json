@@ -1,0 +1,28 @@
+{
+  "definitions" : 
+  [
+    {
+      "direct_product" : 
+      [
+        {
+          "definition": 
+          [
+            {
+              "name": "path_tracing",
+              "cs": [ "renderer/reference.hlsl", "path_tracing", ""]
+            }
+          ]
+        },
+        {
+          "definition": 
+          [
+            {
+              "name": "",
+              "cs": ["", "", ""]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

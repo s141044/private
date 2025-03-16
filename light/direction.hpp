@@ -4,7 +4,7 @@
 #ifndef NN_RENDER_LIGHT_DIRECTION_HPP
 #define NN_RENDER_LIGHT_DIRECTION_HPP
 
-#include"../core_impl.hpp"
+#include"../base.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 

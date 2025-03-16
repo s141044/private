@@ -30,7 +30,7 @@ struct standard_material
 	uint	sheen_reflectance;
 	uint	coat_color0;
 	uint	coat_reflectance;
-	uint	emission_color;
+	uint	emissive_color;
 	uint	specular_color0;
 	uint	specular_reflectance;
 	uint	matte_reflectance;
@@ -51,7 +51,7 @@ float	get_coat_scale(standard_material mtl){ return r10g10b10a2_to_f32x4(mtl.sca
 float3	get_coat_color0(standard_material mtl){ return r10g10b10a2_to_f32x4(mtl.coat_color0).xyz; }
 float	get_coat_roughness(standard_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness).y; }
 float3	get_coat_reflectance(standard_material mtl){ return r10g10b10a2_to_f32x4(mtl.coat_reflectance).xyz; }
-float3	get_emission_color(standard_material mtl){ return r9g9b9e5_to_f32x3(mtl.emission_color); }
+float3	get_emissive_color(standard_material mtl){ return r9g9b9e5_to_f32x3(mtl.emissive_color); }
 float	get_specular_scale(standard_material mtl){ return r10g10b10a2_to_f32x4(mtl.scale).y; }
 float3	get_specular_color0(standard_material mtl){ return r10g10b10a2_to_f32x4(mtl.specular_color0).xyz; }
 float	get_specular_roughness(standard_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness).z; }
@@ -76,7 +76,7 @@ struct standard_material
 	float3	coat_color0;
 	float	coat_roughness;
 	float3	coat_reflectance;
-	float3	emission_color;
+	float3	emissive_color;
 	float	specular_scale;
 	float3	specular_color0;
 	float	specular_roughness;
@@ -98,7 +98,7 @@ float	get_coat_scale(standard_material mtl){ return mtl.coat_scale; }
 float3	get_coat_color0(standard_material mtl){ return mtl.coat_color0; }
 float	get_coat_roughness(standard_material mtl){ return mtl.coat_roughness; }
 float3	get_coat_reflectance(standard_material mtl){ return mtl.coat_reflectance; }
-float3	get_emission_color(standard_material mtl){ return mtl.emission_color; }
+float3	get_emissive_color(standard_material mtl){ return mtl.emissive_color; }
 float	get_specular_scale(standard_material mtl){ return mtl.specular_scale; }
 float3	get_specular_color0(standard_material mtl){ return mtl.specular_color0; }
 float	get_specular_roughness(standard_material mtl){ return mtl.specular_roughness; }
@@ -127,8 +127,8 @@ struct standard_material_host
 	uint	coat_color0_map;
 	uint	coat_roughness_map;
 	//2
-	uint	emission_scale_map;
-	uint	emission_color_map;
+	uint	emissive_scale_map;
+	uint	emissive_color_map;
 	uint	specular_scale_map;
 	uint	specular_color0_map;
 	//3
@@ -137,7 +137,7 @@ struct standard_material_host
 	uint	diffuse_roughness_map;
 	uint	subsurface_map;
 	//4
-	uint	emission_color;
+	uint	emissive_color;
 	uint	subsurface_radius;
 	uint	sheen_coat_color; //sheen.xyz,coat.x
 	uint	coat_specular_color; //coat.yz,specular.xy
@@ -157,7 +157,7 @@ standard_material load_standard_material(uint handle, float3 wo, float3 normal, 
 	uint4 data4 = buf.Load4(16 * 4);
 	uint  data5 = buf.Load (16 * 5);
 
-	float3 emission_color = r9g9b9e5_to_f32x3(data4.x);
+	float3 emissive_color = r9g9b9e5_to_f32x3(data4.x);
 	float3 subsurface_radius = r9g9b9e5_to_f32x3(data4.y);
 	float4 sheen_coat_color = u8x4_unorm_to_f32x4(data4.z);
 	float4 coat_specular_color = u8x4_unorm_to_f32x4(data4.w);
@@ -218,17 +218,16 @@ standard_material load_standard_material(uint handle, float3 wo, float3 normal, 
 		coat_roughness *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	emission_color *= u8_unorm_to_f32(data2.x >> 24);
 	if((data2.x & 0x00ffffff) != 0x00ffffff)
 	{
 		Texture2D<float> tex = get_texture2d<float>(data2.x & 0x00ffffff);
-		emission_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
+		emissive_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
 	if((data2.y & 0x00ffffff) != 0x00ffffff)
 	{
 		Texture2D<float3> tex = get_texture2d<float3>(data2.y & 0x00ffffff);
-		emission_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
+		emissive_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
 	float specular_scale = u8_unorm_to_f32(data2.z >> 24);
@@ -319,7 +318,7 @@ standard_material load_standard_material(uint handle, float3 wo, float3 normal, 
 	mtl.sheen_reflectance = f32x4_to_r10g10b10a2(float4(sheen_reflectance, 0));
 	mtl.coat_color0 = f32x4_to_r10g10b10a2(float4(coat_color0, 0));
 	mtl.coat_reflectance = f32x4_to_r10g10b10a2(float4(coat_reflectance, 0));
-	mtl.emission_color = f32x3_to_r9g9b9e5(emission_color);
+	mtl.emissive_color = f32x3_to_r9g9b9e5(emissive_color);
 	mtl.specular_color0 = f32x4_to_r10g10b10a2(float4(specular_color0, 0));
 	mtl.specular_reflectance = f32x4_to_r10g10b10a2(float4(specular_reflectance, 0));
 	mtl.matte_reflectance = f32x4_to_r10g10b10a2(float4(matte_reflectance, 0));
@@ -341,7 +340,7 @@ standard_material load_standard_material(uint handle, float3 wo, float3 normal, 
 	mtl.coat_color0 = coat_color0;
 	mtl.coat_roughness = coat_roughness;
 	mtl.coat_reflectance = coat_reflectance;
-	mtl.emission_color = emission_color;
+	mtl.emissive_color = emissive_color;
 	mtl.specular_scale = specular_scale;
 	mtl.specular_color0 = specular_color0;
 	mtl.specular_roughness = specular_roughness;

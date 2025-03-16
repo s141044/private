@@ -29,7 +29,7 @@ void rt_test(uint2 dtid : SV_DispatchThreadID)
 	{
 		float3 wo = -ray.direction;
 		float3 pos = ray.origin + ray.direction * payload.ray_t;
-		intersection isect = get_intersection(payload.instance_id, 0, payload.primitive_index, payload.barycentrics, payload.is_front_face);
+		intersection isect = get_intersection(payload);
 
 		depth_uav[dtid] = world_to_screen(pos).z;
 

@@ -71,11 +71,11 @@ public:
 
 		separator();
 
-		float emission_scale = m_mtl.emission_scale();
-		if(input_float("emission_scale", emission_scale)){ m_mtl.set_emission_scale(emission_scale); }
+		float emissive_scale = m_mtl.emissive_scale();
+		if(input_float("emissive_scale", emissive_scale)){ m_mtl.set_emissive_scale(emissive_scale); }
 
-		float3 emission_color = m_mtl.emission_color();
-		if(color_edit("emission_color", emission_color)){ m_mtl.set_emission_color(emission_color); }
+		float3 emissive_color = m_mtl.emissive_color();
+		if(color_edit("emissive_color", emissive_color)){ m_mtl.set_emissive_color(emissive_color); }
 
 		separator();
 
@@ -102,8 +102,8 @@ public:
 		write_float3(json, "sheen_color", m_mtl.sheen_color());
 		write_float(json, "sheen_roughness", m_mtl.sheen_roughness());
 		
-		write_float(json, "emission_scale", m_mtl.emission_scale());
-		write_float3(json, "emission_color", m_mtl.emission_color());
+		write_float(json, "emissive_scale", m_mtl.emissive_scale());
+		write_float3(json, "emissive_color", m_mtl.emissive_color());
 		
 		write_float(json, "subsurface_radius_scale", m_mtl.subsurface_radius_scale());
 		write_float3(json, "subsurface_radius", m_mtl.subsurface_radius());
@@ -141,11 +141,11 @@ public:
 		float sheen_roughness;
 		if(read_float(json, "sheen_roughness", sheen_roughness)){ m_mtl.set_sheen_roughness(sheen_roughness); }
 		
-		float emission_scale;
-		if(read_float(json, "emission_scale", emission_scale)){ m_mtl.set_emission_scale(emission_scale); }
+		float emissive_scale;
+		if(read_float(json, "emissive_scale", emissive_scale)){ m_mtl.set_emissive_scale(emissive_scale); }
 
-		float3 emission_color;
-		if(read_float3(json, "emission_color", emission_color)){ m_mtl.set_emission_color(emission_color); }
+		float3 emissive_color;
+		if(read_float3(json, "emissive_color", emissive_color)){ m_mtl.set_emissive_color(emissive_color); }
 		
 		float subsurface_radius_scale;
 		if(read_float(json, "subsurface_radius_scale", subsurface_radius_scale)){ m_mtl.set_subsurface_radius_scale(subsurface_radius_scale); }

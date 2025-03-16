@@ -185,6 +185,8 @@ inline bool emissive_tlas::build(render_context& context)
 //リソースをバインド
 inline void emissive_tlas::bind(render_context& context)
 {
+	context.set_pipeline_resource("emissive_tlas_srv", *mp_tlas_srv, true);
+	context.set_pipeline_resource("emissive_blas_handle_srv", *mp_blas_handle_srv, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

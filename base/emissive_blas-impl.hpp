@@ -131,11 +131,11 @@ inline bool emissive_blas::build(render_context& context, const uint raytracing_
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //発光パワーを更新
-inline void emissive_blas::update(render_context& context, const float power)
+inline void emissive_blas::update(render_context& context, const float base_power)
 {
 	push_priority push_priority(context);
 	context.set_priority(priority_initiaize);
-	*static_cast<float*>(context.update_buffer(*mp_blas_buf, 8, 4)) = power;
+	*static_cast<float*>(context.update_buffer(*mp_blas_buf, 8, 4)) = base_power;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -541,9 +541,9 @@ private:
 	};
 
 	shader_file_holder			m_shaders;
-	buffer_ptr					mp_emissive_sample_list_buf;
-	shader_resource_view_ptr	mp_emissive_sample_list_srv;
-	unordered_access_view_ptr	mp_emissive_sample_list_uav;
+	buffer_ptr					mp_emissive_sample_buf;
+	shader_resource_view_ptr	mp_emissive_sample_srv;
+	unordered_access_view_ptr	mp_emissive_sample_uav;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -785,6 +785,7 @@ protected:
 
 	//コンスタントバッファの更新
 	void update_scene_info(render_context& context, const uint2 screen_size, const float jitter_scale = 1);
+	void update_system_info(render_context& context, const float delta_time);
 
 	//GUI描画＆Present
 	void composite_gui_and_present(render_context& context, shader_resource_view& src_srv, bool r9g9b9e5 = true);
