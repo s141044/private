@@ -594,6 +594,7 @@ static inline std::unique_ptr<raytracing_picker> gp_raytracing_picker;
 
 enum texture_type
 {
+	texture_type_hdr,
 	texture_type_rgb,
 	texture_type_srgb,
 	texture_type_normal,
@@ -604,6 +605,7 @@ enum texture_type
 //texture_manager
 /*/////////////////////////////////////////////////////////////////////////////////////////////////
 TODO: 更新でミップマップ生成
+TODO: 使われてないテクスチャの削除
 /////////////////////////////////////////////////////////////////////////////////////////////////*/
 
 class texture_manager
@@ -614,6 +616,9 @@ public:
 
 	//コンストラクタ
 	texture_manager();
+
+	//デストラクタ
+	~texture_manager();
 
 	//作成
 	shared_ptr<texture_resource> create(const string& filename, const texture_type type);
@@ -648,19 +653,27 @@ public:
 	//SRVを返す
 	shader_resource_view& srv() const;
 
+	//ファイル名を返す
+	const string& filename() const;
+
+	//テクスチャを返す
+	operator texture&(){ return *mp_tex; }
+	operator const texture&() const { return *mp_tex; }
+
 private:
 
 	friend class texture_manager;
 
 	//コンストラクタ
 	texture_resource() = default;
-	texture_resource(texture_ptr p_tex, dictionary::iterator it);
+	texture_resource(texture_ptr p_tex, string filename, dictionary::iterator it);
 
 private:
 
 	texture_ptr					mp_tex;
 	shader_resource_view_ptr	mp_srv;
 	dictionary::iterator		m_it;
+	string						m_filename;
 	bool						m_initialized;
 };
 

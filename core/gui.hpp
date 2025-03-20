@@ -156,6 +156,7 @@ protected:
 	static void write_float2(json_file::values_t& json, const char* label, const float2& value);
 	static void write_float3(json_file::values_t& json, const char* label, const float3& value);
 	static void write_float4(json_file::values_t& json, const char* label, const float4& value);
+	static void write_text(json_file::values_t& json, const char* label, const string& value);
 	static json_file::values_t* write_tree_node(json_file::values_t& json, const char* label);
 
 	//jsonì«Ç›çûÇ›
@@ -168,6 +169,7 @@ protected:
 	static bool read_float2(const json_file::values_t& json, const char* label, float2& value);
 	static bool read_float3(const json_file::values_t& json, const char* label, float3& value);
 	static bool read_float4(const json_file::values_t& json, const char* label, float4& value);
+	static bool read_text(const json_file::values_t& json, const char* label, string& value);
 	static const json_file::values_t* read_tree_node(const json_file::values_t& json, const char* label);
 
 private:

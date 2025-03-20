@@ -492,7 +492,7 @@ inline readback_buffer::~readback_buffer()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline texture::texture(render_device& device, const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const D3D12_RESOURCE_DIMENSION dimension) : render::texture(format, width, height, depth, mip_levels, dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
+inline texture::texture(render_device& device, const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only, const D3D12_RESOURCE_DIMENSION dimension) : render::texture(format, width, height, depth, mip_levels, dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)
 {
 	D3D12_RESOURCE_DESC desc = {};
 	desc.Width = width;
@@ -531,7 +531,10 @@ inline texture::texture(render_device& device, const texture_format format, cons
 	if(data != nullptr)
 	{
 		const uint plane_count = d3d12::plane_count(desc.Format);
-		if((plane_count == 2) || (dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)) //必要になったら対応する
+		if((plane_count > 1) || (dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D)) //必要になったら対応する
+			throw;
+
+		if(not(init_lod0_only) && (desc.MipLevels > 1)) //必要になったら対応する.dataにどのように各サブリソースのデータが入っていると仮定する？
 			throw;
 
 		uint64_t total_bytes;
@@ -543,12 +546,15 @@ inline texture::texture(render_device& device, const texture_format format, cons
 		auto* dst = upload.data<uint8_t>();
 		auto* src = static_cast<const uint8_t*>(data);
 		const uint texel_size = render::texel_size(texture_format(desc.Format));
-		
-		uint64_t src_offset = 0; //dataはlod(i)のテクスチャ配列の後ろにlod(i+1)が並ぶようにする
+
+		uint64_t src_offset = 0;
 		for(uint p = 0; p < plane_count; p++)
 		{
 			for(uint l = 0; l < desc.MipLevels; l++)
 			{
+				if(init_lod0_only && (l > 0))
+					continue;
+
 				for(uint i = 0; i < desc.DepthOrArraySize; i++)
 				{
 					const auto& layout = layouts[subresource_index(*this, l, i, p)];
@@ -2864,40 +2870,40 @@ inline swapchain_ptr render_device::create_swapchain(const uint2 size)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //テクスチャを作成
-inline texture_ptr render_device::create_texture1d(const texture_format format, const uint width, const uint mip_levels, const resource_flags flags, const void* data)
+inline texture_ptr render_device::create_texture1d(const texture_format format, const uint width, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only)
 {
-	return new texture1d(*this, format, width, 1, 1, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE1D);
+	return new texture1d(*this, format, width, 1, 1, mip_levels, flags, data, init_lod0_only, D3D12_RESOURCE_DIMENSION_TEXTURE1D);
 }
 
-inline texture_ptr render_device::create_texture2d(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data)
+inline texture_ptr render_device::create_texture2d(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only)
 {
-	return new texture2d(*this, format, width, height, 1, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
+	return new texture2d(*this, format, width, height, 1, mip_levels, flags, data, init_lod0_only, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
 }
 
-inline texture_ptr render_device::create_texture3d(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data)
+inline texture_ptr render_device::create_texture3d(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only)
 {
-	return new texture3d(*this, format, width, height, depth, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE3D);
+	return new texture3d(*this, format, width, height, depth, mip_levels, flags, data, init_lod0_only, D3D12_RESOURCE_DIMENSION_TEXTURE3D);
 }
 
-inline texture_ptr render_device::create_texture_cube(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data)
+inline texture_ptr render_device::create_texture_cube(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only)
 {
-	return new texture_cube(*this, format, width, height, 6, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
+	return new texture_cube(*this, format, width, height, 6, mip_levels, flags, data, init_lod0_only, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
 }
 
-inline texture_ptr render_device::create_texture1d_array(const texture_format format, const uint width, const uint depth, const uint mip_levels, const resource_flags flags, const void* data)
+inline texture_ptr render_device::create_texture1d_array(const texture_format format, const uint width, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only)
 {
-	return new texture1d_array(*this, format, width, 1, depth, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE1D);
+	return new texture1d_array(*this, format, width, 1, depth, mip_levels, flags, data, init_lod0_only, D3D12_RESOURCE_DIMENSION_TEXTURE1D);
 }
 
-inline texture_ptr render_device::create_texture2d_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data)
+inline texture_ptr render_device::create_texture2d_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only)
 {
-	return new texture2d_array(*this, format, width, height, depth, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
+	return new texture2d_array(*this, format, width, height, depth, mip_levels, flags, data, init_lod0_only, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
 }
 
-inline texture_ptr render_device::create_texture_cube_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data)
+inline texture_ptr render_device::create_texture_cube_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only)
 {
 	throw; //要テスト
-	//return new texture_cube_array(*this, format, width, height, 6 * depth, mip_levels, flags, data, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
+	//return new texture_cube_array(*this, format, width, height, 6 * depth, mip_levels, flags, data, init_lod0_only, D3D12_RESOURCE_DIMENSION_TEXTURE2D);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

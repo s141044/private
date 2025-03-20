@@ -24,28 +24,9 @@ class environment_light
 public:
 
 	//コンストラクタ
-	environment_light(const hdr_image &hdri, const uint size)
+	environment_light()
 	{
-		assert(std::has_single_bit(size));
-
 		m_shader_file = gp_shader_manager->create(L"environment.sdf.json");
-
-		std::vector<uint> src(hdri.width() * hdri.height());
-		for(int y = hdri.height() - 1, i = 0; y >= 0; y--)
-		{
-			for(int x = 0; x < hdri.width(); x++)
-			{
-				const float3 L = r8g8b8e8_to_f32x3(hdri(x, y));
-				src[i++] = f32x3_to_r9g9b9e5(L);
-			}
-		}
-		mp_src_tex = gp_render_device->create_texture2d(texture_format_r9g9b9e5_sharedexp, hdri.width(), hdri.height(), 1, resource_flag_allow_shader_resource, src.data());
-		mp_src_srv = gp_render_device->create_shader_resource_view(*mp_src_tex, texture_srv_desc(*mp_src_tex));
-		gp_render_device->set_name(*mp_src_tex, L"environment_light: src_tex");
-
-		const uint mip_levels = std::countr_zero(size) + 1;
-		mp_cube_tex = gp_render_device->create_texture_cube(texture_format_r9g9b9e5_sharedexp, size, size, mip_levels, resource_flag_allow_shader_resource);
-		gp_render_device->set_name(*mp_cube_tex, L"environment_light: cube_tex");
 	}
 
 	//初期化
@@ -54,12 +35,24 @@ public:
 		if(m_shader_file.has_update())
 		{
 			m_shader_file.update();
-			mp_cube_srv = nullptr;
+			m_initialized = false;
 		}
 		else if(m_shader_file.is_invalid())
 			return false;
-		if(mp_cube_srv != nullptr)
+
+		if(mp_panorama_tex == nullptr)
+			return false;
+
+		if(m_initialized)
 			return true;
+
+		if((mp_cube_tex == nullptr) || (mp_cube_tex->width() != m_cube_res))
+		{
+			const uint mip_levels = std::countr_zero(m_cube_res) + 1;
+			mp_cube_tex = gp_render_device->create_texture_cube(texture_format_r9g9b9e5_sharedexp, m_cube_res, m_cube_res, mip_levels, resource_flag_allow_shader_resource);
+			mp_cube_srv = gp_render_device->create_shader_resource_view(*mp_cube_tex, texture_srv_desc(*mp_cube_tex));
+			gp_render_device->set_name(*mp_cube_tex, L"environment_light: cube_tex");
+		}
 
 		const uint w = mp_cube_tex->width();
 		const uint h = mp_cube_tex->height();
@@ -83,7 +76,7 @@ public:
 		auto p_sampler = gp_render_device->create_sampler(sampler_desc);
 
 		context.set_priority(priority_initiaize);
-		context.set_pipeline_resource("src", *mp_src_srv);
+		context.set_pipeline_resource("src", mp_panorama_tex->srv());
 		context.set_pipeline_resource("dst", *uav_ptrs[0]);
 		context.set_pipeline_resource("panorama_sampler", *p_sampler);
 		context.set_pipeline_state(*m_shader_file.get("initialize_lod0"));
@@ -113,38 +106,29 @@ public:
 
 		//r32uint->r9g9b9e5
 		context.copy_texture(*mp_cube_tex, *p_tmp_tex);
-
-		mp_cube_srv = gp_render_device->create_shader_resource_view(*mp_cube_tex, texture_srv_desc(*mp_cube_tex));
+		m_initialized = true;
 		return true;
 	}
 
+	//パラメータ
+	uint cube_res() const { return m_cube_res; }
+	void set_cube_res(const uint res){ m_cube_res = std::bit_ceil(std::max(res, 1u)); }
+	const texture_resource_ptr& panorama_tex_ptr() const { return mp_panorama_tex; }
+	void set_panorama_tex_ptr(texture_resource_ptr p_tex){ mp_panorama_tex = std::move(p_tex); m_initialized = false; }
+
 	//テクスチャ/SRVを返す
-	texture &src_tex() const { return *mp_src_tex; }
-	texture &cube_tex() const { return *mp_cube_tex; }
-	shader_resource_view &src_srv() const { return *mp_src_srv; }
-	shader_resource_view &cube_srv() const { return *mp_cube_srv; }
+	texture& cube_tex() const { return *mp_cube_tex; }
+	texture& panorama_tex() const { return *mp_panorama_tex; }
+	shader_resource_view& cube_srv() const { return *mp_cube_srv; }
+	shader_resource_view& panorama_srv() const { return mp_panorama_tex->srv(); }
 
 private:
 
-	float3 r8g8b8e8_to_f32x3(const unsigned char rgbe[4])
-	{
-		const unsigned char r = rgbe[0];
-		const unsigned char g = rgbe[1];
-		const unsigned char b = rgbe[2];
-		const unsigned char e = rgbe[3];
-		if(e == 0)
-			return float3(0, 0, 0);
-		
-		const auto scale = scalbn(1.0f, e - (128 + 8));
-		return float3(r, g, b) * scale;
-	}
-
-private:
-
-	texture_ptr					mp_src_tex;
+	uint						m_cube_res = 512;
+	bool						m_initialized = false;
 	texture_ptr					mp_cube_tex;
-	shader_resource_view_ptr	mp_src_srv;
 	shader_resource_view_ptr	mp_cube_srv;
+	texture_resource_ptr		mp_panorama_tex;
 	shader_file_holder			m_shader_file;
 };
 

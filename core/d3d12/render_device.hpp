@@ -353,7 +353,7 @@ class texture : public render::texture, public resource
 public:
 
 	//コンストラクタ
-	texture(render_device& device, const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const D3D12_RESOURCE_DIMENSION dimension);
+	texture(render_device& device, const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only, const D3D12_RESOURCE_DIMENSION dimension);
 	texture(ComPtr<ID3D12Resource> p_target);
 
 	//rtv/dsv/srv/uavDescを生成
@@ -1047,13 +1047,13 @@ public:
 	swapchain_ptr create_swapchain(const uint2 size) override;
 
 	//テクスチャを作成
-	texture_ptr create_texture1d(const texture_format format, const uint width, const uint mip_levels, const resource_flags flags, const void* data) override;
-	texture_ptr create_texture2d(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data) override;
-	texture_ptr create_texture3d(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data) override;
-	texture_ptr create_texture_cube(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data) override;
-	texture_ptr create_texture1d_array(const texture_format format, const uint width, const uint depth, const uint mip_levels, const resource_flags flags, const void* data) override;
-	texture_ptr create_texture2d_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data) override;
-	texture_ptr create_texture_cube_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data) override;
+	texture_ptr create_texture1d(const texture_format format, const uint width, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only) override;
+	texture_ptr create_texture2d(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only) override;
+	texture_ptr create_texture3d(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only) override;
+	texture_ptr create_texture_cube(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only) override;
+	texture_ptr create_texture1d_array(const texture_format format, const uint width, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only) override;
+	texture_ptr create_texture2d_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only) override;
+	texture_ptr create_texture_cube_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data, const bool init_lod0_only) override;
 
 	//バッファを作成
 	buffer_ptr create_structured_buffer(const uint stride, const uint num_elements, const resource_flags flags, const void* data) override;

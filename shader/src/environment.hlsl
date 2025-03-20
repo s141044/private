@@ -4,6 +4,9 @@
 
 #include"math.hlsl"
 
+TextureCube<float3>	env_cube_srv;
+Texture2D<float3>	env_panorama_srv;
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define CUBEMAP_POSITIVE_X 0

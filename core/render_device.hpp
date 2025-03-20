@@ -1122,13 +1122,13 @@ public:
 	virtual swapchain_ptr create_swapchain(const uint2 size) = 0;
 
 	//テクスチャを作成
-	virtual texture_ptr create_texture1d(const texture_format format, const uint width, const uint mip_levels, const resource_flags flags, const void* data = nullptr) = 0;
-	virtual texture_ptr create_texture2d(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data = nullptr) = 0;
-	virtual texture_ptr create_texture3d(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data = nullptr) = 0;
-	virtual texture_ptr create_texture_cube(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data = nullptr) = 0;
-	virtual texture_ptr create_texture1d_array(const texture_format format, const uint width, const uint depth, const uint mip_levels, const resource_flags flags, const void* data = nullptr) = 0;
-	virtual texture_ptr create_texture2d_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data = nullptr) = 0;
-	virtual texture_ptr create_texture_cube_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data = nullptr) = 0;
+	virtual texture_ptr create_texture1d(const texture_format format, const uint width, const uint mip_levels, const resource_flags flags, const void* data = nullptr, const bool init_lod0_only = false) = 0;
+	virtual texture_ptr create_texture2d(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data = nullptr, const bool init_lod0_only = false) = 0;
+	virtual texture_ptr create_texture3d(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data = nullptr, const bool init_lod0_only = false) = 0;
+	virtual texture_ptr create_texture_cube(const texture_format format, const uint width, const uint height, const uint mip_levels, const resource_flags flags, const void* data = nullptr, const bool init_lod0_only = false) = 0;
+	virtual texture_ptr create_texture1d_array(const texture_format format, const uint width, const uint depth, const uint mip_levels, const resource_flags flags, const void* data = nullptr, const bool init_lod0_only = false) = 0;
+	virtual texture_ptr create_texture2d_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data = nullptr, const bool init_lod0_only = false) = 0;
+	virtual texture_ptr create_texture_cube_array(const texture_format format, const uint width, const uint height, const uint depth, const uint mip_levels, const resource_flags flags, const void* data = nullptr, const bool init_lod0_only = false) = 0;
 
 	//バッファを作成
 	virtual buffer_ptr create_structured_buffer(const uint stride, const uint num_elements, const resource_flags flags, const void* data = nullptr) = 0;

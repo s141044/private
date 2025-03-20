@@ -6,7 +6,7 @@
 #include"../raytracing_utility.hlsl"
 #include"../global_constant.hlsl"
 #include"../root_constant.hlsl"
-//#include"../environment.hlsl"
+#include"../environment.hlsl"
 //#include"../environment_sampling.hlsl"
 #include"../emissive_sampling.hlsl"
 
@@ -23,7 +23,7 @@ RWTexture2D<float>	depth_uav;
 RWTexture2D<float4>	accum_uav;
 
 #define ENABLE_HIT_EVAL 1
-#define ENABLE_NEE_EVAL 1
+#define ENABLE_NEE_EVAL 0
 #define FORCE_MIS 0
 
 float calc_mis_weight(float pdf_a, float pdf_b)
@@ -94,10 +94,9 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 			//dir
 			//env
 
-			//float mis_weight = 
-			//
-			//float3 L = env_cube.SampleLevel(bilinear_clamp, s.w, cube_sample_level(s.w, s.pdf, M_BSDF, environment_light_log2_texel_size)) * environment_light_power_scale;
-			//radiance += mis_weight * L * throughput;
+			float mis_weight = 1;
+			float3 L = env_cube_srv.SampleLevel(bilinear_clamp, ray.direction, 0);
+			radiance += mis_weight * L * throughput;
 			break;
 		}
 
