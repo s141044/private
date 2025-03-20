@@ -6,6 +6,8 @@
 #include"../global_constant.hlsl"
 #include"../root_constant.hlsl"
 
+Texture2D<uint>		id_srv;
+RWTexture2D<uint>	id_uav;
 RWTexture2D<uint>	color_uav;
 RWTexture2D<float>	depth_uav;
 
@@ -35,7 +37,8 @@ void rt_test(uint2 dtid : SV_DispatchThreadID)
 
 		float3 col;
 #if defined(VIEW_DEFAULT)
-		col = max(dot(isect.normal, wo), 0.2f);
+		col = max(dot(isect.geometry_normal, wo), 0.2f);
+		id_uav[dtid] = payload.primitive_index | (payload.instance_index << 16);
 #elif defined(VIEW_NORMAL)
 		col = isect.normal * 0.5f + 0.5f;
 #elif defined(VIEW_GEOMETRY_NORMAL)
@@ -48,5 +51,25 @@ void rt_test(uint2 dtid : SV_DispatchThreadID)
 		col = float3(isect.uv, 0);
 #endif
 		color_uav[dtid] = f32x3_to_r9g9b9e5(col);
+	}
+}
+
+[numthreads(16, 16, 1)]
+void draw_wire(uint2 dtid : SV_DispatchThreadID)
+{
+	if(any(dtid >= screen_size))
+		return;
+
+	bool is_edge = false;
+	uint id = id_srv[dtid];
+	if(!is_edge && (dtid.x > 0)){ is_edge = (id != id_srv[uint2(dtid.x - 1, dtid.y)]); }
+	if(!is_edge && (dtid.y > 0)){ is_edge = (id != id_srv[uint2(dtid.x, dtid.y - 1)]); }
+	if(!is_edge && (dtid.x + 1 < screen_size.x)){ is_edge = (id != id_srv[uint2(dtid.x + 1, dtid.y)]); }
+	if(!is_edge && (dtid.y + 1 < screen_size.y)){ is_edge = (id != id_srv[uint2(dtid.x, dtid.y + 1)]); }
+	
+	if(is_edge)
+	{
+		float3 col = r9g9b9e5_to_f32x3(color_uav[dtid]);
+		color_uav[dtid] = f32x3_to_r9g9b9e5(col * 0.5f);
 	}
 }

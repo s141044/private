@@ -44,5 +44,12 @@
         }
       ]
     }
+  ],
+  "definition" :
+  [
+    {
+      "name": "draw_wire",
+      "cs": [ "dev/rt_test.hlsl", "draw_wire", "" ]
+    }
   ]
 }
