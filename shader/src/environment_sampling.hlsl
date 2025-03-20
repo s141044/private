@@ -6,64 +6,59 @@
 #include"environment.hlsl"
 #include"static_sampler.hlsl"
 
-struct env_sample
+struct environment_sample
 {
 	float3	L;
 	float3	w;
 	float	pdf;
 };
 
-struct compressed_env_sample
+struct compressed_environment_sample
 {
 	uint	L;
 	uint	w;
 	float	pdf;
 };
 
-ByteAddressBuffer						envmap_cdf;
-StructuredBuffer<compressed_env_sample>	envmap_samples;
-Texture2DArray<float>					envmap_weight;
-Texture2DArray<float>					envmap_weight1;
-Texture2DArray<float>					envmap_weight2;
-Texture2DArray<float>					envmap_weight3;
-Texture2DArray<float>					envmap_weight4;
-Texture2DArray<float>					envmap_weight5;
-Texture2DArray<float>					envmap_weight6;
-Texture2DArray<float>					envmap_weight7;
-Texture2DArray<float>					envmap_weight8;
-Texture2DArray<float>					envmap_weight9;
+ByteAddressBuffer								environment_cdf_srv;
+StructuredBuffer<compressed_environment_sample>	environment_sample_srv;
+Texture2DArray<float>							environment_weight_srv;
+Texture2DArray<float>							environment_weight1_srv;
+Texture2DArray<float>							environment_weight2_srv;
+Texture2DArray<float>							environment_weight3_srv;
+Texture2DArray<float>							environment_weight4_srv;
+Texture2DArray<float>							environment_weight5_srv;
+Texture2DArray<float>							environment_weight6_srv;
+Texture2DArray<float>							environment_weight7_srv;
+Texture2DArray<float>							environment_weight8_srv;
+Texture2DArray<float>							environment_weight9_srv;
 
-env_sample decompress(compressed_env_sample cs)
+environment_sample decompress(compressed_environment_sample cs)
 {
-	env_sample s;
+	environment_sample s;
 	s.L = r9g9b9e5_to_f32x3(cs.L);
 	s.w = oct_to_f32x3(u16x2_unorm_to_f32x2(cs.w) * 2 - 1);
 	s.pdf = cs.pdf;
 	return s;
 }
 
-compressed_env_sample compress(env_sample s)
+compressed_environment_sample compress(environment_sample s)
 {
-	compressed_env_sample cs;
+	compressed_environment_sample cs;
 	cs.L = f32x3_to_r9g9b9e5(s.L);
 	cs.w = f32x2_to_u16x2_unorm(f32x3_to_oct(s.w) * 0.5f + 0.5f);
 	cs.pdf = s.pdf;
 	return cs;
 }
 
-env_sample sample_environment_light(uint i)
-{
-	return decompress(envmap_samples[i]);
-}
-
-struct envmap_face_cdf
+struct environment_face_cdf
 {
 	float val[6];
 };
 
 float4 sample_environment_light(float u0, float u1)
 {
-	envmap_face_cdf cdf = envmap_cdf.Load<envmap_face_cdf>(0);
+	environment_face_cdf cdf = environment_cdf_srv.Load<environment_face_cdf>(0);
 	u0 *= cdf.val[5];
 
 	int face;
@@ -79,7 +74,7 @@ float4 sample_environment_light(float u0, float u1)
 	}
 
 	uint width, height, depth, mip_count;
-	envmap_weight.GetDimensions(0, width, height, depth, mip_count);
+	environment_weight_srv.GetDimensions(0, width, height, depth, mip_count);
 
 	float weight;
 	float2 pos = 0;
@@ -92,15 +87,15 @@ float4 sample_environment_light(float u0, float u1)
 		float2 uv = (pos + 1) / (1u << i);
 
 		float4 weights;
-		if(i == 1) weights = envmap_weight1.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
-		else if(i == 2) weights = envmap_weight2.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
-		else if(i == 3) weights = envmap_weight3.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
-		else if(i == 4) weights = envmap_weight4.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
-		else if(i == 5) weights = envmap_weight5.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
-		else if(i == 6) weights = envmap_weight6.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
-		else if(i == 7) weights = envmap_weight7.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
-		else if(i == 8) weights = envmap_weight8.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
-		else if(i == 9) weights = envmap_weight9.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
+		if(i == 1) weights = environment_weight1_srv.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
+		else if(i == 2) weights = environment_weight2_srv.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
+		else if(i == 3) weights = environment_weight3_srv.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
+		else if(i == 4) weights = environment_weight4_srv.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
+		else if(i == 5) weights = environment_weight5_srv.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
+		else if(i == 6) weights = environment_weight6_srv.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
+		else if(i == 7) weights = environment_weight7_srv.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
+		else if(i == 8) weights = environment_weight8_srv.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
+		else if(i == 9) weights = environment_weight9_srv.GatherRed(bilinear_clamp, float3(uv, face)).wzxy;
 
 		float pmf = (weights[0] + weights[2]) / (weights[0] + weights[1] + weights[2] + weights[3]);
 		if(u0 < pmf)
@@ -145,14 +140,14 @@ float4 sample_environment_light(float u0, float u1)
 	return float4(w, pdf);
 }
 
-float sample_envmap_pdf(float3 w)
+float sample_environment_pdf(float3 w)
 {
 	float3 uv_face = cubemap_uv_face(w);
 	uv_face.x = +uv_face.x * 0.5f + 0.5f;
 	uv_face.y = -uv_face.y * 0.5f + 0.5f;
 
-	float weight = envmap_weight.SampleLevel(point_clamp, uv_face, 0);
-	float pdf = weight / asfloat(envmap_cdf.Load(4 * 5));
+	float weight = environment_weight_srv.SampleLevel(point_clamp, uv_face, 0);
+	float pdf = weight / asfloat(environment_cdf_srv.Load(4 * 5));
 
 	float3 abs_w = abs(w);
 	w /= max(abs_w.x, max(abs_w.y, abs_w.z));
@@ -160,14 +155,14 @@ float sample_envmap_pdf(float3 w)
 	pdf *= len2 * sqrt(len2);
 
 	float width, height, depth;
-	envmap_weight.GetDimensions(width, height, depth);
+	environment_weight_srv.GetDimensions(width, height, depth);
 	pdf *= pow2(width / 2);
 	return pdf;
 }
 
-bool environment_light_enable()
+bool exists_environment_light()
 {
-	return asfloat(envmap_cdf.Load(4 * 5)) > 0;
+	return asfloat(environment_cdf_srv.Load(4 * 5)) > 0;
 }
 
 float cube_sample_level(float3 w, float pdf, uint N, float log2_texel_size)
@@ -212,14 +207,14 @@ RWByteAddressBuffer		dst;
 [numthreads(1, 1, 1)]
 void calculate_cdf()
 {
-	envmap_face_cdf	cdf;
+	environment_face_cdf cdf;
 	cdf.val[0] = src[int3(0, 0, 0)];
 	cdf.val[1] = src[int3(0, 0, 1)] + cdf.val[0];
 	cdf.val[2] = src[int3(0, 0, 2)] + cdf.val[1];
 	cdf.val[3] = src[int3(0, 0, 3)] + cdf.val[2];
 	cdf.val[4] = src[int3(0, 0, 4)] + cdf.val[3];
 	cdf.val[5] = src[int3(0, 0, 5)] + cdf.val[4];
-	dst.Store<envmap_face_cdf>(0, cdf);
+	dst.Store<environment_face_cdf>(0, cdf);
 }
 
 #elif defined(PRESAMPLE)
@@ -229,34 +224,28 @@ void calculate_cdf()
 #include"root_constant.hlsl"
 #include"global_constant.hlsl"
 
-TextureCube<float3>							envmap;
-RWStructuredBuffer<compressed_env_sample>	samples;
+TextureCube<float3>									envmap_srv;
+RWStructuredBuffer<compressed_environment_sample>	sample_uav;
 
 [numthreads(256, 1, 1)]
 void presample(int dtid : SV_DispatchThreadID)
 {
-	if(!environment_light_enable())
+	if(!exists_environment_light())
 		return;
 
 	uint sample_count = root_constant >> 16;
 	if(dtid >= sample_count)
 		return;
 	
-	rng rng = create_rng(dtid + 1);
-	for(uint n = 0; n < 2; n++){ rand(rng); }
-	
-	float2 u;
-	u[0] = randF(rng);
-	u[1] = randF(rng);
-	//float2 u = hammersley_sequence(dtid, sample_count); //パターンが出る
+	float2 u = hammersley_sequence(shuffle(dtid, sample_count), sample_count); //TODO: jitter
 	float4 w_pdf = sample_environment_light(u[0], u[1]);
 
-	env_sample s;
-	s.L = envmap.SampleLevel(bilinear_clamp, w_pdf.xyz, root_constant & 0xffff);
+	environment_sample s;
+	s.L = envmap_srv.SampleLevel(bilinear_clamp, w_pdf.xyz, root_constant & 0xffff) / w_pdf[3];
 	s.w = w_pdf.xyz;
 	s.pdf = w_pdf.w;
 
-	samples[dtid] = compress(s);
+	sample_uav[dtid] = compress(s);
 }
 
 #endif

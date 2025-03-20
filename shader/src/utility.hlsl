@@ -5,6 +5,8 @@
 #include"packing.hlsl"
 #include"global_constant.hlsl"
 
+#define FLT_MAX asfloat(0x7F7FFFFF)
+
 float3 world_to_screen(float3 pos)
 {
 	float4 tmp = mul(float4(pos, 1), view_proj_mat);

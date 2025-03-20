@@ -149,7 +149,7 @@ public:
 		mp_unnormalized_cdf_uav = gp_render_device->create_unordered_access_view(*mp_unnormalized_cdf_buf, buffer_uav_desc(*mp_unnormalized_cdf_buf));
 	}
 
-	bool initialize(render_context &context, environment_light &envmap, uint res = 64, uint sample_count = 16 * 1024)
+	bool sample(render_context &context, environment_light &envmap, uint res = 64, uint sample_count = 16 * 1024)
 	{
 		assert(std::has_single_bit(res));
 		assert(std::has_single_bit(sample_count));
@@ -207,46 +207,46 @@ public:
 			context.set_pipeline_state(*m_shader_file.get("calculate_cdf"));
 			context.dispatch(1, 1, 1);
 			mp_cube_tex = &cube_tex;
-
-			if((mp_sample_buf == nullptr) || (mp_sample_buf->num_elements() != sample_count))
-			{
-				struct sample
-				{
-					uint	power;
-					uint	w;
-					float	pdf;
-				};
-				mp_sample_buf = gp_render_device->create_structured_buffer(sizeof(sample), sample_count, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
-				mp_sample_srv = gp_render_device->create_shader_resource_view(*mp_sample_buf, buffer_srv_desc(*mp_sample_buf));
-				mp_sample_uav = gp_render_device->create_unordered_access_view(*mp_sample_buf, buffer_uav_desc(*mp_sample_buf));
-			}
-
-			bind(context);
-			context.set_pipeline_resource("envmap", cube_srv);
-			context.set_pipeline_resource("samples", *mp_sample_uav);
-			context.set_pipeline_state(*m_shader_file.get("presample"));
-			context.dispatch_with_32bit_constant(ceil_div(sample_count, 256), 1, 1, (cube_tex.mip_levels() - mp_weight_tex->mip_levels()) | (sample_count << 16));
 		}
+
+		if((mp_sample_buf == nullptr) || (mp_sample_buf->num_elements() != sample_count))
+		{
+			struct sample
+			{
+				uint	L;
+				uint	w;
+				float	pdf;
+			};
+			mp_sample_buf = gp_render_device->create_structured_buffer(sizeof(sample), sample_count, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+			mp_sample_srv = gp_render_device->create_shader_resource_view(*mp_sample_buf, buffer_srv_desc(*mp_sample_buf));
+			mp_sample_uav = gp_render_device->create_unordered_access_view(*mp_sample_buf, buffer_uav_desc(*mp_sample_buf));
+		}
+
+		bind(context);
+		context.set_pipeline_resource("envmap_srv", cube_srv);
+		context.set_pipeline_resource("sample_uav", *mp_sample_uav);
+		context.set_pipeline_state(*m_shader_file.get("presample"));
+		context.dispatch_with_32bit_constant(ceil_div(sample_count, 256), 1, 1, (cube_tex.mip_levels() - mp_weight_tex->mip_levels()) | (sample_count << 16));
 		return true;
 	}
 
 	//バインド
 	void bind(render_context &context) const
 	{
-		context.set_pipeline_resource("envmap_cdf", *mp_unnormalized_cdf_srv);
-		context.set_pipeline_resource("envmap_weight", *mp_weight_srv[0]);
-		context.set_pipeline_resource("envmap_samples", *mp_sample_srv);
+		context.set_pipeline_resource("environment_cdf_srv", *mp_unnormalized_cdf_srv);
+		context.set_pipeline_resource("environment_weight_srv", *mp_weight_srv[0]);
+		context.set_pipeline_resource("environment_sample_srv", *mp_sample_srv);
 
 		const auto mip_levels = int(mp_weight_tex->mip_levels());
-		context.set_pipeline_resource("envmap_weight1", *mp_weight_srv[std::max(mip_levels - 2, 0)]);
-		context.set_pipeline_resource("envmap_weight2", *mp_weight_srv[std::max(mip_levels - 3, 0)]);
-		context.set_pipeline_resource("envmap_weight3", *mp_weight_srv[std::max(mip_levels - 4, 0)]);
-		context.set_pipeline_resource("envmap_weight4", *mp_weight_srv[std::max(mip_levels - 5, 0)]);
-		context.set_pipeline_resource("envmap_weight5", *mp_weight_srv[std::max(mip_levels - 6, 0)]);
-		context.set_pipeline_resource("envmap_weight6", *mp_weight_srv[std::max(mip_levels - 7, 0)]);
-		context.set_pipeline_resource("envmap_weight7", *mp_weight_srv[std::max(mip_levels - 8, 0)]);
-		context.set_pipeline_resource("envmap_weight8", *mp_weight_srv[std::max(mip_levels - 9, 0)]);
-		context.set_pipeline_resource("envmap_weight9", *mp_weight_srv[std::max(mip_levels - 10, 0)]);
+		context.set_pipeline_resource("environment_weight1_srv", *mp_weight_srv[std::max(mip_levels - 2, 0)]);
+		context.set_pipeline_resource("environment_weight2_srv", *mp_weight_srv[std::max(mip_levels - 3, 0)]);
+		context.set_pipeline_resource("environment_weight3_srv", *mp_weight_srv[std::max(mip_levels - 4, 0)]);
+		context.set_pipeline_resource("environment_weight4_srv", *mp_weight_srv[std::max(mip_levels - 5, 0)]);
+		context.set_pipeline_resource("environment_weight5_srv", *mp_weight_srv[std::max(mip_levels - 6, 0)]);
+		context.set_pipeline_resource("environment_weight6_srv", *mp_weight_srv[std::max(mip_levels - 7, 0)]);
+		context.set_pipeline_resource("environment_weight7_srv", *mp_weight_srv[std::max(mip_levels - 8, 0)]);
+		context.set_pipeline_resource("environment_weight8_srv", *mp_weight_srv[std::max(mip_levels - 9, 0)]);
+		context.set_pipeline_resource("environment_weight9_srv", *mp_weight_srv[std::max(mip_levels - 10, 0)]);
 	}
 
 	//プリサンプル数を返す

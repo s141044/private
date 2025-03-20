@@ -27,6 +27,7 @@ public:
 	struct params
 	{
 		uint2					screen_size;
+		environment_light*		p_envmap;
 		unordered_access_view*	p_color_uav;
 		unordered_access_view*	p_depth_uav;
 		bool					reset_accumulation;
@@ -58,8 +59,12 @@ public:
 
 		if(not(m_emissive_sampler.sample(context, emissive_presample_count)))
 			return false;
-		//if(not(m_environment_sampler.sample(context, environment_presample_count)))
-		//	return false;
+
+		if(params.p_envmap)
+		{
+			if(not(m_environment_sampler.sample(context, *params.p_envmap, 1024, environment_presample_count)))
+				return false;
+		}
 
 		if(params.reset_accumulation)
 			context.clear_unordered_access_view(*mp_accum_uav, uint4(0, 0, 0, 0));
@@ -78,14 +83,12 @@ public:
 		cbuf_data.environment_presample_count = environment_presample_count;
 
 		m_emissive_sampler.bind(context);
-		//m_environment_sampler.bind(context);
+		m_environment_sampler.bind(context);
 
 		context.set_pipeline_resource("reference_cbuf", *p_cbuf);
 		context.set_pipeline_resource("accum_uav", *mp_accum_uav);
 		context.set_pipeline_resource("color_uav", *params.p_color_uav);
 		context.set_pipeline_resource("depth_uav", *params.p_depth_uav);
-		//context.set_pipeline_resource("env_cube", params.p_environment_light->cube_srv());
-		//context.set_pipeline_resource("env_panorama", params.p_environment_light->src_srv());
 		context.set_pipeline_state(*m_shader_file.get("path_tracing"));
 		context.dispatch(ceil_div(params.screen_size.x, 8), ceil_div(params.screen_size.y, 4), 1);
 		return true;
@@ -101,6 +104,7 @@ private:
 	texture_ptr					mp_accum_tex;
 	unordered_access_view_ptr	mp_accum_uav;
 	emissive_sampler			m_emissive_sampler;
+	environment_light_sampler	m_environment_sampler;
 
 	uint						m_max_bounce = 3;
 };

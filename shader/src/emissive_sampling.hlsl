@@ -13,7 +13,7 @@ struct compressed_emissive_sample
 {
 	float3	position;
 	uint	normal;
-	uint	power;
+	uint	L;
 	float	pdf_approx;
 };
 
@@ -21,7 +21,7 @@ struct emissive_sample
 {
 	float3	position;
 	float3	normal;
-	float3	power;
+	float3	L;
 	float	pdf_approx;
 };
 
@@ -34,7 +34,7 @@ emissive_sample decompress(compressed_emissive_sample cs)
 	emissive_sample s;
 	s.position = cs.position;
 	s.normal = oct_to_f32x3(u16x2_unorm_to_f32x2(cs.normal) * 2 - 1);
-	s.power = r9g9b9e5_to_f32x3(cs.power);
+	s.L = r9g9b9e5_to_f32x3(cs.L);
 	s.pdf_approx = cs.pdf_approx;
 	return s;
 }
@@ -44,7 +44,7 @@ compressed_emissive_sample compress(emissive_sample s)
 	compressed_emissive_sample cs;
 	cs.position = s.position;
 	cs.normal = f32x2_to_u16x2_unorm(f32x3_to_oct(cs.normal) * 0.5f + 0.5f);
-	cs.power = f32x3_to_r9g9b9e5(s.power);
+	cs.L = f32x3_to_r9g9b9e5(s.L);
 	cs.pdf_approx = s.pdf_approx;
 	return cs;
 }
@@ -54,9 +54,9 @@ bool exists_emissive()
 	return (load_emissive_tlas_header(emissive_tlas_srv).blas_count > 0);
 }
 
-float emissive_sample_pdf(float3 power)
+float emissive_sample_pdf(float3 L)
 {
-	return luminance(power) * load_emissive_tlas_header(emissive_tlas_srv).inv_total_power;
+	return luminance(L) * load_emissive_tlas_header(emissive_tlas_srv).inv_total_power;
 }
 
 emissive_sample sample_emissive(float u0, float u1, uint dtid = 0)
@@ -90,8 +90,8 @@ emissive_sample sample_emissive(float u0, float u1, uint dtid = 0)
 	s.normal = isect.normal;
 
 	standard_material mtl = load_standard_material(isect.material_handle, isect.normal, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv);
-	s.power = get_emissive_color(mtl);
-	s.pdf_approx = emissive_sample_pdf(s.power);
+	s.L = get_emissive_color(mtl);
+	s.pdf_approx = emissive_sample_pdf(s.L);
 	return s;
 }
 
@@ -122,7 +122,7 @@ void emissive_presample(uint dtid : SV_DispatchThreadID)
 	{
 		emissive_sample candidate = sample_emissive(randF(rng), randF(rng), dtid);
 
-		float weight = luminance(candidate.power);
+		float weight = luminance(candidate.L);
 		if(weight <= 0)
 			continue;
 
@@ -133,7 +133,7 @@ void emissive_presample(uint dtid : SV_DispatchThreadID)
 		{
 			u /= pmf;
 			s = candidate;
-			s.power /= weight; //ÅŒã‚Ésum_weight‚ðæŽZ‚µ‚Ä€pmf‚ðŠ®¬
+			s.L /= weight; //ÅŒã‚Ésum_weight‚ðæŽZ‚µ‚Ä€pmf‚ðŠ®¬
 		}
 		else
 		{
@@ -142,7 +142,7 @@ void emissive_presample(uint dtid : SV_DispatchThreadID)
 	}
 
 	if(sum_weight > 0)
-		s.power *= sum_weight;
+		s.L *= sum_weight;
 	else
 		s = (emissive_sample)0;
 

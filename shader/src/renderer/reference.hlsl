@@ -6,9 +6,8 @@
 #include"../raytracing_utility.hlsl"
 #include"../global_constant.hlsl"
 #include"../root_constant.hlsl"
-#include"../environment.hlsl"
-//#include"../environment_sampling.hlsl"
 #include"../emissive_sampling.hlsl"
+#include"../environment_sampling.hlsl"
 
 cbuffer reference_cbuf
 {
@@ -63,7 +62,31 @@ float3 emissive_lighting(intersection isect, standard_material mtl, float3 wo, i
 #if ENABLE_HIT_EVAL || FORCE_MIS
 	mis_weight = calc_mis_weight(s.pdf_approx, bsdf_pdf.w * light_nwo * pow2(inv_dist));
 #endif
-	return s.power * bsdf_pdf.rgb * light_nwo * pow2(inv_dist) * mis_weight;
+	return s.L * bsdf_pdf.rgb * light_nwo * pow2(inv_dist) * mis_weight;
+}
+
+float3 environment_lighting(intersection isect, standard_material mtl, float3 wo, inout rng rng)
+{
+	uint2 active_thread_count_and_offset = calc_active_thread_count_and_offset();
+	uint index = WaveReadLaneFirst(rand(rng)) + active_thread_count_and_offset.y;
+	index &= environment_presample_count - 1;
+
+	environment_sample s = decompress(environment_sample_srv[index]);
+
+	float nwi = dot(isect.normal, s.w);
+	if(!has_contribution(nwi, mtl))
+		return 0;
+
+	if(is_occluded(isect.position, s.w, FLT_MAX))
+		return 0;
+
+	float4 bsdf_pdf = calc_bsdf_pdf(wo, s.w, isect.normal, mtl);
+
+	float mis_weight = 1;
+#if ENABLE_HIT_EVAL || FORCE_MIS
+	mis_weight = calc_mis_weight(s.pdf, bsdf_pdf.w);
+#endif
+	return s.L * bsdf_pdf.rgb * mis_weight;
 }
 
 [numthreads(8, 4, 1)]
@@ -91,12 +114,21 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 		ray_payload payload;
 		if(!find_closest(ray, payload))
 		{
-			//dir
-			//env
-
-			float mis_weight = 1;
-			float3 L = env_cube_srv.SampleLevel(bilinear_clamp, ray.direction, 0);
-			radiance += mis_weight * L * throughput;
+			if(bounce == 0)
+			{
+				radiance += env_panorama_srv.SampleLevel(bilinear_clamp, panorama_uv(ray.direction), 0);
+			}
+			else
+			{
+#if ENABLE_HIT_EVAL
+				float mis_weight = 1;
+#if ENABLE_NEE_EVAL || FORCE_MIS
+				mis_weight = calc_mis_weight(pdf_w, sample_environment_pdf(ray.direction));
+#endif
+				float3 L = env_cube_srv.SampleLevel(bilinear_clamp, ray.direction, 0);
+				radiance += mis_weight * L * throughput;
+#endif
+			}
 			break;
 		}
 
@@ -135,10 +167,8 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 		//{
 		//	radiance += directional_lighting(isect, mtl, wo, rng) * throughput;
 		//}
-		//if(1)
-		//{
-		//	radiance += environment_lighting(isect, mtl, wo, rng) * throughput;
-		//}
+		if(exists_environment_light())
+			radiance += environment_lighting(isect, mtl, wo, rng) * throughput;
 #endif
 
 		bsdf_sample s = sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng), randF(rng));
