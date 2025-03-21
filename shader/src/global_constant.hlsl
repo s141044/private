@@ -23,14 +23,14 @@ cbuffer scene_info
 
 cbuffer light_info
 {
-	float3	directional_light_direction; //•¨‘Ì•\–Ê‚©‚ç—£‚ê‚é•ûŒü
+	float3	directional_light_direction;	//•¨‘Ì•\–Ê‚©‚ç—£‚ê‚é•ûŒü
 	float	directional_light_enable;
 	float3	directional_light_power;
 	float	directional_light_cos_max;
 	float3	directional_light_axis_x;
-	float	directional_light_sample_pdf;
+	float	directional_light_sample_pdf;	//1€solid_angle
 	float3	directional_light_axis_y;
-	float	directional_light_reserved;
+	float	directional_light_solid_angle;
 
 	float	environment_light_log2_texel_size;
 	uint	environment_light_presample_count;

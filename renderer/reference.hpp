@@ -66,8 +66,11 @@ public:
 				return false;
 		}
 
-		if(params.reset_accumulation)
+		if(not(m_use_accumulation) || m_force_reset || params.reset_accumulation)
+		{
+			m_force_reset = false;
 			context.clear_unordered_access_view(*mp_accum_uav, uint4(0, 0, 0, 0));
+		}
 
 		struct cbuffer
 		{
@@ -95,8 +98,10 @@ public:
 	}
 
 	//ÉpÉâÉÅÅ[É^
-	uint get_max_bounce() const { return m_max_bounce; }
-	void set_max_bounce(const uint max_bounce){ m_max_bounce = max_bounce; }
+	uint max_bounce() const { return m_max_bounce; }
+	void set_max_bounce(const uint max_bounce){ m_max_bounce = max_bounce; m_force_reset = true; }
+	bool use_accumulation() const { return m_use_accumulation; }
+	void set_use_accumulation(const bool v) { m_use_accumulation = v; }
 
 private:
 
@@ -107,6 +112,8 @@ private:
 	environment_light_sampler	m_environment_sampler;
 
 	uint						m_max_bounce = 3;
+	bool						m_use_accumulation = true;
+	bool						m_force_reset = false;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

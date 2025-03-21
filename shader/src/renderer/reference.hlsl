@@ -6,6 +6,7 @@
 #include"../raytracing_utility.hlsl"
 #include"../global_constant.hlsl"
 #include"../root_constant.hlsl"
+#include"../directional_light.hlsl"
 #include"../emissive_sampling.hlsl"
 #include"../environment_sampling.hlsl"
 
@@ -22,7 +23,7 @@ RWTexture2D<float>	depth_uav;
 RWTexture2D<float4>	accum_uav;
 
 #define ENABLE_HIT_EVAL 1
-#define ENABLE_NEE_EVAL 0
+#define ENABLE_NEE_EVAL 1
 #define FORCE_MIS 0
 
 float calc_mis_weight(float pdf_a, float pdf_b)
@@ -63,6 +64,25 @@ float3 emissive_lighting(intersection isect, standard_material mtl, float3 wo, i
 	mis_weight = calc_mis_weight(s.pdf_approx, bsdf_pdf.w * light_nwo * pow2(inv_dist));
 #endif
 	return s.L * bsdf_pdf.rgb * light_nwo * pow2(inv_dist) * mis_weight;
+}
+
+float3 directional_lighting(intersection isect, standard_material mtl, float3 wo, inout rng rng)
+{
+	float3 wi = sample_directional_light(randF(rng), randF(rng));
+	if(!has_contribution(dot(isect.normal, wi), mtl))
+		return 0;
+
+	if(is_occluded(isect.position, wi, FLT_MAX))
+		return 0;
+
+	float4 bsdf_pdf = calc_bsdf_pdf(wo, wi, isect.normal, mtl);
+
+	float mis_weight = 1;
+#if ENABLE_HIT_EVAL || FORCE_MIS
+	mis_weight = calc_mis_weight(sample_directional_light_pdf(wi), bsdf_pdf.w);
+#endif
+	float inv_pdf = directional_light_solid_angle;
+	return directional_light_power * bsdf_pdf.rgb * mis_weight * inv_pdf;
 }
 
 float3 environment_lighting(intersection isect, standard_material mtl, float3 wo, inout rng rng)
@@ -121,12 +141,25 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 			else
 			{
 #if ENABLE_HIT_EVAL
-				float mis_weight = 1;
+
+				if(exists_directional_light() && hit_directional_light(ray.direction))
+				{
+					float mis_weight = 1;
 #if ENABLE_NEE_EVAL || FORCE_MIS
-				mis_weight = calc_mis_weight(pdf_w, sample_environment_pdf(ray.direction));
+					mis_weight = calc_mis_weight(pdf_w, sample_directional_light_pdf(ray.direction));
 #endif
-				float3 L = env_cube_srv.SampleLevel(bilinear_clamp, ray.direction, 0);
-				radiance += mis_weight * L * throughput;
+					radiance += mis_weight * directional_light_power * throughput;
+				}
+
+				if(exists_environment_light())
+				{
+					float mis_weight = 1;
+#if ENABLE_NEE_EVAL || FORCE_MIS
+					mis_weight = calc_mis_weight(pdf_w, sample_environment_pdf(ray.direction));
+#endif
+					float3 L = env_cube_srv.SampleLevel(bilinear_clamp, ray.direction, 0);
+					radiance += mis_weight * L * throughput;
+				}
 #endif
 			}
 			break;
@@ -155,7 +188,7 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 		}
 #endif
 
-		if(++bounce >= max_bounce)
+		if(++bounce > max_bounce)
 			break;
 
 #if ENABLE_NEE_EVAL
@@ -163,10 +196,9 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 		if(exists_emissive())
 			radiance += emissive_lighting(isect, mtl, wo, rng) * throughput;
 
-		//if(1)
-		//{
-		//	radiance += directional_lighting(isect, mtl, wo, rng) * throughput;
-		//}
+		if(exists_directional_light())
+			radiance += directional_lighting(isect, mtl, wo, rng) * throughput;
+
 		if(exists_environment_light())
 			radiance += environment_lighting(isect, mtl, wo, rng) * throughput;
 #endif

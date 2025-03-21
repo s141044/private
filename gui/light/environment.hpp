@@ -1,8 +1,8 @@
 
 #pragma once
 
-#ifndef NN_RENDER_RENDER_GUI_ENVIRONMENT_HPP
-#define NN_RENDER_RENDER_GUI_ENVIRONMENT_HPP
+#ifndef NN_RENDER_GUI_LIGHT_ENVIRONMENT_HPP
+#define NN_RENDER_GUI_LIGHT_ENVIRONMENT_HPP
 
 #include"../../light/environment.hpp"
 
