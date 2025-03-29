@@ -3,6 +3,7 @@
 #define RENDERER_REALISTIC_CAMERA_HPP
 
 #include"../bsdf.hlsl"
+#include"../static_sampler.hlsl"
 #include"../global_constant.hlsl"
 
 RWTexture2D<float4> debug_uav0;
@@ -29,6 +30,7 @@ cbuffer realistic_camera_cb
 };
 
 ByteAddressBuffer								realistic_camera_pupil_srv;
+Texture2D<float>								realistic_camera_aperture_srv;
 StructuredBuffer<realistic_camera_interface>	realistic_camera_interface_srv;
 
 uint2 encode(float2 pos, float aperture_radius)
@@ -61,15 +63,24 @@ bool intersect(const float cz, const float r, const float ar, const float3 o, co
 	return (dot(p, p) < ar * ar);
 }
 
-bool intersect(const float cz, const float ar, const float3 o, const float3 d, inout float t)
+bool intersect(const float cz, const float ar, const float3 o, const float3 d, inout float t, float2 axis_x = 0, float2 axis_y = 0)
 {
 	t = (cz - o.z) / d.z;
 
-	const float2 p = o.xy + t * d.xy;
-	return (dot(p, p) >= ar * ar);
+	float2 p = o.xy + t * d.xy;
+	bool hit = (dot(p, p) >= ar * ar);
+#if !defined(UNUSE_APERTURE_TEX)
+	if(!hit)
+	{
+		p = (p.x * axis_x + p.y * axis_y) / ar;
+		p = p * 0.5 + 0.5;
+		hit = realistic_camera_aperture_srv.SampleLevel(bilinear_clamp, p, 0);
+	}
+#endif
+	return hit;
 }
 
-bool trace(inout float3 o, inout float3 d, inout float3 throughput)
+bool trace(inout float3 o, inout float3 d, inout float3 throughput, float2 axis_x = 0, float2 axis_y = 0)
 {
 	float ior = 1;
 	for(uint i = 0; i < realistic_camera_interface_count; i++)
@@ -81,7 +92,7 @@ bool trace(inout float3 o, inout float3 d, inout float3 throughput)
 		if(iface.curvature_radius == 0)
 		{
 			float t;
-			if(intersect(cz, iface.aperture_radius, o, d, t))
+			if(intersect(cz, iface.aperture_radius, o, d, t, axis_x, axis_y))
 				return false;
 
 			o += d * t;
@@ -146,7 +157,7 @@ bool generate_ray(float2 pixel_pos, float u0, float u1, out float3 origin, out f
 	throughput = ((aabb.z - aabb.x) * (aabb.w - aabb.y)) * pow3(abs(direction.z)) / pow3(realistic_camera_delta_z);
 
 	//トレース
-	if(!trace(origin, direction, throughput))
+	if(!trace(origin, direction, throughput, axis_x, axis_y))
 		return false;
 
 	//ローカルからワールドに
@@ -223,6 +234,30 @@ void calc_pupil(uint2 dtid : SV_DispatchThreadID, uint group_index : SV_GroupInd
 			realistic_camera_pupil_uav.InterlockedMax(16 * dtid.y + 4 * 3, max_enc.y, max_enc.y);
 		}
 	}
+}
+
+#elif defined(CALC_APERTURE)
+
+cbuffer realistic_camera_aperture_cb
+{
+	float	realistic_camera_angle;
+	float	realistic_camera_cos_angle_x05;
+	float2	realistic_camera_inv_size;
+};
+
+RWTexture2D<float>	realistic_camera_aperture_uav;
+
+[numthreads(16, 16, 1)]
+void calc_aperture(uint2 dtid : SV_DispatchThreadID)
+{
+	float2 pos = dtid * realistic_camera_inv_size * 2 - 1;
+
+	float theta = atan2(pos.y, pos.x);
+	if(theta < 0){ theta += 2 * PI; }
+	theta = fmod(theta, realistic_camera_angle);
+
+	float len = realistic_camera_cos_angle_x05 / cos(theta - realistic_camera_angle / 2);
+	realistic_camera_aperture_uav[dtid] = (dot(pos, pos) > len * len);
 }
 
 #endif

@@ -3,11 +3,15 @@
   [
     {
       "name": "calc_pupil",
-      "cs": [ "renderer/realistic_camera.hlsl", "calc_pupil", "-DCALC_PUPIL"]
+      "cs": [ "renderer/realistic_camera.hlsl", "calc_pupil", "-DCALC_PUPIL -DUNUSE_APERTURE_TEX"]
     },
     {
       "name": "init_pupil",
       "cs": [ "renderer/realistic_camera.hlsl", "init_pupil", "-DINIT_PUPIL"]
+    },
+    {
+      "name": "calc_aperture",
+      "cs": [ "renderer/realistic_camera.hlsl", "calc_aperture", "-DCALC_APERTURE"]
     }
   ]
 }

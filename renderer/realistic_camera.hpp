@@ -171,7 +171,6 @@ public:
 				float2	sensor_size;
 			};
 			mp_cbuf = gp_render_device->create_temporary_cbuffer(sizeof(cbuffer));
-	
 			auto& cbuf_data = *mp_cbuf->data<cbuffer>();
 			cbuf_data.delta_z = m_delta;
 			cbuf_data.delta_r = diag / (2 * m_r_divide_count);
@@ -189,6 +188,34 @@ public:
 			context.dispatch_with_32bit_constant(ceil_div(m_sample_count, 256), m_r_divide_count, 1, m_sample_count);
 		}
 		
+		if(mp_aperture_tex == nullptr)
+		{
+			const uint w = 512;
+			const uint h = 512;
+			mp_aperture_tex = gp_render_device->create_texture2d(texture_format_r8_unorm, w, h, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+			mp_aperture_srv = gp_render_device->create_shader_resource_view(*mp_aperture_tex, texture_srv_desc(*mp_aperture_tex));
+			mp_aperture_uav = gp_render_device->create_unordered_access_view(*mp_aperture_tex, texture_uav_desc(*mp_aperture_tex));
+
+			struct cbuffer
+			{
+				float	angle;
+				float	cos_angle_x05;
+				float2	inv_size;
+			};
+			auto p_cbuf = gp_render_device->create_temporary_cbuffer(sizeof(cbuffer));
+			auto& cbuf_data = *p_cbuf->data<cbuffer>();
+			const float angle = 2 * PI() / m_blade_count;
+			cbuf_data.angle = angle;
+			cbuf_data.cos_angle_x05 = cos(angle / 2);
+			cbuf_data.inv_size.x = 1 / float(w);
+			cbuf_data.inv_size.y = 1 / float(h);
+
+			context.set_pipeline_resource("realistic_camera_aperture_cb", *p_cbuf);
+			context.set_pipeline_resource("realistic_camera_aperture_uav", *mp_aperture_uav);
+			context.set_pipeline_state(*m_shader_file.get("calc_aperture"));
+			context.dispatch(ceil_div(w, 16), ceil_div(h, 16), 1);
+		}
+
 //#define REALISTIC_CAMERA_DEBUG_DRAW
 #if defined(REALISTIC_CAMERA_DEBUG_DRAW)
 		for(auto& iface : m_interfaces)
@@ -265,8 +292,13 @@ public:
 	{
 		context.set_pipeline_resource("realistic_camera_cb", *mp_cbuf);
 		context.set_pipeline_resource("realistic_camera_pupil_srv", *mp_pupil_srv);
+		context.set_pipeline_resource("realistic_camera_aperture_srv", *mp_aperture_srv);
 		context.set_pipeline_resource("realistic_camera_interface_srv", *mp_interface_srv);
 	}
+
+	//パラメータ
+	uint blade_count() const { return m_blade_count; }
+	void set_blade_count(const uint n){ if(m_blade_count != n){ m_blade_count = n; mp_aperture_tex.reset(); }}
 
 private:
 
@@ -360,26 +392,24 @@ private:
 			if(iface.curvature_radius == 0)
 			{
 				float t;
-				const bool hit = intersect(cz, iface.aperture_radius, out.o, out.d, t);
+				if(intersect(cz, iface.aperture_radius, out.o, out.d, t))
+					return false;
+
 #if defined(REALISTIC_CAMERA_DEBUG_DRAW)
 				vertices.push_back(out.o);
 #endif
-				if(hit)
-					return false;
-
 				out.o += out.d * t;
 			}
 			//レンズ
 			else
 			{
 				float t;
-				const bool hit = intersect(cz, iface.curvature_radius, iface.aperture_radius, out.o, out.d, t);
+				if(not(intersect(cz, iface.curvature_radius, iface.aperture_radius, out.o, out.d, t)))
+					return false;
+
 #if defined(REALISTIC_CAMERA_DEBUG_DRAW)
 				vertices.push_back(out.o);
 #endif
-				if(not(hit))
-					return false;
-
 				out.o += out.d * t;
 
 				float3 normal = normalize(float3(out.o.xy, out.o.z - cz));
@@ -422,7 +452,10 @@ private:
 	buffer_ptr					mp_interface_buf;
 	shader_resource_view_ptr	mp_interface_srv;
 	unordered_access_view_ptr	mp_interface_uav;
-	
+	texture_ptr					mp_aperture_tex;
+	shader_resource_view_ptr	mp_aperture_srv;
+	unordered_access_view_ptr	mp_aperture_uav;
+
 	struct interface_t
 	{
 		float aperture_radius;
@@ -438,6 +471,7 @@ private:
 	float					m_front_pz;
 	float					m_back_fz;
 	float					m_back_pz;
+	uint					m_blade_count = 6;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
