@@ -2098,29 +2098,34 @@ inline void render_device::present_impl(render::swapchain& swapchain_base)
 			buffer* p_buffer = nullptr;
 			bind_info *p_bind_info = nullptr;
 			const target_state* p_target_state = nullptr;
+			const geometry_state* p_geometry_state = nullptr;
 			switch(command_base.type)
 			{
 			case command::type_draw:
 				uav_barrier = static_cast<const command::draw&>(command_base).uav_barrier;
 				p_bind_info = static_cast<bind_info*>(static_cast<const command::draw&>(command_base).p_optional);
 				p_target_state = static_cast<const d3d12::target_state*>(static_cast<const command::draw&>(command_base).p_target_state);
+				p_geometry_state = static_cast<const d3d12::geometry_state*>(static_cast<const command::draw&>(command_base).p_geometry_state);
 				break;
 			case command::type_draw_indexed:
 				uav_barrier = static_cast<const command::draw_indexed&>(command_base).uav_barrier;
 				p_bind_info = static_cast<bind_info*>(static_cast<const command::draw_indexed&>(command_base).p_optional);
 				p_target_state = static_cast<const d3d12::target_state*>(static_cast<const command::draw_indexed&>(command_base).p_target_state);
+				p_geometry_state = static_cast<const d3d12::geometry_state*>(static_cast<const command::draw_indexed&>(command_base).p_geometry_state);
 				break;
 			case command::type_draw_indirect:
 				uav_barrier = static_cast<const command::draw_indirect&>(command_base).uav_barrier;
 				p_bind_info = static_cast<bind_info*>(static_cast<const command::draw_indirect&>(command_base).p_optional);
 				p_buffer = static_cast<d3d12::buffer*>(static_cast<const command::draw_indirect&>(command_base).p_buf);
 				p_target_state = static_cast<const d3d12::target_state*>(static_cast<const command::draw_indirect&>(command_base).p_target_state);
+				p_geometry_state = static_cast<const d3d12::geometry_state*>(static_cast<const command::draw_indirect&>(command_base).p_geometry_state);
 				break;
 			case command::type_draw_indexed_indirect:
 				uav_barrier = static_cast<const command::draw_indexed_indirect&>(command_base).uav_barrier;
 				p_bind_info = static_cast<bind_info*>(static_cast<const command::draw_indexed_indirect&>(command_base).p_optional);
 				p_buffer = static_cast<d3d12::buffer*>(static_cast<const command::draw_indexed_indirect&>(command_base).p_buf);
 				p_target_state = static_cast<const d3d12::target_state*>(static_cast<const command::draw_indexed_indirect&>(command_base).p_target_state);
+				p_geometry_state = static_cast<const d3d12::geometry_state*>(static_cast<const command::draw_indexed_indirect&>(command_base).p_geometry_state);
 				break;
 			case command::type_dispatch:
 				uav_barrier = static_cast<const command::dispatch&>(command_base).uav_barrier;
@@ -2148,6 +2153,12 @@ inline void render_device::present_impl(render::swapchain& swapchain_base)
 						after_state = D3D12_RESOURCE_STATE_DEPTH_READ;
 					state_transition(dsv.resource(), dsv.desc().mip_slice, 1, dsv.desc().first_array_index, 1, dsv.format(), after_state, uav_barrier);
 				}
+			}
+
+			if(p_geometry_state)
+			{
+				for(uint i = 0; i < p_geometry_state->num_vbs(); i++)
+					state_transition(p_geometry_state->vertex_buffer(i), 0, 1, 0, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, uav_barrier);
 			}
 
 			if(p_buffer != nullptr)

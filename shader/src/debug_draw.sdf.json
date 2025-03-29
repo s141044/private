@@ -1,0 +1,88 @@
+{
+  "input_layout":
+  [
+    {
+      "name": "line",
+      "topology": "line_list",
+      "element": [
+        {"name": "POSITION", "slot": 0, "offset":  0, "format": "r32g32b32_float"},
+        {"name": "COLOR",    "slot": 0, "offset": 12, "format": "r8g8b8a8_unorm"}
+      ]
+    },
+    {
+      "name": "line_strip",
+      "topology": "line_strip",
+      "element": [
+        {"name": "POSITION", "slot": 0, "offset":  0, "format": "r32g32b32_float"},
+        {"name": "COLOR",    "slot": 0, "offset": 12, "format": "r8g8b8a8_unorm"}
+      ]
+    },
+    {
+      "name": "point",
+      "topology": "point_list",
+      "element": [
+        {"name": "POSITION", "slot": 0, "offset":  0, "format": "r32g32b32_float"},
+        {"name": "COLOR",    "slot": 0, "offset": 12, "format": "r8g8b8a8_unorm"}
+      ]
+    }
+  ],
+  "blend_state" :
+  [
+    {
+      "name": "none",
+      "independent_blend": false,
+      "render_target": 
+      [
+        {
+          "enable": false
+        }
+      ]
+    }
+  ],
+  "depth_stencil_state":
+  [
+    {
+      "name": "test_greater",
+      "depth_enable": true,
+      "depth_write": false,
+      "depth_func": "greater",
+      "stencil_enable": false
+    }
+  ],
+  "rasterizer_state":
+  [
+    {
+      "name": "default"
+    }
+  ],
+  "definition" : 
+  [
+    {
+      "name": "draw_lines",
+      "bs": "none",
+      "il": "line",
+      "rs": "default",
+      "dss": "test_greater",
+      "vs": [ "debug_draw.hlsl", "debug_draw_vs", ""],
+      "ps": [ "debug_draw.hlsl", "debug_draw_ps", ""]
+    },
+    {
+      "name": "draw_line_strip",
+      "bs": "none",
+      "il": "line_strip",
+      "rs": "default",
+      "dss": "test_greater",
+      "vs": [ "debug_draw.hlsl", "debug_draw_vs", ""],
+      "ps": [ "debug_draw.hlsl", "debug_draw_ps", ""]
+    },
+    {
+      "name": "draw_points",
+      "bs": "none",
+      "il": "point",
+      "rs": "default",
+      "dss": "test_greater",
+      "vs": [ "debug_draw.hlsl", "debug_draw_vs", ""],
+      "ps": [ "debug_draw.hlsl", "debug_draw_ps", ""]
+    }
+  ]
+}

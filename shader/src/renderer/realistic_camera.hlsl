@@ -1,0 +1,229 @@
+
+#ifndef RENDERER_REALISTIC_CAMERA_HPP
+#define RENDERER_REALISTIC_CAMERA_HPP
+
+#include"../bsdf.hlsl"
+#include"../global_constant.hlsl"
+
+RWTexture2D<float4> debug_uav0;
+RWTexture2D<float4> debug_uav1;
+RWTexture2D<float4> debug_uav2;
+RWTexture2D<float4> debug_uav3;
+
+struct realistic_camera_interface
+{
+	float aperture_radius;
+	float curvature_radius;
+	float thickness;
+	float ior;
+};
+
+cbuffer realistic_camera_cb
+{
+	float	realistic_camera_delta_z;
+	float	realistic_camera_delta_r;
+	float	realistic_camera_inv_delta_r;
+	uint	realistic_camera_interface_count;
+	float2	realistic_camera_sensor_min;
+	float2	realistic_camera_sensor_size;
+};
+
+ByteAddressBuffer								realistic_camera_pupil_srv;
+StructuredBuffer<realistic_camera_interface>	realistic_camera_interface_srv;
+
+uint2 encode(float2 pos, float aperture_radius)
+{
+	pos = ((pos / aperture_radius) + 1) / 2;
+	return (pos * 0x7fffff + 0.5f);
+}
+
+float4 decode(uint4 enc, float aperture_radius)
+{
+	float4 pos = (enc / float(0x7fffff)) * 2 - 1;
+	return pos * aperture_radius;
+}
+
+bool intersect(const float cz, const float r, const float ar, const float3 o, const float3 d, inout float t)
+{
+	const float3 co = float3(o.x, o.y, o.z - cz);
+	const float B = dot(d, co);
+	const float C = dot(co, co) - r * r;
+	const float D = B * B - C;
+	if(D <= 0)
+		return false;
+
+	const float sqrt_D = sqrt(D);
+	const float t0 = -B - sqrt_D;
+	const float t1 = -B + sqrt_D;
+	t = (t0 > 0) ? t0 : t1;
+
+	const float2 p = o.xy + t * d.xy;
+	return (dot(p, p) < ar * ar);
+}
+
+bool intersect(const float cz, const float ar, const float3 o, const float3 d, inout float t)
+{
+	t = (cz - o.z) / d.z;
+
+	const float2 p = o.xy + t * d.xy;
+	return (dot(p, p) >= ar * ar);
+}
+
+bool trace(inout float3 o, inout float3 d, inout float3 throughput)
+{
+	float ior = 1;
+	for(uint i = 0; i < realistic_camera_interface_count; i++)
+	{
+		const realistic_camera_interface iface = realistic_camera_interface_srv[i];
+		const float cz = iface.thickness + iface.curvature_radius;
+
+		//絞り
+		if(iface.curvature_radius == 0)
+		{
+			float t;
+			if(intersect(cz, iface.aperture_radius, o, d, t))
+				return false;
+
+			o += d * t;
+		}
+		//レンズ
+		else
+		{
+			float t;
+			if(!intersect(cz, iface.curvature_radius, iface.aperture_radius, o, d, t))
+				return false;
+
+			o += d * t;
+
+			float3 normal = normalize(float3(o.xy, o.z - cz));
+			if(dot(normal, d) > 0)
+				normal = -normal;
+
+			throughput *= 1 - fresnel_dielectric(-dot(normal, d), iface.ior / ior);
+
+			d = refract(d, normal, ior / iface.ior);
+			ior = iface.ior;
+		}
+	}
+	return true;
+}
+
+bool trace(inout float3 o, inout float3 d)
+{
+	float3 throughput = 1;
+	return trace(o, d, throughput);
+}
+
+bool generate_ray(float2 pixel_pos, float u0, float u1, out float3 origin, out float3 direction, out float3 throughput, uint2 dtid = 0)
+{
+	//センサ上の位置を計算
+	float2 sensor_pos = pixel_pos * inv_screen_size;
+	sensor_pos.x = 1 - sensor_pos.x;
+	origin.xy = realistic_camera_sensor_min + realistic_camera_sensor_size * sensor_pos;
+	origin.z = realistic_camera_interface_srv[0].thickness + realistic_camera_delta_z;
+
+	//中心からの距離&角度を計算
+	float r = length(origin.xy);
+	float inv_r = 1 / r;
+	float2 axis_x = float2(+origin.x, origin.y) * inv_r;
+	float2 axis_y = float2(-origin.y, origin.x) * inv_r;
+	
+	//ローカル空間に変換
+	origin.x = r;
+	origin.y = 0;
+
+	//レンズ上の位置をサンプリング
+	uint index = r * realistic_camera_inv_delta_r;
+	float4 aabb = decode(realistic_camera_pupil_srv.Load4(16 * index), realistic_camera_interface_srv[0].aperture_radius);
+	if(any(aabb.xy >= aabb.zw)){ return false; }
+	float3 target = float3(lerp(aabb.xy, aabb.zw, float2(u0, u1)), realistic_camera_interface_srv[0].thickness);
+	direction = normalize(target - origin);
+
+	//スループットを計算
+	//float pdf_x = 1 / ((aabb.z - aabb.x) * (aabb.w - aabb.y));
+	//float pdf_w = pdf_x * pow3(realistic_camera_delta_z) / pow2(direction.z);
+	//throughput = abs(direction.z) / pdf_w;
+	throughput = ((aabb.z - aabb.x) * (aabb.w - aabb.y)) * pow3(abs(direction.z)) / pow3(realistic_camera_delta_z);
+
+	//トレース
+	if(!trace(origin, direction, throughput))
+		return false;
+
+	//ローカルからワールドに
+	origin.xy = origin.x * axis_x + origin.y * axis_y;
+	direction.xy = direction.x * axis_x + direction.y * axis_y;
+	origin = mul(float4(origin, 1), inv_view_mat);
+	direction = mul(direction, (float3x3)inv_view_mat);
+	return true;
+}
+
+#if defined(CALC_PUPIL) || defined(INIT_PUPIL)
+
+#include"../random.hlsl"
+#include"../sampling.hlsl"
+#include"../root_constant.hlsl"
+
+RWByteAddressBuffer	realistic_camera_pupil_uav;
+groupshared	uint2	shared_min_enc[8];
+groupshared	uint2	shared_max_enc[8];
+
+[numthreads(256, 1, 1)]
+void init_pupil(uint dtid : SV_DispatchThreadID)
+{
+	uint size;
+	realistic_camera_pupil_uav.GetDimensions(size);
+
+	if(16 * dtid < size)
+		realistic_camera_pupil_uav.Store4(16 * dtid, uint4(0xffffffff, 0xffffffff, 0, 0));
+}
+
+[numthreads(256, 1, 1)]
+void calc_pupil(uint2 dtid : SV_DispatchThreadID, uint group_index : SV_GroupIndex)
+{
+	uint sample_count = root_constant;
+	float ar = realistic_camera_interface_srv[0].aperture_radius;
+	float2 u = hammersley_sequence(dtid.x, sample_count);
+	float3 target = float3(sample_uniform_disk(ar, u[0], u[1]), realistic_camera_interface_srv[0].thickness);
+	float3 o = float3(realistic_camera_delta_r * (dtid.x + 0.5f) / sample_count, 0, realistic_camera_interface_srv[0].thickness + realistic_camera_delta_z);
+	float3 d = normalize(target - o);
+
+	bool success = trace(o, d);
+	if(WaveActiveAnyTrue(success))
+	{
+		if(success)
+		{
+			uint2 enc = encode(target.xy, ar);
+			uint2 min_enc = WaveActiveMin(enc);
+			uint2 max_enc = WaveActiveMax(enc);
+
+			if(WaveIsFirstLane())
+			{
+				shared_min_enc[group_index / 32] = min_enc;
+				shared_max_enc[group_index / 32] = max_enc;
+			}
+		}
+	}
+	else if(WaveIsFirstLane())
+	{
+		shared_min_enc[group_index / 32] = 0xffffffff;
+		shared_max_enc[group_index / 32] = 0;
+	}
+	GroupMemoryBarrierWithGroupSync();
+
+	if(group_index < 8)
+	{
+		uint2 min_enc = WaveActiveMin(shared_min_enc[group_index]);
+		uint2 max_enc = WaveActiveMax(shared_max_enc[group_index]);
+
+		if(group_index == 0)
+		{
+			realistic_camera_pupil_uav.InterlockedMin(16 * dtid.y + 4 * 0, min_enc.x, min_enc.x);
+			realistic_camera_pupil_uav.InterlockedMin(16 * dtid.y + 4 * 1, min_enc.y, min_enc.y);
+			realistic_camera_pupil_uav.InterlockedMax(16 * dtid.y + 4 * 2, max_enc.x, max_enc.x);
+			realistic_camera_pupil_uav.InterlockedMax(16 * dtid.y + 4 * 3, max_enc.y, max_enc.y);
+		}
+	}
+}
+
+#endif
+#endif

@@ -19,6 +19,10 @@
             {
               "name": "",
               "cs": ["", "", ""]
+            },
+            {
+              "name": "_use_realistic_camera",
+              "cs": ["", "", "-DUSE_REALISTIC_CAMERA"]
             }
           ]
         }

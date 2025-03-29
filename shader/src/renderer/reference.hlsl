@@ -1,4 +1,7 @@
 
+#ifndef RENDERER_REFERENCE_HLSL
+#define RENDERER_REFERENCE_HLSL
+
 #include"../random.hlsl"
 #include"../utility.hlsl"
 #include"../packing.hlsl"
@@ -9,6 +12,7 @@
 #include"../directional_light.hlsl"
 #include"../emissive_sampling.hlsl"
 #include"../environment_sampling.hlsl"
+#include"realistic_camera.hlsl"
 
 cbuffer reference_cbuf
 {
@@ -118,100 +122,108 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 	rng rng;
 	rng.state = dtid.x + screen_size.x * (dtid.y + screen_size.y * frame_count);
 
+	float2 pixel_pos;
+	pixel_pos.x = dtid.x + randF(rng);
+	pixel_pos.y = dtid.y + randF(rng);
+
 	ray ray;
 	ray.origin = camera_pos;
-	ray.direction = normalize(screen_to_world(dtid + 0.5f, 1) - camera_pos);
+	ray.direction = normalize(screen_to_world(pixel_pos, 1) - camera_pos);
 	ray.tmin = 0.001f;
 	ray.tmax = 1000;
 
-	float pdf_w = 0;
 	float3 radiance = 0;
 	float3 throughput = 1;
-
-	uint bounce = 0;
-	while(true)
+#if defined(USE_REALISTIC_CAMERA)
+	if(generate_ray(pixel_pos, randF(rng), randF(rng), ray.origin, ray.direction, throughput, dtid))
+#endif
 	{
-		ray_payload payload;
-		if(!find_closest(ray, payload))
+		float pdf_w = 0;
+		uint bounce = 0;
+		while(true)
 		{
+			ray_payload payload;
+			if(!find_closest(ray, payload))
+			{
+				if(bounce == 0)
+				{
+					radiance += env_panorama_srv.SampleLevel(bilinear_clamp, panorama_uv(ray.direction), 0) * throughput;
+				}
+				else
+				{
+#if ENABLE_HIT_EVAL
+
+					if(exists_directional_light() && hit_directional_light(ray.direction))
+					{
+						float mis_weight = 1;
+#if ENABLE_NEE_EVAL || FORCE_MIS
+						mis_weight = calc_mis_weight(pdf_w, sample_directional_light_pdf(ray.direction));
+#endif
+						radiance += mis_weight * directional_light_power * throughput;
+					}
+
+					if(exists_environment_light())
+					{
+						float mis_weight = 1;
+#if ENABLE_NEE_EVAL || FORCE_MIS
+						mis_weight = calc_mis_weight(pdf_w, sample_environment_pdf(ray.direction));
+#endif
+						float3 L = env_cube_srv.SampleLevel(bilinear_clamp, ray.direction, 0);
+						radiance += mis_weight * L * throughput;
+					}
+#endif
+				}
+				break;
+			}
+
+			float3 wo = -ray.direction;
+			intersection isect = get_intersection(payload);
+			isect.position = ray.origin + ray.direction * payload.ray_t;
+			isect.normal = normal_correction(isect.normal, wo);
+
 			if(bounce == 0)
-			{
-				radiance += env_panorama_srv.SampleLevel(bilinear_clamp, panorama_uv(ray.direction), 0);
-			}
-			else
-			{
-#if ENABLE_HIT_EVAL
+				depth_uav[dtid] = world_to_screen(isect.position).z;
 
-				if(exists_directional_light() && hit_directional_light(ray.direction))
-				{
-					float mis_weight = 1;
-#if ENABLE_NEE_EVAL || FORCE_MIS
-					mis_weight = calc_mis_weight(pdf_w, sample_directional_light_pdf(ray.direction));
-#endif
-					radiance += mis_weight * directional_light_power * throughput;
-				}
-
-				if(exists_environment_light())
-				{
-					float mis_weight = 1;
-#if ENABLE_NEE_EVAL || FORCE_MIS
-					mis_weight = calc_mis_weight(pdf_w, sample_environment_pdf(ray.direction));
-#endif
-					float3 L = env_cube_srv.SampleLevel(bilinear_clamp, ray.direction, 0);
-					radiance += mis_weight * L * throughput;
-				}
-#endif
-			}
-			break;
-		}
-
-		float3 wo = -ray.direction;
-		intersection isect = get_intersection(payload);
-		isect.position = ray.origin + ray.direction * payload.ray_t;
-		isect.normal = normal_correction(isect.normal, wo);
-
-		if(bounce == 0)
-			depth_uav[dtid] = world_to_screen(isect.position).z;
-
-		standard_material mtl = load_standard_material(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
+			standard_material mtl = load_standard_material(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
 
 #if ENABLE_HIT_EVAL
-		float3 Le = get_emissive_color(mtl);
-		if(any(Le > 0))
-		{
-			float mis_weight = 1;
+			float3 Le = get_emissive_color(mtl);
+			if(any(Le > 0))
+			{
+				float mis_weight = 1;
 #if ENABLE_NEE_EVAL || FORCE_MIS
-			if(bounce > 0)
-				mis_weight = calc_mis_weight(pdf_w, emissive_sample_pdf(Le) * dot(wo, isect.geometry_normal) / pow2(payload.ray_t));
+				if(bounce > 0)
+					mis_weight = calc_mis_weight(pdf_w, emissive_sample_pdf(Le) * dot(wo, isect.geometry_normal) / pow2(payload.ray_t));
 #endif
-			radiance += Le * throughput * mis_weight;
-		}
+				radiance += Le * throughput * mis_weight;
+			}
 #endif
 
-		if(++bounce > max_bounce)
-			break;
+			if(++bounce > max_bounce)
+				break;
 
 #if ENABLE_NEE_EVAL
 
-		if(exists_emissive())
-			radiance += emissive_lighting(isect, mtl, wo, rng) * throughput;
+			if(exists_emissive())
+				radiance += emissive_lighting(isect, mtl, wo, rng) * throughput;
 
-		if(exists_directional_light())
-			radiance += directional_lighting(isect, mtl, wo, rng) * throughput;
+			if(exists_directional_light())
+				radiance += directional_lighting(isect, mtl, wo, rng) * throughput;
 
-		if(exists_environment_light())
-			radiance += environment_lighting(isect, mtl, wo, rng) * throughput;
+			if(exists_environment_light())
+				radiance += environment_lighting(isect, mtl, wo, rng) * throughput;
 #endif
 
-		bsdf_sample s = sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng), randF(rng));
-		if(!s.is_valid)
-			break;
+			bsdf_sample s = sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng), randF(rng));
+			if(!s.is_valid)
+				break;
 
-		pdf_w = s.pdf;
-		throughput *= s.weight;
+			pdf_w = s.pdf;
+			throughput *= s.weight;
 		
-		ray.origin = isect.position;
-		ray.direction = s.w;
+			ray.origin = isect.position;
+			ray.direction = s.w;
+		}
 	}
 
 	float4 sum = accum_uav[dtid];
@@ -219,3 +231,5 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 	accum_uav[dtid] = sum;
 	color_uav[dtid] = f32x3_to_r9g9b9e5(sum.rgb / sum.a);
 }
+
+#endif

@@ -142,7 +142,7 @@ public:
 		if(input_float3("center", center)){ m_camera.look_at(position, center); }
 
 		float distance = m_camera.distance();
-		if(input_float("distance", distance)){ m_camera.look_at(position, normalize(center - position), distance); }
+		if(input_float("distance", distance)){ m_camera.look_at(position, normalize(center - position), std::max(distance, 1e-3f)); }
 
 		float fovy = m_camera.fovy();
 		if(slider_float("fovy", fovy, 1, 180)){ m_camera.set_fovy(fovy); }

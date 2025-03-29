@@ -731,6 +731,8 @@ public:
 	//ビュー/射影行列を返す
 	float3x4 view_mat() const;
 	float4x4 proj_mat() const;
+	float3x4 inv_view_mat() const;
+	float4x4 inv_proj_mat() const;
 
 	//軸を返す
 	const float3& axis_x() const;
@@ -768,6 +770,71 @@ private:
 	float	m_near_clip;
 	float	m_far_clip;
 };
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//debug_draw
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+class debug_draw
+{
+public:
+
+	struct vertex
+	{
+		vertex() = default;
+		vertex(const float3& p, const float3& c);
+		float3	position;
+		uint	color;
+	};
+
+	//コンストラクタ
+	debug_draw(const uint capacity);
+
+	//ライン/ポイント描画
+	uint draw_lines(const uint num_lines);
+	uint draw_points(const uint num_points);
+	uint draw_line_strip(const uint num_lines);
+	vertex* draw_lines(const uint num_lines, const bool cpu_write);
+	vertex* draw_points(const uint num_points, const bool cpu_write);
+	vertex* draw_line_strip(const uint num_lines, const bool cpu_write);
+
+	//描画
+	bool draw(render_context& context, target_state& target_state);
+
+private:
+
+	enum draw_type
+	{
+		draw_type_line,
+		draw_type_line_strip,
+		draw_type_point,
+		draw_type_count,
+	};
+	struct draw_info
+	{
+		uint	vertex_count;
+		uint	start_vertex_location;
+	};
+	
+	uint draw_xxx(const uint vertex_count, const draw_type type);
+	vertex* draw_xxx(const uint vertex_count, const draw_type type, const bool cpu_write);
+
+private:
+
+	shader_file_holder			m_shader_file;
+	buffer_ptr					mp_vertex_buf;
+	unordered_access_view_ptr	mp_vertex_uav;
+	upload_buffer_ptr			mp_vertex_ubuf;
+	geometry_state_ptr			mp_geometry_state;
+	uint						m_front;
+	uint						m_back;
+	uint						m_capacity;
+	vector<draw_info>			m_draw_infos[draw_type_count];
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+inline unique_ptr<debug_draw> gp_debug_draw;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //base_application
@@ -858,6 +925,7 @@ private:
 #include"base/mesh-impl.hpp"
 #include"base/camera-impl.hpp"
 #include"base/transform-impl.hpp"
+#include"base/debug_draw-impl.hpp"
 #include"base/emissive_blas-impl.hpp"
 #include"base/emissive_tlas-impl.hpp"
 #include"base/render_entity-impl.hpp"

@@ -14,6 +14,8 @@ cbuffer scene_info
 	float2		scene_info_reserved0;
 	float4x3	view_mat;
 	float4x4	proj_mat;
+	float4x3	inv_view_mat;
+	float4x4	inv_proj_mat;
 	float4x4	view_proj_mat;
 	float4x4	inv_view_proj_mat;
 	float4x4	prev_inv_view_proj_mat;

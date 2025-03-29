@@ -7,6 +7,7 @@
 #include"../base.hpp"
 #include"../light/direction.hpp"
 #include"../light/environment.hpp"
+#include"realistic_camera.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -27,6 +28,7 @@ public:
 	struct params
 	{
 		uint2					screen_size;
+		camera*					p_camera;
 		environment_light*		p_envmap;
 		unordered_access_view*	p_color_uav;
 		unordered_access_view*	p_depth_uav;
@@ -72,6 +74,17 @@ public:
 			context.clear_unordered_access_view(*mp_accum_uav, uint4(0, 0, 0, 0));
 		}
 
+		if(m_use_realistic_camera)
+		{
+			if(mp_realistic_camera == nullptr)
+				mp_realistic_camera.reset(new realistic_camera());
+
+			if(!mp_realistic_camera->initialize(context, *params.p_camera))
+				return false;
+
+			mp_realistic_camera->bind(context);
+		}
+
 		struct cbuffer
 		{
 			uint	max_bounce;
@@ -88,11 +101,38 @@ public:
 		m_emissive_sampler.bind(context);
 		m_environment_sampler.bind(context);
 
+		static texture_ptr p_debug_tex[4];
+		static unordered_access_view_ptr p_debug_uav[4];
+		if(p_debug_tex[0] == nullptr)
+		{
+			p_debug_tex[0] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, params.screen_size.x, params.screen_size.y, 1, resource_flag_allow_unordered_access);
+			p_debug_tex[1] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, params.screen_size.x, params.screen_size.y, 1, resource_flag_allow_unordered_access);
+			p_debug_tex[2] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, params.screen_size.x, params.screen_size.y, 1, resource_flag_allow_unordered_access);
+			p_debug_tex[3] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, params.screen_size.x, params.screen_size.y, 1, resource_flag_allow_unordered_access);
+			p_debug_uav[0] = gp_render_device->create_unordered_access_view(*p_debug_tex[0], texture_uav_desc(*p_debug_tex[0]));
+			p_debug_uav[1] = gp_render_device->create_unordered_access_view(*p_debug_tex[1], texture_uav_desc(*p_debug_tex[1]));
+			p_debug_uav[2] = gp_render_device->create_unordered_access_view(*p_debug_tex[2], texture_uav_desc(*p_debug_tex[2]));
+			p_debug_uav[3] = gp_render_device->create_unordered_access_view(*p_debug_tex[3], texture_uav_desc(*p_debug_tex[3]));
+		}
+		context.set_pipeline_resource("debug_uav0", *p_debug_uav[0]);
+		context.set_pipeline_resource("debug_uav1", *p_debug_uav[1]);
+		context.set_pipeline_resource("debug_uav2", *p_debug_uav[2]);
+		context.set_pipeline_resource("debug_uav3", *p_debug_uav[3]);
+		context.clear_unordered_access_view(*p_debug_uav[0], uint4(0,0,0,0));
+		context.clear_unordered_access_view(*p_debug_uav[1], uint4(0,0,0,0));
+		context.clear_unordered_access_view(*p_debug_uav[2], uint4(0,0,0,0));
+		context.clear_unordered_access_view(*p_debug_uav[3], uint4(0,0,0,0));
+
 		context.set_pipeline_resource("reference_cbuf", *p_cbuf);
 		context.set_pipeline_resource("accum_uav", *mp_accum_uav);
 		context.set_pipeline_resource("color_uav", *params.p_color_uav);
 		context.set_pipeline_resource("depth_uav", *params.p_depth_uav);
-		context.set_pipeline_state(*m_shader_file.get("path_tracing"));
+	
+		if(m_use_realistic_camera)
+			context.set_pipeline_state(*m_shader_file.get("path_tracing_use_realistic_camera"));
+		else
+			context.set_pipeline_state(*m_shader_file.get("path_tracing"));
+		
 		context.dispatch(ceil_div(params.screen_size.x, 8), ceil_div(params.screen_size.y, 4), 1);
 		return true;
 	}
@@ -102,18 +142,22 @@ public:
 	void set_max_bounce(const uint max_bounce){ m_max_bounce = max_bounce; m_force_reset = true; }
 	bool use_accumulation() const { return m_use_accumulation; }
 	void set_use_accumulation(const bool v) { m_use_accumulation = v; }
+	bool use_realistic_camera() const { return m_use_realistic_camera; }
+	void set_use_realistic_camera(const bool v) { m_use_realistic_camera = v; }
 
 private:
 
-	shader_file_holder			m_shader_file;
-	texture_ptr					mp_accum_tex;
-	unordered_access_view_ptr	mp_accum_uav;
-	emissive_sampler			m_emissive_sampler;
-	environment_light_sampler	m_environment_sampler;
+	shader_file_holder				m_shader_file;
+	texture_ptr						mp_accum_tex;
+	unordered_access_view_ptr		mp_accum_uav;
+	emissive_sampler				m_emissive_sampler;
+	environment_light_sampler		m_environment_sampler;
+	unique_ptr<realistic_camera>	mp_realistic_camera;
 
-	uint						m_max_bounce = 3;
-	bool						m_use_accumulation = true;
-	bool						m_force_reset = false;
+	uint							m_max_bounce = 3;
+	bool							m_use_realistic_camera = false;
+	bool							m_use_accumulation = true;
+	bool							m_force_reset = false;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

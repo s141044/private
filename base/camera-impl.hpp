@@ -147,6 +147,11 @@ inline float3x4 camera::view_mat() const
 		m_axis_z.x, m_axis_z.y, m_axis_z.z, -dot(m_pos, m_axis_z));
 }
 
+inline float3x4 camera::inv_view_mat() const
+{
+	throw;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //Ë‰es—ñ‚ğ•Ô‚·
@@ -163,6 +168,11 @@ inline float4x4 camera::proj_mat() const
 		0, sy, 0,  0,
 		0, 0, sz, tz, 
 		0, 0, -1,  0);
+}
+
+inline float4x4 camera::inv_proj_mat() const
+{
+	throw; //•K—v‚É‚È‚Á‚½‚ç‘Î‰‚·‚é
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

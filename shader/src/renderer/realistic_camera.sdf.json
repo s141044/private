@@ -1,0 +1,13 @@
+{
+  "definition": 
+  [
+    {
+      "name": "calc_pupil",
+      "cs": [ "renderer/realistic_camera.hlsl", "calc_pupil", "-DCALC_PUPIL"]
+    },
+    {
+      "name": "init_pupil",
+      "cs": [ "renderer/realistic_camera.hlsl", "init_pupil", "-DINIT_PUPIL"]
+    }
+  ]
+}

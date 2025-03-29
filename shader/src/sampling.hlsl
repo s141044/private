@@ -89,15 +89,15 @@ float2 sample_uniform_disk(float R, float u0, float u1)
 	float r, theta;
 	if(abs(u0) > abs(u1))
 	{
-		r = u0;
+		r = R * u0;
 		theta = (PI / 4) * (u1 / u0);
 	}
 	else
 	{
-		r = u1;
+		r = R * u1;
 		theta = (PI / 2) - (PI / 4) * (u0 / u1);
 	}
-	return R * float2(cos(theta), sin(theta));
+	return r * float2(cos(theta), sin(theta));
 }
 
 float3 sample_uniform_disk(float R, float3 c, float3 t, float3 b, float u0, float u1)

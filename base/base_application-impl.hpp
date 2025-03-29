@@ -17,6 +17,7 @@ inline void base_application::initialize()
 	m_present_shaders = gp_shader_manager->create(L"prepare_present.sdf.json");
 
 	const uint max_instance_count = 65535;
+	gp_debug_draw.reset(new debug_draw(1024 * 1024));
 	gp_texture_manager.reset(new texture_manager());
 	gp_raytracing_picker.reset(new raytracing_picker(max_instance_count));
 	gp_raytracing_manager.reset(new raytracing_manager(max_instance_count));
@@ -46,6 +47,7 @@ inline void base_application::finalize()
 	gp_raytracing_manager.reset();
 	gp_raytracing_picker.reset();
 	gp_texture_manager.reset();
+	gp_debug_draw.reset();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -137,6 +139,8 @@ inline void base_application::update_scene_info(render_context& context, const u
 		float2		reserved0;
 		float3x4	view_mat;
 		float4x4	proj_mat;
+		float3x4	inv_view_mat;
+		float4x4	inv_proj_mat;
 		float4x4	view_proj_mat;
 		float4x4	inv_view_proj_mat;
 		float4x4	prev_inv_view_proj_mat;
@@ -148,6 +152,7 @@ inline void base_application::update_scene_info(render_context& context, const u
 	const float jitter_x = (van_der_corput_sequence(frame_count % 64, 2) - 0.5f) / screen_size.x * jitter_scale;
 	const float jitter_y = (van_der_corput_sequence(frame_count % 64, 3) - 0.5f) / screen_size.y * jitter_scale;
 	const auto jitter_mat = translate(jitter_x, jitter_y, 0);
+	const auto inv_jitter_mat = translate(-jitter_x, -jitter_y, 0);
 
 	auto &scene_info = *p_scene_info->data<scene_info_t>();
 	scene_info.screen_size = screen_size;
@@ -156,6 +161,11 @@ inline void base_application::update_scene_info(render_context& context, const u
 	scene_info.camera_pos = m_camera.position();
 	scene_info.view_mat = m_camera.view_mat();
 	scene_info.proj_mat = jitter_mat * m_camera.proj_mat();
+
+	scene_info.inv_view_mat = inverse(float4x4(scene_info.view_mat));
+
+	//scene_info.inv_view_mat = m_camera.inv_view_mat();
+	//scene_info.inv_proj_mat = m_camera.inv_proj_mat() * inv_jitter_mat;
 	scene_info.view_proj_mat = scene_info.proj_mat * float4x4(scene_info.view_mat);
 	scene_info.inv_view_proj_mat = inverse(scene_info.view_proj_mat);
 	scene_info.prev_inv_view_proj_mat = m_inv_view_proj_mat;
