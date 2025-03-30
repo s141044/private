@@ -122,6 +122,9 @@ public:
 	shader_resource_view& cube_srv() const { return *mp_cube_srv; }
 	shader_resource_view& panorama_srv() const { return mp_panorama_tex->srv(); }
 
+	//‰Šú‰»Ï‚İ‚©
+	bool is_initialized() const { return m_initialized; }
+
 private:
 
 	uint						m_cube_res = 512;

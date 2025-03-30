@@ -27,8 +27,8 @@ public:
 	{
 		m_shader_file = gp_shader_manager->create(L"renderer/realistic_camera.sdf.json");
 
-		std::ifstream ifs("lens/wide.22mm.dat");
-		//std::ifstream ifs("lens/dgauss.dat");
+		//std::ifstream ifs("lens/wide.22mm.dat");
+		std::ifstream ifs("lens/dgauss.dat");
 		if(!ifs.is_open())
 			throw;
 		
@@ -50,6 +50,14 @@ public:
 			iface.thickness /= 1000;
 			iface.aperture_radius /= 1000;
 			iface.curvature_radius /= 1000;
+		}
+
+		//厚みパラメータはセンサ側が0になるように調整
+		if(m_interfaces.front().thickness == 0)
+		{
+			for(size_t i = 1; i < m_interfaces.size(); i++)
+				m_interfaces[i - 1].thickness = m_interfaces[i].thickness;
+			m_interfaces.back().thickness = 0;
 		}
 
 		//センサ側が先頭に来るように並び替え
@@ -234,13 +242,12 @@ public:
 			else
 			{
 				const uint N = 100;
-				auto* vertices = gp_debug_draw->draw_line_strip(N, true);
+				auto* vertices = gp_debug_draw->draw_line_strip(N - 1, true);
 
 				const float cz = iface.thickness + iface.curvature_radius;
 				const float th_max = asin(iface.aperture_radius / r);
-				const float dth = 2 * th_max / N;
-
-				for(uint i = 0; i <= N; i++)
+				const float dth = 2 * th_max / (N - 1);
+				for(uint i = 0; i < N; i++)
 				{
 					const float th = th_max - dth * i;
 					const float st = sin(th);

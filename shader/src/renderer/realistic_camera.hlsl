@@ -57,7 +57,7 @@ bool intersect(const float cz, const float r, const float ar, const float3 o, co
 	const float sqrt_D = sqrt(D);
 	const float t0 = -B - sqrt_D;
 	const float t1 = -B + sqrt_D;
-	t = (t0 > 0) ? t0 : t1;
+	t = (t0 > -1e-6f) ? t0 : t1;
 
 	const float2 p = o.xy + t * d.xy;
 	return (dot(p, p) < ar * ar);
