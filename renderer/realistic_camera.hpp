@@ -31,6 +31,7 @@ public:
 
 		//std::ifstream ifs("lens/wide.22mm.dat");
 		std::ifstream ifs("lens/dgauss.dat");
+		//std::ifstream ifs("lens/fisheye.dat");
 		//std::ifstream ifs("lens/telephoto.dat");
 		if(!ifs.is_open())
 			throw;
@@ -173,10 +174,11 @@ public:
 			const float f = m_front_pz - m_front_fz;
 			const float a = m_front_pz + camera.distance();
 			const float b = a * f / (a - f);
-			m_delta = b - (m_interfaces.front().thickness - m_back_pz);
-
-			if((f <= 0) || (a <= 0) || (b <= 0) || (m_delta <= 0))
+			const float delta = b - (m_interfaces.front().thickness - m_back_pz);
+			if((f <= 0) || (a <= 0) || (b <= 0) || (delta <= 0))
 				return false;
+
+			m_delta = refine_delta(delta, camera.distance());
 
 			m_fovy = camera.fovy();
 			m_distance = camera.distance();
@@ -347,6 +349,51 @@ private:
 		}
 		float2 ret = r * float2(cos(theta), sin(theta));
 		return r * float2(cos(theta), sin(theta));
+	}
+
+	//ƒZƒ“ƒT‹——£‚ðÚ×‚ÉŒvŽZ
+	float refine_delta(const float delta, const float distance)
+	{
+		auto calc_focus_distance = [&](const float delta) -> float
+		{
+			const float ar = m_interfaces.front().aperture_radius;
+			for(size_t i = 1; i <= 10; i++)
+			{
+				ray in, out;
+				float3 target = float3(ar / (1 << i), 0, m_interfaces.front().thickness);
+				in.o = float3(0, 0, m_interfaces.front().thickness + delta);
+				in.d = normalize(target - in.o);
+
+				if(trace(in, out))
+				{
+					const float t = -out.o.x / out.d.x;
+					const float z = out.o.z + out.d.z * t;
+					return -z;
+				}
+			}
+			assert(0);
+			return distance;
+		};
+
+		float min_delta = delta;
+		while(calc_focus_distance(min_delta) < distance){ min_delta *= 0.99f; }
+		
+		float max_delta = delta;
+		while(calc_focus_distance(max_delta) > distance){ max_delta *= 1.01f; }
+
+		for(size_t i = 0; i < 20; i++)
+		{
+			const float mid_delta = (min_delta + max_delta) / 2;
+			const float mid_distance =  calc_focus_distance(mid_delta);
+			if(mid_distance < distance)
+				max_delta = mid_delta;
+			else
+				min_delta = mid_delta;
+
+			if(abs(mid_distance - distance) < std::min(mid_distance, distance) * 0.01f)
+				break;
+		}
+		return (min_delta + max_delta) / 2;
 	}
 
 	//Œð·”»’è
