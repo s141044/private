@@ -39,6 +39,19 @@ float van_der_corput_sequence(uint n)
 	return reversebits(n) * s;
 }
 
+float van_der_corput_sequence(uint n, uint base)
+{
+	float result = 0;
+	float fraction = 1.0 / base;
+	while(n > 0)
+	{
+		result += (n % base) * fraction;
+		n /= base;
+		fraction /= base;
+	}
+	return result;
+}
+
 float2 hammersley_sequence(uint n, uint N)
 {
 	return float2(n / float(N), van_der_corput_sequence(n));

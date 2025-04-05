@@ -5,6 +5,8 @@
 #define NN_RENDER_RENDERER_REALISTIC_CAMERA_HPP
 
 #include"../base.hpp"
+#include"../utility/glass.hpp"
+#include"../utility/spectrum.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -29,6 +31,7 @@ public:
 
 		//std::ifstream ifs("lens/wide.22mm.dat");
 		std::ifstream ifs("lens/dgauss.dat");
+		//std::ifstream ifs("lens/telephoto.dat");
 		if(!ifs.is_open())
 			throw;
 		
@@ -123,15 +126,28 @@ public:
 			float aperture_radius;
 			float curvature_radius;
 			float thickness;
-			float ior;
+			float A[9];
 		};
+
+		glass_data glass_data;
 		vector<gpu_interface_t> gpu_interfaces(m_interfaces.size());
 		for(size_t i = 0; i < m_interfaces.size(); i++)
 		{
 			gpu_interfaces[i].aperture_radius = m_interfaces[i].aperture_radius;
 			gpu_interfaces[i].curvature_radius = m_interfaces[i].curvature_radius;
 			gpu_interfaces[i].thickness = m_interfaces[i].thickness;
-			gpu_interfaces[i].ior = m_interfaces[i].ior[1];
+
+			if((m_interfaces[i].ior[1] == 0) || (m_interfaces[i].ior[1] == 1))
+			{
+				gpu_interfaces[i].A[0] = m_interfaces[i].ior[1];
+				for(size_t j = 1; j < 9; j++){ gpu_interfaces[i].A[j] = 0; }
+			}
+			else
+			{
+				const auto& data = glass_data.find_nearest(m_interfaces[i].ior[1], true);
+				for(size_t j = 0; j < 9; j++){ gpu_interfaces[i].A[j] = data.A[j]; }
+			}
+
 		}
 		mp_interface_buf = gp_render_device->create_structured_buffer(sizeof(gpu_interface_t), uint(m_interfaces.size()), resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access), gpu_interfaces.data());
 		mp_interface_srv = gp_render_device->create_shader_resource_view(*mp_interface_buf, buffer_srv_desc(*mp_interface_buf));
@@ -301,6 +317,7 @@ public:
 		context.set_pipeline_resource("realistic_camera_pupil_srv", *mp_pupil_srv);
 		context.set_pipeline_resource("realistic_camera_aperture_srv", *mp_aperture_srv);
 		context.set_pipeline_resource("realistic_camera_interface_srv", *mp_interface_srv);
+		m_spectral_data.bind(context);
 	}
 
 	//ÉpÉâÉÅÅ[É^
@@ -462,6 +479,7 @@ private:
 	texture_ptr					mp_aperture_tex;
 	shader_resource_view_ptr	mp_aperture_srv;
 	unordered_access_view_ptr	mp_aperture_uav;
+	spectral_data				m_spectral_data;
 
 	struct interface_t
 	{

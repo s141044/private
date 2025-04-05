@@ -3,6 +3,7 @@
 #define RENDERER_REALISTIC_CAMERA_HPP
 
 #include"../bsdf.hlsl"
+#include"../spectrum.hlsl"
 #include"../static_sampler.hlsl"
 #include"../global_constant.hlsl"
 
@@ -16,7 +17,7 @@ struct realistic_camera_interface
 	float aperture_radius;
 	float curvature_radius;
 	float thickness;
-	float ior;
+	float A[9];
 };
 
 cbuffer realistic_camera_cb
@@ -43,6 +44,22 @@ float4 decode(uint4 enc, float aperture_radius)
 {
 	float4 pos = (enc / float(0x7fffff)) * 2 - 1;
 	return pos * aperture_radius;
+}
+
+float calc_ior(realistic_camera_interface iface, float lambda)
+{
+	lambda *= 0.001;
+	const float lambda2 = lambda * lambda;
+	const float inv_lambda2 = 1 / lambda2;
+	return sqrt(iface.A[0] + 
+		lambda2 * (iface.A[1] + 
+		lambda2 * (iface.A[2])) + 
+		inv_lambda2 * (iface.A[3] + 
+		inv_lambda2 * (iface.A[4] + 
+		inv_lambda2 * (iface.A[5] + 
+		inv_lambda2 * (iface.A[6] + 
+		inv_lambda2 * (iface.A[7] + 
+		inv_lambda2 * (iface.A[8])))))));
 }
 
 bool intersect(const float cz, const float r, const float ar, const float3 o, const float3 d, inout float t)
@@ -80,7 +97,7 @@ bool intersect(const float cz, const float ar, const float3 o, const float3 d, i
 	return hit;
 }
 
-bool trace(inout float3 o, inout float3 d, inout float3 throughput, float2 axis_x = 0, float2 axis_y = 0)
+bool trace(inout float3 o, inout float3 d, inout float throughput, float lambda, float2 axis_x = 0, float2 axis_y = 0)
 {
 	float ior = 1;
 	for(uint i = 0; i < realistic_camera_interface_count; i++)
@@ -110,22 +127,23 @@ bool trace(inout float3 o, inout float3 d, inout float3 throughput, float2 axis_
 			if(dot(normal, d) > 0)
 				normal = -normal;
 
-			throughput *= 1 - fresnel_dielectric(-dot(normal, d), iface.ior / ior);
+			float iface_ior = calc_ior(iface, lambda);
+			throughput *= 1 - fresnel_dielectric(-dot(normal, d), iface_ior / ior);
 
-			d = refract(d, normal, ior / iface.ior);
-			ior = iface.ior;
+			d = refract(d, normal, ior / iface_ior);
+			ior = iface_ior;
 		}
 	}
 	return true;
 }
 
-bool trace(inout float3 o, inout float3 d)
+bool trace(inout float3 o, inout float3 d, float lambda)
 {
-	float3 throughput = 1;
-	return trace(o, d, throughput);
+	float throughput = 1;
+	return trace(o, d, throughput, lambda);
 }
 
-bool generate_ray(float2 pixel_pos, float u0, float u1, out float3 origin, out float3 direction, out float3 throughput, uint2 dtid = 0)
+bool generate_ray(float2 pixel_pos, float u0, float u1, float u2, out float3 origin, out float3 direction, out float3 throughput, uint2 dtid = 0)
 {
 	//センサ上の位置を計算
 	float2 sensor_pos = pixel_pos * inv_screen_size;
@@ -150,15 +168,30 @@ bool generate_ray(float2 pixel_pos, float u0, float u1, out float3 origin, out f
 	float3 target = float3(lerp(aabb.xy, aabb.zw, float2(u0, u1)), realistic_camera_interface_srv[0].thickness);
 	direction = normalize(target - origin);
 
+	//波長をサンプリング
+	float lambda = uniform_sample_wavelength(u2);
+	float pdf_lambda = uniform_sample_wavelength_pdf();
+
 	//スループットを計算
 	//float pdf_x = 1 / ((aabb.z - aabb.x) * (aabb.w - aabb.y));
 	//float pdf_w = pdf_x * pow3(realistic_camera_delta_z) / pow2(direction.z);
-	//throughput = abs(direction.z) / pdf_w;
-	throughput = ((aabb.z - aabb.x) * (aabb.w - aabb.y)) * pow3(abs(direction.z)) / pow3(realistic_camera_delta_z);
+	//throughput = abs(direction.z) / (pdf_w * pdf_lambda);
+	throughput.r = ((aabb.z - aabb.x) * (aabb.w - aabb.y)) * pow3(abs(direction.z)) / (pow3(realistic_camera_delta_z) * pdf_lambda);
+
+	debug_uav0[dtid] = float4(u2, lambda, pdf_lambda, throughput.r);
+	debug_uav1[dtid] = float4(wavelength_to_rgb(lambda), 0);
 
 	//トレース
-	if(!trace(origin, direction, throughput, axis_x, axis_y))
+	if(!trace(origin, direction, throughput.r, lambda, axis_x, axis_y))
 		return false;
+	
+	float lambda_min = CIE_LAMBDA_MIN - (CIE_LAMBDA_MAX - CIE_LAMBDA_MIN) / (CIE_SAMPLES - 1) / 2;
+	float lambda_max = CIE_LAMBDA_MAX + (CIE_LAMBDA_MAX - CIE_LAMBDA_MIN) / (CIE_SAMPLES - 1) / 2;
+	float u = (lambda - lambda_min) / (lambda_max - lambda_min);
+	debug_uav2[dtid] = float4(throughput.r, lambda_min, lambda_max, u);
+
+	//RGBに変換
+	throughput = throughput.r * wavelength_to_rgb(lambda);
 
 	//ローカルからワールドに
 	origin.xy = origin.x * axis_x + origin.y * axis_y;
@@ -193,12 +226,16 @@ void calc_pupil(uint2 dtid : SV_DispatchThreadID, uint group_index : SV_GroupInd
 {
 	uint sample_count = root_constant;
 	float ar = realistic_camera_interface_srv[0].aperture_radius;
-	float2 u = hammersley_sequence(dtid.x, sample_count);
-	float3 target = float3(sample_uniform_disk(ar, u[0], u[1]), realistic_camera_interface_srv[0].thickness);
-	float3 o = float3(realistic_camera_delta_r * (dtid.x + 0.5f) / sample_count, 0, realistic_camera_interface_srv[0].thickness + realistic_camera_delta_z);
+	float u0 = (dtid.x + 0.5f) / sample_count;
+	float u1 = van_der_corput_sequence(dtid.x);
+	float u2 = van_der_corput_sequence(dtid.x, 3);
+	float u3 = van_der_corput_sequence(dtid.x, 4);
+	float lambda = uniform_sample_wavelength(u3);
+	float3 target = float3(sample_uniform_disk(ar, u0, u1), realistic_camera_interface_srv[0].thickness);
+	float3 o = float3(realistic_camera_delta_r * (dtid.y + u2), 0, realistic_camera_interface_srv[0].thickness + realistic_camera_delta_z);
 	float3 d = normalize(target - o);
 
-	bool success = trace(o, d);
+	bool success = trace(o, d, lambda);
 	if(WaveActiveAnyTrue(success))
 	{
 		if(success)
