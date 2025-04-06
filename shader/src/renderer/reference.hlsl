@@ -17,9 +17,9 @@
 cbuffer reference_cbuf
 {
 	uint	max_bounce;
+	uint	max_accumulation;
 	uint	emissive_presample_count;
 	uint	environment_presample_count;
-	uint	reference_cbuf_reserved;
 };
 
 RWTexture2D<uint>	color_uav;
@@ -227,6 +227,11 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 	}
 
 	float4 sum = accum_uav[dtid];
+	if(sum.a >= max_accumulation)
+	{
+		sum.rgb *= (max_accumulation - 1) / sum.a;
+		sum.a = max_accumulation - 1;
+	}
 	sum += float4(radiance, 1);
 	accum_uav[dtid] = sum;
 	color_uav[dtid] = f32x3_to_r9g9b9e5(sum.rgb / sum.a);

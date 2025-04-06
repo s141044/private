@@ -39,6 +39,7 @@ public:
 	reference_renderer()
 	{
 		m_shader_file = gp_shader_manager->create(L"renderer/reference.sdf.json");
+		m_realistic_camera.set_filename("lens/dgauss.dat");
 	}
 
 	//実行
@@ -68,33 +69,28 @@ public:
 				return false;
 		}
 
-		if(not(m_use_accumulation) || m_force_reset || params.reset_accumulation)
-		{
-			m_force_reset = false;
+		if(params.reset_accumulation)
 			context.clear_unordered_access_view(*mp_accum_uav, uint4(0, 0, 0, 0));
-		}
 
 		if(m_use_realistic_camera)
 		{
-			if(mp_realistic_camera == nullptr)
-				mp_realistic_camera.reset(new realistic_camera());
-
-			if(!mp_realistic_camera->initialize(context, *params.p_camera))
+			if(!m_realistic_camera.initialize(context, *params.p_camera))
 				return false;
 
-			mp_realistic_camera->bind(context);
+			m_realistic_camera.bind(context);
 		}
 
 		struct cbuffer
 		{
 			uint	max_bounce;
+			uint	max_accumulation;
 			uint	emissive_presample_count;
 			uint	environment_presample_count;
-			uint	reserved;
 		};
 		auto p_cbuf = gp_render_device->create_temporary_cbuffer(sizeof(cbuffer));
 		auto& cbuf_data = *p_cbuf->data<cbuffer>();
 		cbuf_data.max_bounce = m_max_bounce;
+		cbuf_data.max_accumulation = m_infinite_accumulation ? UINT_MAX : m_max_accumulation;
 		cbuf_data.emissive_presample_count = emissive_presample_count;
 		cbuf_data.environment_presample_count = environment_presample_count;
 
@@ -139,25 +135,28 @@ public:
 
 	//パラメータ
 	uint max_bounce() const { return m_max_bounce; }
-	void set_max_bounce(const uint max_bounce){ m_max_bounce = max_bounce; m_force_reset = true; }
-	bool use_accumulation() const { return m_use_accumulation; }
-	void set_use_accumulation(const bool v) { m_use_accumulation = v; }
+	void set_max_bounce(const uint max_bounce){ m_max_bounce = max_bounce; }
+	uint max_accumulation() const { return m_max_accumulation; }
+	void set_max_accumulation(const uint max_accumulation){ m_max_accumulation = max_accumulation; }
+	bool infinite_accumulation() const { return m_infinite_accumulation; }
+	void set_infinite_accumulation(const bool v) { m_infinite_accumulation = v; }
 	bool use_realistic_camera() const { return m_use_realistic_camera; }
 	void set_use_realistic_camera(const bool v) { m_use_realistic_camera = v; }
+	realistic_camera& realistic_camera(){ return m_realistic_camera; }
 
 private:
 
 	shader_file_holder				m_shader_file;
 	texture_ptr						mp_accum_tex;
 	unordered_access_view_ptr		mp_accum_uav;
+	render::realistic_camera		m_realistic_camera;
 	emissive_sampler				m_emissive_sampler;
 	environment_light_sampler		m_environment_sampler;
-	unique_ptr<realistic_camera>	mp_realistic_camera;
 
 	uint							m_max_bounce = 3;
+	uint							m_max_accumulation = 64;
 	bool							m_use_realistic_camera = false;
-	bool							m_use_accumulation = true;
-	bool							m_force_reset = false;
+	bool							m_infinite_accumulation = true;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

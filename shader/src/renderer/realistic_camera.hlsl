@@ -28,6 +28,8 @@ cbuffer realistic_camera_cb
 	uint	realistic_camera_interface_count;
 	float2	realistic_camera_sensor_min;
 	float2	realistic_camera_sensor_size;
+	float	realistic_camera_closure_ratio;
+	float3	realistic_camera_padding;
 };
 
 ByteAddressBuffer								realistic_camera_pupil_srv;
@@ -109,7 +111,7 @@ bool trace(inout float3 o, inout float3 d, inout float throughput, float lambda,
 		if(iface.curvature_radius == 0)
 		{
 			float t;
-			if(intersect(cz, iface.aperture_radius, o, d, t, axis_x, axis_y))
+			if(intersect(cz, iface.aperture_radius * (1 - realistic_camera_closure_ratio), o, d, t, axis_x, axis_y))
 				return false;
 
 			o += d * t;

@@ -28,137 +28,6 @@ public:
 	realistic_camera()
 	{
 		m_shader_file = gp_shader_manager->create(L"renderer/realistic_camera.sdf.json");
-
-		//std::ifstream ifs("lens/wide.22mm.dat");
-		std::ifstream ifs("lens/dgauss.dat");
-		//std::ifstream ifs("lens/fisheye.dat");
-		//std::ifstream ifs("lens/telephoto.dat");
-		if(!ifs.is_open())
-			throw;
-		
-		string line;
-		while(not(ifs.eof()))
-		{
-			std::getline(ifs, line);
-			if(line.empty() || line[0] == '#')
-				continue;
-
-			std::stringstream ss(line);
-			auto& iface = m_interfaces.emplace_back();
-			ss >> iface.curvature_radius;
-			ss >> iface.thickness;
-			ss >> iface.ior[0];
-			ss >> iface.aperture_radius;
-			iface.aperture_radius /= 2;
-
-			iface.thickness /= 1000;
-			iface.aperture_radius /= 1000;
-			iface.curvature_radius /= 1000;
-		}
-
-		//厚みパラメータはセンサ側が0になるように調整
-		if(m_interfaces.front().thickness == 0)
-		{
-			for(size_t i = 1; i < m_interfaces.size(); i++)
-				m_interfaces[i - 1].thickness = m_interfaces[i].thickness;
-			m_interfaces.back().thickness = 0;
-		}
-
-		//センサ側が先頭に来るように並び替え
-		std::reverse(m_interfaces.begin(), m_interfaces.end());
-		
-		//絶対距離に変更
-		for(size_t i = 1; i < m_interfaces.size(); i++)
-		{
-			m_interfaces[i].thickness = -m_interfaces[i].thickness;
-			m_interfaces[i].thickness += m_interfaces[i - 1].thickness;
-		}
-
-		//センサ側からのトレースでiorを扱いやすいように
-		for(size_t i = 0; i + 1 < m_interfaces.size(); i++)
-		{
-			if(m_interfaces[i + 1].ior[0] > 0)
-				m_interfaces[i].ior[1] = m_interfaces[i + 1].ior[0];
-			else if(i + 2 < m_interfaces.size())
-				m_interfaces[i].ior[1] = m_interfaces[i + 2].ior[0];
-			else
-				m_interfaces[i].ior[1] = 1;
-		}
-		m_interfaces.back().ior[1] = 1;
-
-		//前側焦点/主点を計算
-		ray sensor_in, scene_out;
-		for(uint i = 1; i < 10; i++)
-		{
-			sensor_in.o = float3(m_interfaces.front().aperture_radius / (1 << i), 0, m_interfaces.front().thickness + 1);
-			sensor_in.d = float3(0, 0, -1);
-			if(trace(sensor_in, scene_out))
-				break;
-		}
-		const float front_tf = -scene_out.o.x / scene_out.d.x;
-		const float front_tp = (sensor_in.o.x - scene_out.o.x) / scene_out.d.x;
-		const float front_fz = (scene_out.o.z + scene_out.d.z * front_tf);
-		const float front_pz = (scene_out.o.z + scene_out.d.z * front_tp);
-
-		//後側焦点/主点を計算
-		ray scene_in, sensor_out;
-		for(uint i = 1; i < 10; i++)
-		{
-			scene_in.o = float3(-m_interfaces.back().aperture_radius / (1 << i), 0, m_interfaces.back().thickness - 1);
-			scene_in.d = float3(0, 0, 1);
-			if(trace(scene_in, sensor_out, false))
-				break;
-		}
-		const float back_tf = -sensor_out.o.x / sensor_out.d.x;
-		const float back_tp = (scene_in.o.x - sensor_out.o.x) / sensor_out.d.x;
-		const float back_fz = (sensor_out.o.z + sensor_out.d.z * back_tf);
-		const float back_pz = (sensor_out.o.z + sensor_out.d.z * back_tp);
-
-		//後側主点がz=0になるように調整
-		for(size_t i = 0; i < m_interfaces.size(); i++)
-			m_interfaces[i].thickness -= back_pz;
-		m_front_fz = front_fz - back_pz;
-		m_front_pz = front_pz - back_pz;
-		m_back_fz = back_fz - back_pz;
-		m_back_pz = 0;
-
-		struct gpu_interface_t
-		{
-			float aperture_radius;
-			float curvature_radius;
-			float thickness;
-			float A[9];
-		};
-
-		glass_data glass_data;
-		vector<gpu_interface_t> gpu_interfaces(m_interfaces.size());
-		for(size_t i = 0; i < m_interfaces.size(); i++)
-		{
-			gpu_interfaces[i].aperture_radius = m_interfaces[i].aperture_radius;
-			gpu_interfaces[i].curvature_radius = m_interfaces[i].curvature_radius;
-			gpu_interfaces[i].thickness = m_interfaces[i].thickness;
-
-			if((m_interfaces[i].ior[1] == 0) || (m_interfaces[i].ior[1] == 1))
-			{
-				gpu_interfaces[i].A[0] = m_interfaces[i].ior[1];
-				for(size_t j = 1; j < 9; j++){ gpu_interfaces[i].A[j] = 0; }
-			}
-			else
-			{
-				const auto& data = glass_data.find_nearest(m_interfaces[i].ior[1], true);
-				for(size_t j = 0; j < 9; j++){ gpu_interfaces[i].A[j] = data.A[j]; }
-			}
-
-		}
-		mp_interface_buf = gp_render_device->create_structured_buffer(sizeof(gpu_interface_t), uint(m_interfaces.size()), resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access), gpu_interfaces.data());
-		mp_interface_srv = gp_render_device->create_shader_resource_view(*mp_interface_buf, buffer_srv_desc(*mp_interface_buf));
-		mp_interface_uav = gp_render_device->create_unordered_access_view(*mp_interface_buf, buffer_uav_desc(*mp_interface_buf));
-		gp_render_device->set_name(*mp_interface_buf, L"interface_buf");
-
-		mp_pupil_buf = gp_render_device->create_byteaddress_buffer(sizeof(uint4) * m_r_divide_count, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
-		mp_pupil_srv = gp_render_device->create_shader_resource_view(*mp_pupil_buf, buffer_srv_desc(*mp_pupil_buf));
-		mp_pupil_uav = gp_render_device->create_unordered_access_view(*mp_pupil_buf, buffer_uav_desc(*mp_pupil_buf));
-		gp_render_device->set_name(*mp_pupil_buf, L"pupil_buf");
 	}
 
 	//実行
@@ -169,7 +38,152 @@ public:
 		else if(m_shader_file.is_invalid())
 			return false;
 
-		if((m_fovy != camera.fovy()) || (m_distance != camera.distance()))
+		if(m_load_file)
+		{
+			std::ifstream ifs(m_filename);
+			if(!ifs.is_open())
+			{
+				std::cout << m_filename << (const char*)u8"を開けません" << std::endl;
+				return false;
+			}
+
+			m_interfaces.clear();
+
+			string line;
+			while(not(ifs.eof()))
+			{
+				std::getline(ifs, line);
+				if(line.empty() || line[0] == '#')
+					continue;
+
+				std::stringstream ss(line);
+				auto& iface = m_interfaces.emplace_back();
+				ss >> iface.curvature_radius;
+				ss >> iface.thickness;
+				ss >> iface.ior[0];
+				ss >> iface.aperture_radius;
+				iface.aperture_radius /= 2;
+
+				iface.thickness /= 1000;
+				iface.aperture_radius /= 1000;
+				iface.curvature_radius /= 1000;
+			}
+
+			//厚みパラメータはセンサ側が0になるように調整
+			if(m_interfaces.front().thickness == 0)
+			{
+				for(size_t i = 1; i < m_interfaces.size(); i++)
+					m_interfaces[i - 1].thickness = m_interfaces[i].thickness;
+				m_interfaces.back().thickness = 0;
+			}
+
+			//センサ側が先頭に来るように並び替え
+			std::reverse(m_interfaces.begin(), m_interfaces.end());
+		
+			//絶対距離に変更
+			for(size_t i = 1; i < m_interfaces.size(); i++)
+			{
+				m_interfaces[i].thickness = -m_interfaces[i].thickness;
+				m_interfaces[i].thickness += m_interfaces[i - 1].thickness;
+			}
+
+			//センサ側からのトレースでiorを扱いやすいように
+			for(size_t i = 0; i + 1 < m_interfaces.size(); i++)
+			{
+				if(m_interfaces[i + 1].ior[0] > 0)
+					m_interfaces[i].ior[1] = m_interfaces[i + 1].ior[0];
+				else if(i + 2 < m_interfaces.size())
+					m_interfaces[i].ior[1] = m_interfaces[i + 2].ior[0];
+				else
+					m_interfaces[i].ior[1] = 1;
+			}
+			m_interfaces.back().ior[1] = 1;
+
+			//前側焦点/主点を計算
+			ray sensor_in, scene_out;
+			for(uint i = 1; i < 10; i++)
+			{
+				sensor_in.o = float3(m_interfaces.front().aperture_radius / (1 << i), 0, m_interfaces.front().thickness + 1);
+				sensor_in.d = float3(0, 0, -1);
+				if(trace(sensor_in, scene_out))
+					break;
+			}
+			const float front_tf = -scene_out.o.x / scene_out.d.x;
+			const float front_tp = (sensor_in.o.x - scene_out.o.x) / scene_out.d.x;
+			const float front_fz = (scene_out.o.z + scene_out.d.z * front_tf);
+			const float front_pz = (scene_out.o.z + scene_out.d.z * front_tp);
+
+			//後側焦点/主点を計算
+			ray scene_in, sensor_out;
+			for(uint i = 1; i < 10; i++)
+			{
+				scene_in.o = float3(-m_interfaces.back().aperture_radius / (1 << i), 0, m_interfaces.back().thickness - 1);
+				scene_in.d = float3(0, 0, 1);
+				if(trace(scene_in, sensor_out, false))
+					break;
+			}
+			const float back_tf = -sensor_out.o.x / sensor_out.d.x;
+			const float back_tp = (scene_in.o.x - sensor_out.o.x) / sensor_out.d.x;
+			const float back_fz = (sensor_out.o.z + sensor_out.d.z * back_tf);
+			const float back_pz = (sensor_out.o.z + sensor_out.d.z * back_tp);
+
+			//後側主点がz=0になるように調整
+			for(size_t i = 0; i < m_interfaces.size(); i++)
+				m_interfaces[i].thickness -= back_pz;
+			m_front_fz = front_fz - back_pz;
+			m_front_pz = front_pz - back_pz;
+			m_back_fz = back_fz - back_pz;
+			m_back_pz = 0;
+
+			struct gpu_interface_t
+			{
+				float aperture_radius;
+				float curvature_radius;
+				float thickness;
+				float A[9];
+			};
+
+			glass_data glass_data;
+			vector<gpu_interface_t> gpu_interfaces(m_interfaces.size());
+			for(size_t i = 0; i < m_interfaces.size(); i++)
+			{
+				gpu_interfaces[i].aperture_radius = m_interfaces[i].aperture_radius;
+				gpu_interfaces[i].curvature_radius = m_interfaces[i].curvature_radius;
+				gpu_interfaces[i].thickness = m_interfaces[i].thickness;
+
+				if((m_interfaces[i].ior[1] == 0) || (m_interfaces[i].ior[1] == 1))
+				{
+					gpu_interfaces[i].A[0] = m_interfaces[i].ior[1];
+					for(size_t j = 1; j < 9; j++){ gpu_interfaces[i].A[j] = 0; }
+				}
+				else
+				{
+					const auto& data = glass_data.find_nearest(m_interfaces[i].ior[1], true);
+					for(size_t j = 0; j < 9; j++){ gpu_interfaces[i].A[j] = data.A[j]; }
+				}
+
+			}
+			mp_interface_buf = gp_render_device->create_structured_buffer(sizeof(gpu_interface_t), uint(m_interfaces.size()), resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access), gpu_interfaces.data());
+			mp_interface_srv = gp_render_device->create_shader_resource_view(*mp_interface_buf, buffer_srv_desc(*mp_interface_buf));
+			mp_interface_uav = gp_render_device->create_unordered_access_view(*mp_interface_buf, buffer_uav_desc(*mp_interface_buf));
+			gp_render_device->set_name(*mp_interface_buf, L"interface_buf");
+
+			if(mp_pupil_buf == nullptr)
+			{
+				mp_pupil_buf = gp_render_device->create_byteaddress_buffer(sizeof(uint4) * m_r_divide_count, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+				mp_pupil_srv = gp_render_device->create_shader_resource_view(*mp_pupil_buf, buffer_srv_desc(*mp_pupil_buf));
+				mp_pupil_uav = gp_render_device->create_unordered_access_view(*mp_pupil_buf, buffer_uav_desc(*mp_pupil_buf));
+				gp_render_device->set_name(*mp_pupil_buf, L"pupil_buf");
+			}
+
+			m_fovy = -1;
+			m_distance = -1;
+		}
+		if(m_interfaces.empty())
+			return false;
+
+		bool calc_pupil = m_calc_pupil;
+		if(m_distance != camera.distance())
 		{
 			const float f = m_front_pz - m_front_fz;
 			const float a = m_front_pz + camera.distance();
@@ -179,10 +193,20 @@ public:
 				return false;
 
 			m_delta = refine_delta(delta, camera.distance());
-
-			m_fovy = camera.fovy();
 			m_distance = camera.distance();
+			calc_pupil = true;
+		}
+		if(m_fovy != camera.fovy())
+		{
+			m_fovy = camera.fovy();
+			calc_pupil = true;
+		}
 
+		if(calc_pupil)
+		{
+			const float f = m_front_pz - m_front_fz;
+			const float a = m_front_pz + camera.distance();
+			const float b = a * f / (a - f);
 			const float height = b * tan(to_radian(camera.fovy()) / 2) * 2;
 			const float width = height * camera.aspect();
 			const float diag = sqrt(width * width + height * height);
@@ -195,8 +219,10 @@ public:
 				uint	interface_count;
 				float2	sensor_min;
 				float2	sensor_size;
+				float	closure_ratio;
+				float3	padding;
 			};
-			mp_cbuf = gp_render_device->create_temporary_cbuffer(sizeof(cbuffer));
+			mp_cbuf = gp_render_device->create_constant_buffer(sizeof(cbuffer));
 			auto& cbuf_data = *mp_cbuf->data<cbuffer>();
 			cbuf_data.delta_z = m_delta;
 			cbuf_data.delta_r = diag / (2 * m_r_divide_count);
@@ -204,6 +230,7 @@ public:
 			cbuf_data.interface_count = uint(m_interfaces.size());
 			cbuf_data.sensor_min = -float2(width, height) / 2;
 			cbuf_data.sensor_size = float2(width, height);
+			cbuf_data.closure_ratio = m_closure_ratio;
 
 			context.set_pipeline_resource("realistic_camera_cb", *mp_cbuf);
 			context.set_pipeline_resource("realistic_camera_pupil_uav", *mp_pupil_uav);
@@ -212,15 +239,20 @@ public:
 			context.dispatch(ceil_div(m_r_divide_count, 256), 1, 1);
 			context.set_pipeline_state(*m_shader_file.get("calc_pupil"));
 			context.dispatch_with_32bit_constant(ceil_div(m_sample_count, 256), m_r_divide_count, 1, m_sample_count);
+			m_calc_pupil = false;
 		}
 		
-		if(mp_aperture_tex == nullptr)
+		if(m_calc_stop)
 		{
 			const uint w = 512;
 			const uint h = 512;
-			mp_aperture_tex = gp_render_device->create_texture2d(texture_format_r8_unorm, w, h, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
-			mp_aperture_srv = gp_render_device->create_shader_resource_view(*mp_aperture_tex, texture_srv_desc(*mp_aperture_tex));
-			mp_aperture_uav = gp_render_device->create_unordered_access_view(*mp_aperture_tex, texture_uav_desc(*mp_aperture_tex));
+
+			if(mp_aperture_tex == nullptr)
+			{
+				mp_aperture_tex = gp_render_device->create_texture2d(texture_format_r8_unorm, w, h, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+				mp_aperture_srv = gp_render_device->create_shader_resource_view(*mp_aperture_tex, texture_srv_desc(*mp_aperture_tex));
+				mp_aperture_uav = gp_render_device->create_unordered_access_view(*mp_aperture_tex, texture_uav_desc(*mp_aperture_tex));
+			}
 
 			struct cbuffer
 			{
@@ -240,6 +272,7 @@ public:
 			context.set_pipeline_resource("realistic_camera_aperture_uav", *mp_aperture_uav);
 			context.set_pipeline_state(*m_shader_file.get("calc_aperture"));
 			context.dispatch(ceil_div(w, 16), ceil_div(h, 16), 1);
+			m_calc_stop = false;
 		}
 
 //#define REALISTIC_CAMERA_DEBUG_DRAW
@@ -323,8 +356,12 @@ public:
 	}
 
 	//パラメータ
+	const string& filename() const { return m_filename; }
+	void set_filename(const string& filename){ if(m_filename != filename){ m_filename = filename; m_load_file = true; }}
 	uint blade_count() const { return m_blade_count; }
-	void set_blade_count(const uint n){ if(m_blade_count != n){ m_blade_count = n; mp_aperture_tex.reset(); }}
+	void set_blade_count(const uint n){ if(m_blade_count != n){ m_blade_count = n; m_calc_stop = true; }}
+	float closure_ratio() const { return m_closure_ratio; }
+	void set_closure_ratio(const float r){ if(m_closure_ratio != r){ m_closure_ratio = r; m_calc_pupil = true; }}
 
 private:
 
@@ -543,7 +580,12 @@ private:
 	float					m_front_pz;
 	float					m_back_fz;
 	float					m_back_pz;
+	float					m_closure_ratio = 0;
 	uint					m_blade_count = 6;
+	bool					m_calc_stop = true;
+	bool					m_calc_pupil = true;
+	bool					m_load_file = false;
+	string					m_filename;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
