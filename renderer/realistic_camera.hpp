@@ -178,6 +178,7 @@ public:
 
 			m_fovy = -1;
 			m_distance = -1;
+			m_load_file = false;
 		}
 		if(m_interfaces.empty())
 			return false;
