@@ -211,7 +211,7 @@ public:
 			auto ret = it;
 			for(float vd = (it++)->vd; (it != m_sort_by_eta.end()) && (it->nd == ret->nd); ++it)
 			{
-				if((it->vd > vd) == prefer_dispersive)
+				if((it->vd < vd) == prefer_dispersive)
 				{
 					vd = it->vd;
 					ret = it;
@@ -225,7 +225,7 @@ public:
 			auto ret = std::make_reverse_iterator(it);
 			for(float vd = (rit++)->vd; (rit != m_sort_by_eta.rend()) && (rit->nd == ret->nd); ++rit)
 			{
-				if((rit->vd > vd) == prefer_dispersive)
+				if((rit->vd < vd) == prefer_dispersive)
 				{
 					vd = rit->vd;
 					ret = rit;

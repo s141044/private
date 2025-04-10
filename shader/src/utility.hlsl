@@ -51,6 +51,10 @@ float3 rec709_to_rec2020(float3 rec709)
 
 float3 bilinear_sample(Texture2D<uint> tex, sampler s, float2 uv)
 {
+	//gather‚ªhalf¸“x‚ÅÀs‚³‚ê‚Ä‚¢‚é(?)
+	//‚±‚¤‚µ‚È‚¢‚Æ•âŠÔ‚Ìd‚İ‚ª‚¸‚ê‚Ä‚µ‚Ü‚¤
+	uv = half2(uv);
+
 	float2 size;
 	tex.GetDimensions(size.x, size.y);
 	float2 left_top = floor(uv * size - 0.5f);
