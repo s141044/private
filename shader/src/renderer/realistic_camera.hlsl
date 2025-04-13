@@ -145,7 +145,7 @@ bool trace(inout float3 o, inout float3 d, float lambda)
 	return trace(o, d, throughput, lambda);
 }
 
-bool generate_ray(float2 pixel_pos, float u0, float u1, float u2, out float3 origin, out float3 direction, out float3 throughput, uint2 dtid = 0)
+bool generate_ray(float2 pixel_pos, float u0, float u1, float u2, out float3 origin, out float3 direction, out float3 throughput)
 {
 	//センサ上の位置を計算
 	float2 sensor_pos = pixel_pos * inv_screen_size;
@@ -171,17 +171,25 @@ bool generate_ray(float2 pixel_pos, float u0, float u1, float u2, out float3 ori
 	direction = normalize(target - origin);
 
 	//波長をサンプリング
+#if 0
 	float lambda = uniform_sample_wavelength(u2);
 	float pdf_lambda = uniform_sample_wavelength_pdf();
+#else
+	uint sample_count, stride;
+	wavelength_sample_srv.GetDimensions(sample_count, stride);
+	uint sample_index = WaveReadLaneFirst(u2 * sample_count) + WaveGetLaneIndex();
+	if(sample_index >= sample_count){ sample_index -= sample_count; }
+	wavelength_sample s = decompress(wavelength_sample_srv[sample_index]);
+	if(s.pdf <= 0){ return false; }
+	float lambda = s.lambda;
+	float pdf_lambda = s.pdf;
+#endif
 
 	//スループットを計算
 	//float pdf_x = 1 / ((aabb.z - aabb.x) * (aabb.w - aabb.y));
 	//float pdf_w = pdf_x * pow3(realistic_camera_delta_z) / pow2(direction.z);
 	//throughput = abs(direction.z) / (pdf_w * pdf_lambda);
 	throughput.r = ((aabb.z - aabb.x) * (aabb.w - aabb.y)) * pow3(abs(direction.z)) / (pow3(realistic_camera_delta_z) * pdf_lambda);
-
-	debug_uav0[dtid] = float4(u2, lambda, pdf_lambda, throughput.r);
-	debug_uav1[dtid] = float4(wavelength_to_rgb(lambda), 0);
 
 	//トレース
 	if(!trace(origin, direction, throughput.r, lambda, axis_x, axis_y))
@@ -190,7 +198,6 @@ bool generate_ray(float2 pixel_pos, float u0, float u1, float u2, out float3 ori
 	float lambda_min = CIE_LAMBDA_MIN - (CIE_LAMBDA_MAX - CIE_LAMBDA_MIN) / (CIE_SAMPLES - 1) / 2;
 	float lambda_max = CIE_LAMBDA_MAX + (CIE_LAMBDA_MAX - CIE_LAMBDA_MIN) / (CIE_SAMPLES - 1) / 2;
 	float u = (lambda - lambda_min) / (lambda_max - lambda_min);
-	debug_uav2[dtid] = float4(throughput.r, lambda_min, lambda_max, u);
 
 	//RGBに変換
 	throughput = throughput.r * wavelength_to_rgb(lambda);

@@ -1,0 +1,9 @@
+{
+  "definition":
+  [
+    {
+      "name": "presample_wavelength", 
+      "cs": [ "wavelength.hlsl", "presample_wavelength", "" ]
+    }
+  ]
+}

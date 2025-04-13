@@ -3,6 +3,7 @@
 #define SPECTRUM_HLSL
 
 #include"math.hlsl"
+#include"packing.hlsl"
 #include"static_sampler.hlsl"
 
 #define CIE_LAMBDA_MIN 360.0
@@ -32,9 +33,49 @@ float3 wavelength_to_rgb(float lambda)
 #define SAMPLE_LAMBDA_MIN 380.0
 #define SAMPLE_LAMBDA_MAX 750.0
 
+float uniform_sample_wavelength(float u)
+{
+	return SAMPLE_LAMBDA_MIN + (SAMPLE_LAMBDA_MAX - SAMPLE_LAMBDA_MIN) * u;
+}
+
+float uniform_sample_wavelength_pdf()
+{
+	return 1 / float(SAMPLE_LAMBDA_MAX - SAMPLE_LAMBDA_MIN);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct compressed_wavelength_sample
+{
+	uint v;
+};
+
+struct wavelength_sample
+{
+	float lambda;
+	float pdf;
+};
+
+StructuredBuffer<compressed_wavelength_sample> wavelength_sample_srv;
+
+compressed_wavelength_sample compress(wavelength_sample s)
+{
+	compressed_wavelength_sample cs;
+	cs.v = f32_to_u16_unorm((s.lambda - SAMPLE_LAMBDA_MIN) / (SAMPLE_LAMBDA_MAX - SAMPLE_LAMBDA_MIN)) | (f32_to_f16(s.pdf) << 16);
+	return cs;
+}
+
+wavelength_sample decompress(compressed_wavelength_sample cs)
+{
+	wavelength_sample s;
+	s.lambda = u16_unorm_to_f32(cs.v) * (SAMPLE_LAMBDA_MAX - SAMPLE_LAMBDA_MIN) + SAMPLE_LAMBDA_MIN;
+	s.pdf = f16_to_f32(cs.v >> 16);
+	return s;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 //An Improved Technique for Full Spectral Rendering
-//‚«‚í‚ß‚Ä”÷–­
-#if 0
+//‹É‚ß‚Ä”÷–­
 
 static const float wavelength_pdf_A = 0.072;
 static const float wavelength_pdf_B = 538;
@@ -54,16 +95,6 @@ float sample_wavelength_pdf(float lambda)
 	return 1 / (pow2(cosh(x)) * wavelength_pdf_N);
 }
 
-#endif
-
-float uniform_sample_wavelength(float u)
-{
-	return SAMPLE_LAMBDA_MIN + (SAMPLE_LAMBDA_MAX - SAMPLE_LAMBDA_MIN) * u;
-}
-
-float uniform_sample_wavelength_pdf()
-{
-	return 1 / float(SAMPLE_LAMBDA_MAX - SAMPLE_LAMBDA_MIN);
-}
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif

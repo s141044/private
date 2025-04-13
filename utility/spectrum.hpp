@@ -126,6 +126,76 @@ private:
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+//wavelength_sampler
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+class wavelength_sampler
+{
+public:
+
+	//コンストラクタ
+	wavelength_sampler() : m_engine(std::random_device{}())
+	{
+		m_shaders = gp_shader_manager->create(L"wavelength.sdf.json");
+	}
+
+	//サンプリング
+	bool sample(render_context& context, const uint sample_count)
+	{
+		if(m_shaders.has_update())
+			m_shaders.update();
+		else if(m_shaders.is_invalid())
+			return false;
+
+		struct sample
+		{
+			uint lambda	: 16;
+			uint pdf	: 16;
+		};
+
+		if((mp_sample_buf == nullptr) || (mp_sample_buf->num_elements() != sample_count))
+		{
+			mp_sample_buf = gp_render_device->create_structured_buffer(sizeof(sample), sample_count, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+			mp_sample_srv = gp_render_device->create_shader_resource_view(*mp_sample_buf, buffer_srv_desc(*mp_sample_buf));
+			mp_sample_uav = gp_render_device->create_unordered_access_view(*mp_sample_buf, buffer_uav_desc(*mp_sample_buf));
+		}
+
+		struct cbuffer
+		{
+			uint	sample_count;
+			float2	jitter;
+			float	padding;
+		};
+
+		auto p_cbuf = gp_render_device->create_temporary_cbuffer(sizeof(cbuffer));
+		auto& cbuf_data = *p_cbuf->data<cbuffer>();
+		cbuf_data.sample_count = sample_count;
+		cbuf_data.jitter.x = std::uniform_real_distribution<float>{}(m_engine);
+		cbuf_data.jitter.y = std::uniform_real_distribution<float>{}(m_engine);
+
+		context.set_pipeline_resource("wavelength_sample_uav", *mp_sample_uav);
+		context.set_pipeline_resource("presample_wavelength_cbuffer", *p_cbuf);
+		context.set_pipeline_state(*m_shaders.get("presample_wavelength"));
+		context.dispatch(ceil_div(ceil_div(sample_count ,2), 256), 1, 1);
+		return true;
+	}
+
+	//バインド
+	void bind(render_context& context)
+	{
+		context.set_pipeline_resource("wavelength_sample_srv", *mp_sample_srv);
+	}
+
+private:
+
+	shader_file_holder			m_shaders;
+	buffer_ptr					mp_sample_buf;
+	shader_resource_view_ptr	mp_sample_srv;
+	unordered_access_view_ptr	mp_sample_uav;
+	std::mt19937_64				m_engine;
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 } //namespace render
 

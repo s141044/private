@@ -22,10 +22,10 @@ float3 oct_to_f32x3(float2 e)
 uint f32x4_to_u8x4_unorm(float4 v)
 {
 	return 
-		(uint(saturate(v.x) * 255 + 0.5f) << (8 * 0)) | 
-		(uint(saturate(v.y) * 255 + 0.5f) << (8 * 1)) | 
-		(uint(saturate(v.z) * 255 + 0.5f) << (8 * 2)) | 
-		(uint(saturate(v.w) * 255 + 0.5f) << (8 * 3));
+		(uint(saturate(v.x) * 255 + 0.5) << (8 * 0)) | 
+		(uint(saturate(v.y) * 255 + 0.5) << (8 * 1)) | 
+		(uint(saturate(v.z) * 255 + 0.5) << (8 * 2)) | 
+		(uint(saturate(v.w) * 255 + 0.5) << (8 * 3));
 }
 
 float4 u8x4_unorm_to_f32x4(uint v)
@@ -34,19 +34,31 @@ float4 u8x4_unorm_to_f32x4(uint v)
 		float((v >> (8 * 0)) & 0xff), 
 		float((v >> (8 * 1)) & 0xff), 
 		float((v >> (8 * 2)) & 0xff), 
-		float((v >> (8 * 3)) & 0xff)) / 255.0f;
+		float((v >> (8 * 3)) & 0xff)) / 255.0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 uint f32_to_u8_unorm(float v)
 {
-	return uint(saturate(v) * 255 + 0.5f);
+	return uint(saturate(v) * 255 + 0.5);
 }
 
 float u8_unorm_to_f32(uint v)
 {
 	return float(v & 0xff) / 255;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+uint f32_to_u16_unorm(float v)
+{
+	return uint(saturate(v) * 65535 + 0.5);
+}
+
+float u16_unorm_to_f32(uint v)
+{
+	return float(v & 0xffff) / 65535;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -79,8 +91,8 @@ float2 f16x2_to_f32x2(uint v)
 uint f32x2_to_u16x2_unorm(float2 v)
 {
 	return 
-		uint(saturate(v.x) * 65535 + 0.5f) | 
-		uint(saturate(v.y) * 65535 + 0.5f) << 16;
+		uint(saturate(v.x) * 65535 + 0.5) | 
+		uint(saturate(v.y) * 65535 + 0.5) << 16;
 }
 
 float2 u16x2_unorm_to_f32x2(uint v)
@@ -95,15 +107,15 @@ float2 u16x2_unorm_to_f32x2(uint v)
 uint f32x2_to_u16x2_snorm(float2 v)
 {
 	return 
-		(int(trunc(clamp(v.x, -1.0f, 1.0f) * 32767 + ((v.x >= 0) ? 0.5f : -0.5f))) & 0xffff) |
-		(int(trunc(clamp(v.y, -1.0f, 1.0f) * 32767 + ((v.y >= 0) ? 0.5f : -0.5f))) << 16);
+		(int(trunc(clamp(v.x, -1.0, 1.0) * 32767 + ((v.x >= 0) ? 0.5 : -0.5))) & 0xffff) |
+		(int(trunc(clamp(v.y, -1.0, 1.0) * 32767 + ((v.y >= 0) ? 0.5 : -0.5))) << 16);
 }
 
 float2 u16x2_snorm_to_f32x2(const uint v)
 {
 	return float2(
-		max((int(v << 16) >> 16) / 32767.0f, -1.0f),
-		max((int(v) >> 16) / 32767.0f, -1.0f));
+		max((int(v << 16) >> 16) / 32767.0, -1.0),
+		max((int(v) >> 16) / 32767.0, -1.0));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,10 +123,10 @@ float2 u16x2_snorm_to_f32x2(const uint v)
 uint f32x4_to_r10g10b10a2(float4 v)
 {
 	return 
-		(uint(saturate(v.x) * 1023 + 0.5f) << (10 * 0)) |
-		(uint(saturate(v.y) * 1023 + 0.5f) << (10 * 1)) |
-		(uint(saturate(v.z) * 1023 + 0.5f) << (10 * 2)) |
-		(uint(saturate(v.w) *    3 + 0.5f) << (10 * 3));
+		(uint(saturate(v.x) * 1023 + 0.5) << (10 * 0)) |
+		(uint(saturate(v.y) * 1023 + 0.5) << (10 * 1)) |
+		(uint(saturate(v.z) * 1023 + 0.5) << (10 * 2)) |
+		(uint(saturate(v.w) *    3 + 0.5) << (10 * 3));
 }
 
 float4 r10g10b10a2_to_f32x4(uint v)

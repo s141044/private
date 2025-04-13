@@ -121,4 +121,21 @@ float3 sample_uniform_triangle(float u0, float u1)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+float2 sample_normal(float u0, float u1)
+{
+	return sqrt(-2 * log(u0)) * float2(cos(2 * PI * u1), sin(2 * PI * u1));
+}
+
+float2 sample_normal(float mean, float stddev, float u0, float u1)
+{
+	return sample_normal(u0, u1) * stddev + mean;
+}
+
+float sample_normal_pdf(float x, float mean, float stddev)
+{
+	return exp(-pow2((x - mean) / stddev) * 0.5) / (sqrt(2 * PI) * stddev);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 #endif

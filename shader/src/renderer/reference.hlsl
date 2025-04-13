@@ -135,7 +135,7 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 	float3 radiance = 0;
 	float3 throughput = 1;
 #if defined(USE_REALISTIC_CAMERA)
-	if(generate_ray(pixel_pos, randF(rng), randF(rng), randF(rng), ray.origin, ray.direction, throughput, dtid))
+	if(generate_ray(pixel_pos, randF(rng), randF(rng), randF(rng), ray.origin, ray.direction, throughput))
 #endif
 	{
 		float pdf_w = 0;

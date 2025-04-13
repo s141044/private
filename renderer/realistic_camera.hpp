@@ -38,6 +38,9 @@ public:
 		else if(m_shader_file.is_invalid())
 			return false;
 
+		if(!m_wavelength_sampler.sample(context, 4096))
+			return false;
+
 		if(m_load_file)
 		{
 			std::ifstream ifs(m_filename);
@@ -354,6 +357,7 @@ public:
 		context.set_pipeline_resource("realistic_camera_aperture_srv", *mp_aperture_srv);
 		context.set_pipeline_resource("realistic_camera_interface_srv", *mp_interface_srv);
 		m_spectral_data.bind(context);
+		m_wavelength_sampler.bind(context);
 	}
 
 	//ƒpƒ‰ƒ[ƒ^
@@ -565,6 +569,7 @@ private:
 	shader_resource_view_ptr	mp_aperture_srv;
 	unordered_access_view_ptr	mp_aperture_uav;
 	spectral_data				m_spectral_data;
+	wavelength_sampler			m_wavelength_sampler;
 
 	struct interface_t
 	{
