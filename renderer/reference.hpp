@@ -95,7 +95,8 @@ public:
 		cbuf_data.environment_presample_count = environment_presample_count;
 
 		m_emissive_sampler.bind(context);
-		m_environment_sampler.bind(context);
+		if(params.p_envmap)
+			m_environment_sampler.bind(context);
 
 		static texture_ptr p_debug_tex[4];
 		static unordered_access_view_ptr p_debug_uav[4];
