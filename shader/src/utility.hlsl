@@ -51,15 +51,19 @@ float3 rec709_to_rec2020(float3 rec709)
 
 float3 bilinear_sample(Texture2D<uint> tex, sampler s, float2 uv)
 {
-	//gather‚ªhalf¸“x‚ÅÀs‚³‚ê‚Ä‚¢‚é(?)
-	//‚±‚¤‚µ‚È‚¢‚Æ•âŠÔ‚Ìd‚İ‚ª‚¸‚ê‚Ä‚µ‚Ü‚¤
-	uv = half2(uv);
-
 	float2 size;
 	tex.GetDimensions(size.x, size.y);
 	float2 left_top = floor(uv * size - 0.5f);
 	float2 bilinear_weight = uv * size - (left_top + 0.5f);
+#if 0
 	uint4 vals = tex.GatherRed(s, uv, 0).wzxy;
+#else	
+	uint4 vals;
+	vals[0] = tex[left_top + int2(0,0)];
+	vals[1] = tex[left_top + int2(1,0)];
+	vals[2] = tex[left_top + int2(0,1)];
+	vals[3] = tex[left_top + int2(1,1)];
+#endif
 	return 
 		r9g9b9e5_to_f32x3(vals.x) * (1 - bilinear_weight.x) * (1 - bilinear_weight.y) + 
 		r9g9b9e5_to_f32x3(vals.y) * bilinear_weight.x * (1 - bilinear_weight.y) + 
