@@ -176,6 +176,9 @@ public:
 			for(uint i = 0; i < n; i++){ mp_weight_srv[i] = gp_render_device->create_shader_resource_view(*mp_weight_tex, texture_srv_desc(*mp_weight_tex, i, -1)); }
 			gp_render_device->set_name(*mp_weight_tex, L"environment_light_sampler: weight_tex");
 
+			shader_resource_view_ptr srv_ptrs[16];
+			for(uint i = 0; i < n; i++){ srv_ptrs[i] = gp_render_device->create_shader_resource_view(*mp_weight_tex, texture_srv_desc(*mp_weight_tex, i)); }
+
 			unordered_access_view_ptr uav_ptrs[16];
 			for(uint i = 0; i < n; i++){ uav_ptrs[i] = gp_render_device->create_unordered_access_view(*mp_weight_tex, texture_uav_desc(*mp_weight_tex, i)); }
 
@@ -186,7 +189,7 @@ public:
 
 			for(uint i = 1; i < n; i += 6)
 			{
-				context.set_pipeline_resource("src", *mp_weight_srv[i - 1]);
+				context.set_pipeline_resource("src", *srv_ptrs[i - 1]);
 				context.set_pipeline_resource("dst1", *uav_ptrs[i + 0]);
 				context.set_pipeline_resource("dst2", *uav_ptrs[i + 1]);
 				context.set_pipeline_resource("dst3", *uav_ptrs[i + 2]);
