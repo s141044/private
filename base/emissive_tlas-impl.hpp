@@ -14,7 +14,7 @@ namespace render{
 //コンストラクタ
 inline emissive_tlas::emissive_tlas(const uint max_instance) : m_blas_allocator(max_instance)
 {
-	m_shaders = gp_shader_manager->create(L"emissive.sdf.json");
+	m_shaders = gp_shader_manager->create(L"emissive_build.sdf.json");
 	
 	mp_blas_handle_ubuf = gp_render_device->create_upload_buffer(sizeof(uint) * max_instance);
 	mp_blas_handle_buf = gp_render_device->create_byteaddress_buffer(sizeof(uint) * max_instance, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access | resource_flag_scratch));

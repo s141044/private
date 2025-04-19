@@ -14,7 +14,7 @@ namespace render{
 //コンストラクタ
 inline emissive_blas::emissive_blas()
 {
-	m_shaders = gp_shader_manager->create(L"emissive.sdf.json");
+	m_shaders = gp_shader_manager->create(L"emissive_build.sdf.json");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

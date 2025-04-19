@@ -6,7 +6,7 @@
 #include"packing.hlsl"
 #include"sampling.hlsl"
 #include"raytracing.hlsl"
-#include"emissive_utility.hlsl"
+#include"emissive_common.hlsl"
 #include"material/standard.hlsl"
 
 struct compressed_emissive_sample

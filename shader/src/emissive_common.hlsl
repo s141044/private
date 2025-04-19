@@ -1,6 +1,6 @@
 
-#ifndef EMISSIVE_UTILITY_HLSL
-#define EMISSIVE_UTILITY_HLSL
+#ifndef EMISSIVE_COMMON_HLSL
+#define EMISSIVE_COMMON_HLSL
 
 struct emissive_blas_header
 {

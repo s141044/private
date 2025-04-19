@@ -6,7 +6,7 @@
 #include"packing.hlsl"
 #include"raytracing.hlsl"
 #include"root_constant.hlsl"
-#include"emissive_utility.hlsl"
+#include"emissive_common.hlsl"
 
 cbuffer emissive_build_cbuf
 {
