@@ -43,7 +43,7 @@ compressed_emissive_sample compress(emissive_sample s)
 {
 	compressed_emissive_sample cs;
 	cs.position = s.position;
-	cs.normal = f32x2_to_u16x2_unorm(f32x3_to_oct(cs.normal) * 0.5f + 0.5f);
+	cs.normal = f32x2_to_u16x2_unorm(f32x3_to_oct(s.normal) * 0.5 + 0.5);
 	cs.L = f32x3_to_r9g9b9e5(s.L);
 	cs.pdf_approx = s.pdf_approx;
 	return cs;
@@ -92,6 +92,9 @@ emissive_sample sample_emissive(float u0, float u1, uint dtid = 0)
 	standard_material mtl = load_standard_material(isect.material_handle, isect.normal, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv);
 	s.L = get_emissive_color(mtl);
 	s.pdf_approx = emissive_sample_pdf(s.L);
+
+	float pdf = blas_header.base_power * tlas_header.inv_total_power;
+	s.L /= PI * pdf;
 	return s;
 }
 

@@ -67,7 +67,7 @@ void initialize(uint dtid : SV_DispatchThreadID, uint gtid : SV_GroupThreadID)
 			ByteAddressBuffer blas = get_byteaddress_buffer(blas_handle);
 			emissive_blas_header header = load_emissive_blas_header(blas);
 			raytracing_instance_desc desc = raytracing_instance_descs[header.raytracing_instance_index];
-			weight = header.base_power * header.area * extract_scaling(desc.transform).x;
+			weight = header.base_power * header.area * extract_squared_scaling(desc.transform).x;
 			weight_uav.Store<float>(4 * dtid, weight);
 		}
 	}

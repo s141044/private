@@ -186,18 +186,22 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 
 			standard_material mtl = load_standard_material(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
 
-#if ENABLE_HIT_EVAL
-			float3 Le = get_emissive_color(mtl);
-			if(any(Le > 0))
+			if(bounce == 0)
+				radiance += get_emissive_color(mtl);
+			else
 			{
-				float mis_weight = 1;
+#if ENABLE_HIT_EVAL
+				float3 Le = get_emissive_color(mtl);
+				if(any(Le > 0))
+				{
+					float mis_weight = 1;
 #if ENABLE_NEE_EVAL || FORCE_MIS
-				if(bounce > 0)
-					mis_weight = calc_mis_weight(pdf_w, emissive_sample_pdf(Le) * dot(wo, isect.geometry_normal) / pow2(payload.ray_t));
+					mis_weight = calc_mis_weight(pdf_w * dot(wo, isect.geometry_normal) / pow2(payload.ray_t), emissive_sample_pdf(Le));
 #endif
-				radiance += Le * throughput * mis_weight;
+					radiance += Le * throughput * mis_weight;
+				}
+#endif
 			}
-#endif
 
 			if(++bounce > max_bounce)
 				break;

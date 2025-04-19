@@ -135,7 +135,7 @@ inline void emissive_blas::update(render_context& context, const float base_powe
 {
 	push_priority push_priority(context);
 	context.set_priority(priority_initiaize);
-	*static_cast<float*>(context.update_buffer(*mp_blas_buf, 8, 4)) = base_power;
+	*static_cast<float*>(context.update_buffer(*mp_blas_buf, offsetof(header, base_power), 4)) = base_power;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -530,6 +530,9 @@ public:
 	//リソースをバインド
 	void bind(render_context& context);
 
+	//デバッグ描画
+	void debug_draw(render_context& context, const float scale = 0.1f);
+
 private:
 
 	struct sample_t
@@ -544,6 +547,11 @@ private:
 	buffer_ptr					mp_emissive_sample_buf;
 	shader_resource_view_ptr	mp_emissive_sample_srv;
 	unordered_access_view_ptr	mp_emissive_sample_uav;
+
+	shader_file_holder			m_debug_shaders;
+	buffer_ptr					mp_debug_ib;
+	buffer_ptr					mp_debug_vb;
+	geometry_state_ptr			mp_debug_gs;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -791,12 +799,12 @@ public:
 	debug_draw(const uint capacity);
 
 	//ライン/ポイント描画
-	uint draw_lines(const uint num_lines);
-	uint draw_points(const uint num_points);
-	uint draw_line_strip(const uint num_lines);
-	vertex* draw_lines(const uint num_lines, const bool cpu_write);
-	vertex* draw_points(const uint num_points, const bool cpu_write);
-	vertex* draw_line_strip(const uint num_lines, const bool cpu_write);
+	vertex* draw_lines(const uint num_lines);
+	vertex* draw_points(const uint num_points);
+	vertex* draw_line_strip(const uint num_lines);
+
+	//遅延描画
+	void draw(std::function<void()> func);
 
 	//描画
 	bool draw(render_context& context, target_state& target_state);
@@ -816,20 +824,20 @@ private:
 		uint	start_vertex_location;
 	};
 	
-	uint draw_xxx(const uint vertex_count, const draw_type type);
-	vertex* draw_xxx(const uint vertex_count, const draw_type type, const bool cpu_write);
+	vertex* draw_xxx(const uint vertex_count, const draw_type type);
 
 private:
 
-	shader_file_holder			m_shader_file;
-	buffer_ptr					mp_vertex_buf;
-	unordered_access_view_ptr	mp_vertex_uav;
-	upload_buffer_ptr			mp_vertex_ubuf;
-	geometry_state_ptr			mp_geometry_state;
-	uint						m_front;
-	uint						m_back;
-	uint						m_capacity;
-	vector<draw_info>			m_draw_infos[draw_type_count];
+	shader_file_holder				m_shader_file;
+	buffer_ptr						mp_vertex_buf;
+	unordered_access_view_ptr		mp_vertex_uav;
+	upload_buffer_ptr				mp_vertex_ubuf;
+	geometry_state_ptr				mp_geometry_state;
+	uint							m_front;
+	uint							m_back;
+	uint							m_capacity;
+	vector<draw_info>				m_draw_infos[draw_type_count];
+	queue<std::function<void()>>	m_draw_queue;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

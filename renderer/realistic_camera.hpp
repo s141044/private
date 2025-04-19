@@ -286,7 +286,7 @@ public:
 			const float r = abs(iface.curvature_radius);
 			if(r == 0)
 			{
-				auto* vertices = gp_debug_draw->draw_lines(4, true);
+				auto* vertices = gp_debug_draw->draw_lines(4);
 
 				const float cz = iface.thickness;
 				vertices[0] = debug_draw::vertex(float3(+1, 0, cz), float3(1));
@@ -297,7 +297,7 @@ public:
 			else
 			{
 				const uint N = 100;
-				auto* vertices = gp_debug_draw->draw_line_strip(N - 1, true);
+				auto* vertices = gp_debug_draw->draw_line_strip(N - 1);
 
 				const float cz = iface.thickness + iface.curvature_radius;
 				const float th_max = asin(iface.aperture_radius / r);
@@ -319,7 +319,7 @@ public:
 			}
 		}
 		
-		auto* v = gp_debug_draw->draw_lines(2, true);
+		auto* v = gp_debug_draw->draw_lines(2);
 		v[0] = debug_draw::vertex(float3(+1, 0, -m_distance), float3(1, 0, 0));
 		v[1] = debug_draw::vertex(float3(-1, 0, -m_distance), float3(1, 0, 0));
 		v[2] = debug_draw::vertex(float3(0, 0, +10), float3(1, 1, 1));
@@ -535,7 +535,7 @@ private:
 		}
 #if defined(REALISTIC_CAMERA_DEBUG_DRAW)
 
-		auto* v = gp_debug_draw->draw_line_strip(uint(vertices.size()) + 1, true);
+		auto* v = gp_debug_draw->draw_line_strip(uint(vertices.size()) + 1);
 
 		float3 col;
 		col[0] = float(forward);

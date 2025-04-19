@@ -1,0 +1,53 @@
+{
+  "input_layout":
+  [
+    {
+      "name": "triangle",
+      "topology": "triangle_list",
+      "element": [
+        {"name": "POSITION", "slot": 0, "offset": 0, "format": "r32g32b32_float"},
+      ]
+    }
+  ],
+  "blend_state" :
+  [
+    {
+      "name": "none",
+      "independent_blend": false,
+      "render_target": 
+      [
+        {
+          "enable": false
+        }
+      ]
+    }
+  ],
+  "depth_stencil_state":
+  [
+    {
+      "name": "default",
+      "depth_enable": true,
+      "depth_write": true,
+      "depth_func": "greater",
+      "stencil_enable": false
+    }
+  ],
+  "rasterizer_state":
+  [
+    {
+      "name": "default"
+    }
+  ],
+  "definition" : 
+  [
+    {
+      "name": "debug_draw",
+      "bs": "none",
+      "il": "triangle",
+      "rs": "default",
+      "dss": "default",
+      "vs": [ "emissive_sampling_debug.hlsl", "debug_draw_vs", ""],
+      "ps": [ "emissive_sampling_debug.hlsl", "debug_draw_ps", ""]
+    }
+  ]
+}
