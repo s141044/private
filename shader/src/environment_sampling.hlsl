@@ -46,7 +46,7 @@ compressed_environment_sample compress(environment_sample s)
 {
 	compressed_environment_sample cs;
 	cs.L = f32x3_to_r9g9b9e5(s.L);
-	cs.w = f32x2_to_u16x2_unorm(f32x3_to_oct(s.w) * 0.5f + 0.5f);
+	cs.w = f32x2_to_u16x2_unorm(f32x3_to_oct(s.w) * 0.5 + 0.5);
 	cs.pdf = s.pdf;
 	return cs;
 }

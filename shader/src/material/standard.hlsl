@@ -2,6 +2,7 @@
 #ifndef MATERIAL_STANDARD_HLSL
 #define MATERIAL_STANDARD_HLSL
 
+#include"../debug.hlsl"
 #include"../packing.hlsl"
 #include"../static_sampler.hlsl"
 

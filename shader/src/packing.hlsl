@@ -4,16 +4,21 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+float2 signbit(float2 x)
+{
+	return asfloat((asuint(x) & 0x80000000) | 0x3f800000);
+}
+
 float2 f32x3_to_oct(float3 v)
 {
 	float2 p = v.xy / (abs(v.x) + abs(v.y) + abs(v.z));
-	return (v.z <= 0) ? (1 - abs(p.yx)) * sign(p) : p; //-1~1
+	return (v.z <= 0) ? (1 - abs(p.yx)) * signbit(p) : p; //-1~1
 }
 
 float3 oct_to_f32x3(float2 e)
 {
 	float3 v = float3(e.xy, 1 - abs(e.x) - abs(e.y));
-	if(v.z < 0){ v.xy = (1 - abs(v.yx)) * sign(v.xy); }
+	if(v.z < 0){ v.xy = (1 - abs(v.yx)) * signbit(v.xy); }
 	return normalize(v);
 }
 

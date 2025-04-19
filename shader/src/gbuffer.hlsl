@@ -18,7 +18,7 @@ float3 decode_velocity(float4 val)
 float4 encode_normal_roughness(float3 normal, float diffuse_roughness, float specular_roughness)
 {
 	//diffuse‚Ìƒ‰ƒtƒlƒX‚Íspecular‚É”ä‚×‚Ä‰e‹¿‚ª¬‚³‚¢‚Ì‚Å2bit‚Å...
-	return float4(f32x3_to_oct(normal) * 0.5f + 0.5f, specular_roughness, diffuse_roughness);
+	return float4(f32x3_to_oct(normal) * 0.5 + 0.5, specular_roughness, diffuse_roughness);
 }
 
 void decode_normal_roughness(float4 val, out float3 normal, out float diffuse_roughness, out float specular_roughness)

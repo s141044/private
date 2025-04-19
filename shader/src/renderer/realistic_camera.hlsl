@@ -3,14 +3,10 @@
 #define RENDERER_REALISTIC_CAMERA_HPP
 
 #include"../bsdf.hlsl"
+#include"../debug.hlsl"
 #include"../spectrum.hlsl"
 #include"../static_sampler.hlsl"
 #include"../global_constant.hlsl"
-
-RWTexture2D<float4> debug_uav0;
-RWTexture2D<float4> debug_uav1;
-RWTexture2D<float4> debug_uav2;
-RWTexture2D<float4> debug_uav3;
 
 struct realistic_camera_interface
 {
