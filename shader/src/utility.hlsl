@@ -75,6 +75,16 @@ float3 extract_scaling(float4x3 ltow)
 	return sqrt(extract_squared_scaling(ltow));
 }
 
+uint encode_direction(float3 d)
+{
+	return f32x2_to_u16x2_unorm(f32x3_to_oct(d) * 0.5 + 0.5);
+}
+
+float3 decode_direction(uint enc)
+{
+	return oct_to_f32x3(u16x2_unorm_to_f32x2(enc) * 2 - 1);
+}
+
 void InterlockedAdd(RWByteAddressBuffer buf, uint offset, float v, out float original)
 {
 	while(true)

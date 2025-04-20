@@ -22,6 +22,11 @@ uint4 encode_payload(uint instance_id, uint instance_index, uint geometry_index,
 	return ret;
 }
 
+uint4 encode_payload(ray_payload payload)
+{
+	return encode_payload(payload.instance_id, payload.instance_index, 0, payload.primitive_index, payload.is_front_face, payload.barycentrics, payload.ray_t);
+}
+
 ray_payload decode_payload(uint4 data)
 {
 	ray_payload ret;

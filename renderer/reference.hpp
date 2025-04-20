@@ -55,6 +55,56 @@ public:
 		{
 			mp_accum_tex = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, screen_size.x, screen_size.y, 1, resource_flag_allow_unordered_access);
 			mp_accum_uav = gp_render_device->create_unordered_access_view(*mp_accum_tex, texture_uav_desc(*mp_accum_tex));
+			gp_render_device->set_name(*mp_accum_tex, L"accum_tex");
+
+			mp_hit_info_tex = gp_render_device->create_texture2d(texture_format_r32g32b32a32_uint, screen_size.x, screen_size.y, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access | resource_flag_scratch));
+			mp_hit_info_srv = gp_render_device->create_shader_resource_view(*mp_hit_info_tex, texture_srv_desc(*mp_hit_info_tex));
+			mp_hit_info_uav = gp_render_device->create_unordered_access_view(*mp_hit_info_tex, texture_uav_desc(*mp_hit_info_tex));
+			gp_render_device->set_name(*mp_hit_info_tex, L"hit_info_tex");
+			
+			mp_ray_info_tex[0] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_uint, screen_size.x, screen_size.y, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access | resource_flag_scratch));
+			mp_ray_info_srv[0] = gp_render_device->create_shader_resource_view(*mp_ray_info_tex[0], texture_srv_desc(*mp_ray_info_tex[0]));
+			mp_ray_info_uav[0] = gp_render_device->create_unordered_access_view(*mp_ray_info_tex[0], texture_uav_desc(*mp_ray_info_tex[0]));
+			gp_render_device->set_name(*mp_ray_info_tex[0], L"ray_info_tex[0]");
+			
+			mp_ray_info_tex[1] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_uint, screen_size.x, screen_size.y, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access | resource_flag_scratch));
+			mp_ray_info_srv[1] = gp_render_device->create_shader_resource_view(*mp_ray_info_tex[1], texture_srv_desc(*mp_ray_info_tex[1]));
+			mp_ray_info_uav[1] = gp_render_device->create_unordered_access_view(*mp_ray_info_tex[1], texture_uav_desc(*mp_ray_info_tex[1]));
+			gp_render_device->set_name(*mp_ray_info_tex[1], L"ray_info_tex[1]");
+
+			mp_throughput_pdf_tex[0] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, screen_size.x, screen_size.y, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access | resource_flag_scratch));
+			mp_throughput_pdf_srv[0] = gp_render_device->create_shader_resource_view(*mp_throughput_pdf_tex[0], texture_srv_desc(*mp_throughput_pdf_tex[0]));
+			mp_throughput_pdf_uav[0] = gp_render_device->create_unordered_access_view(*mp_throughput_pdf_tex[0], texture_uav_desc(*mp_throughput_pdf_tex[0]));
+			gp_render_device->set_name(*mp_throughput_pdf_tex[0], L"throughput_pdf_tex[0]");
+
+			mp_throughput_pdf_tex[1] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, screen_size.x, screen_size.y, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access | resource_flag_scratch));
+			mp_throughput_pdf_srv[1] = gp_render_device->create_shader_resource_view(*mp_throughput_pdf_tex[1], texture_srv_desc(*mp_throughput_pdf_tex[1]));
+			mp_throughput_pdf_uav[1] = gp_render_device->create_unordered_access_view(*mp_throughput_pdf_tex[1], texture_uav_desc(*mp_throughput_pdf_tex[1]));
+			gp_render_device->set_name(*mp_throughput_pdf_tex[1], L"throughput_pdf_tex[1]");
+
+			mp_work_queue_buf[0] = gp_render_device->create_byteaddress_buffer(sizeof(uint) * screen_size.x * screen_size.y, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access | resource_flag_scratch));
+			mp_work_queue_srv[0] = gp_render_device->create_shader_resource_view(*mp_work_queue_buf[0], buffer_srv_desc(*mp_work_queue_buf[0]));
+			mp_work_queue_uav[0] = gp_render_device->create_unordered_access_view(*mp_work_queue_buf[0], buffer_uav_desc(*mp_work_queue_buf[0]));
+			gp_render_device->set_name(*mp_work_queue_buf[0], L"work_queue_buf[0]");
+
+			mp_work_queue_buf[1] = gp_render_device->create_byteaddress_buffer(sizeof(uint) * screen_size.x * screen_size.y, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access | resource_flag_scratch));
+			mp_work_queue_srv[1] = gp_render_device->create_shader_resource_view(*mp_work_queue_buf[1], buffer_srv_desc(*mp_work_queue_buf[1]));
+			mp_work_queue_uav[1] = gp_render_device->create_unordered_access_view(*mp_work_queue_buf[1], buffer_uav_desc(*mp_work_queue_buf[1]));
+			gp_render_device->set_name(*mp_work_queue_buf[1], L"work_queue_buf[1]");
+
+			mp_work_queue_size_buf[0] = gp_render_device->create_byteaddress_buffer(sizeof(uint2), resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+			mp_work_queue_size_srv[0] = gp_render_device->create_shader_resource_view(*mp_work_queue_size_buf[0], buffer_srv_desc(*mp_work_queue_size_buf[0]));
+			mp_work_queue_size_uav[0] = gp_render_device->create_unordered_access_view(*mp_work_queue_size_buf[0], buffer_uav_desc(*mp_work_queue_size_buf[0]));
+			gp_render_device->set_name(*mp_work_queue_size_buf[0], L"work_queue_size_buf[0]");
+
+			mp_work_queue_size_buf[1] = gp_render_device->create_byteaddress_buffer(sizeof(uint2), resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+			mp_work_queue_size_srv[1] = gp_render_device->create_shader_resource_view(*mp_work_queue_size_buf[1], buffer_srv_desc(*mp_work_queue_size_buf[1]));
+			mp_work_queue_size_uav[1] = gp_render_device->create_unordered_access_view(*mp_work_queue_size_buf[1], buffer_uav_desc(*mp_work_queue_size_buf[1]));
+			gp_render_device->set_name(*mp_work_queue_size_buf[1], L"work_queue_size_buf[1]");
+
+			mp_argument_buf = gp_render_device->create_byteaddress_buffer(sizeof(uint3), resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+			mp_argument_uav = gp_render_device->create_unordered_access_view(*mp_argument_buf, buffer_uav_desc(*mp_argument_buf));
+			gp_render_device->set_name(*mp_argument_buf, L"argument_buf");
 		}
 
 		const uint emissive_presample_count = 1024 * 64;
@@ -120,6 +170,7 @@ public:
 		context.clear_unordered_access_view(*p_debug_uav[2], uint4(0,0,0,0));
 		context.clear_unordered_access_view(*p_debug_uav[3], uint4(0,0,0,0));
 
+#if 0
 		context.set_pipeline_resource("reference_cbuf", *p_cbuf);
 		context.set_pipeline_resource("accum_uav", *mp_accum_uav);
 		context.set_pipeline_resource("color_uav", *params.p_color_uav);
@@ -131,6 +182,80 @@ public:
 			context.set_pipeline_state(*m_shader_file.get("path_tracing"));
 		
 		context.dispatch(ceil_div(params.screen_size.x, 8), ceil_div(params.screen_size.y, 4), 1);
+#else
+
+		context.clear_unordered_access_view(*mp_work_queue_size_uav[0], uint4(0u));
+		context.clear_unordered_access_view(*mp_work_queue_size_uav[1], uint4(0u));
+
+		context.set_pipeline_resource("reference_cbuf", *p_cbuf);
+		context.set_pipeline_resource("color_uav", *params.p_color_uav);
+		context.set_pipeline_resource("depth_uav", *params.p_depth_uav);
+
+		for(uint bounce = 0, i = 0;;)
+		{
+			fixed_string<512> shader_name = "tracing_and_miss_lighting";
+			if(bounce == 0)
+				shader_name += m_use_realistic_camera ? "_use_realistic_camera_first" : "_first";
+			if(bounce == m_max_bounce)
+				shader_name += "_last";
+
+			context.set_pipeline_resource("hit_info_uav", *mp_hit_info_uav);
+			context.set_pipeline_resource("ray_info_srv", *mp_ray_info_srv[i]);
+			context.set_pipeline_resource("ray_info_uav", *mp_ray_info_uav[1 - i]);
+			context.set_pipeline_resource("work_queue_srv", *mp_work_queue_srv[0]);
+			context.set_pipeline_resource("work_queue_uav", *mp_work_queue_uav[1]);
+			context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[0]);
+			context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[1]);
+			context.set_pipeline_resource("throughput_pdf_srv", *mp_throughput_pdf_srv[i]);
+			context.set_pipeline_resource("throughput_pdf_uav", *mp_throughput_pdf_uav[1 - i]);
+			context.set_pipeline_state(*m_shader_file.get(shader_name));
+			if(bounce == 0)
+				context.dispatch(ceil_div(params.screen_size.x, 8), ceil_div(params.screen_size.y, 4), 1);
+			else
+				context.dispatch(*mp_argument_buf, 0);
+
+			if(bounce++ == m_max_bounce){ break; }
+			if(bounce == 1){ i = 1 - i; }
+
+			context.set_pipeline_resource("dispatch_arg_uav", *mp_argument_uav);
+			context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[1]);
+			context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[0]);
+			context.set_pipeline_state(*m_shader_file.get("init_dispatch_argument"));
+			context.dispatch(1, 1, 1);
+
+			shader_name = "lighting_and_sampling";
+			if(bounce == 1)
+				shader_name += "_first";
+
+			context.set_pipeline_resource("hit_info_srv", *mp_hit_info_srv);
+			context.set_pipeline_resource("ray_info_srv", *mp_ray_info_srv[i]);
+			context.set_pipeline_resource("ray_info_uav", *mp_ray_info_uav[1 - i]);
+			context.set_pipeline_resource("work_queue_srv", *mp_work_queue_srv[1]);
+			context.set_pipeline_resource("work_queue_uav", *mp_work_queue_uav[0]);
+			context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[1]);
+			context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[0]);
+			context.set_pipeline_resource("throughput_pdf_srv", *mp_throughput_pdf_srv[i]);
+			context.set_pipeline_resource("throughput_pdf_uav", *mp_throughput_pdf_uav[1 - i]);
+			context.set_pipeline_state(*m_shader_file.get(shader_name));
+			context.dispatch_with_32bit_constant(*mp_argument_buf, 0, bounce);
+			i = 1 - i;
+
+			context.set_pipeline_resource("dispatch_arg_uav", *mp_argument_uav);
+			context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[0]);
+			context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[1]);
+			context.set_pipeline_state(*m_shader_file.get("init_dispatch_argument"));
+			context.dispatch(1, 1, 1);
+
+			//context.set_pipeline_state(*m_shader_file.get("sss_tracing"));
+
+			//context.set_pipeline_state(*m_shader_file.get("sss_nee_lighting_and_sampling"));
+		}
+
+		context.set_pipeline_resource("accum_uav", *mp_accum_uav);
+		context.set_pipeline_state(*m_shader_file.get("accumulate"));
+		context.dispatch(ceil_div(screen_size.x, 16), ceil_div(screen_size.y, 16), 1);
+
+#endif
 		return true;
 	}
 
@@ -153,6 +278,24 @@ private:
 	render::realistic_camera		m_realistic_camera;
 	emissive_sampler				m_emissive_sampler;
 	environment_light_sampler		m_environment_sampler;
+
+	texture_ptr						mp_hit_info_tex;
+	shader_resource_view_ptr		mp_hit_info_srv;
+	unordered_access_view_ptr		mp_hit_info_uav;
+	texture_ptr						mp_ray_info_tex[2];
+	shader_resource_view_ptr		mp_ray_info_srv[2];
+	unordered_access_view_ptr		mp_ray_info_uav[2];
+	texture_ptr						mp_throughput_pdf_tex[2];
+	shader_resource_view_ptr		mp_throughput_pdf_srv[2];
+	unordered_access_view_ptr		mp_throughput_pdf_uav[2];
+	buffer_ptr						mp_work_queue_buf[2];
+	shader_resource_view_ptr		mp_work_queue_srv[2];
+	unordered_access_view_ptr		mp_work_queue_uav[2];
+	buffer_ptr						mp_work_queue_size_buf[2];
+	shader_resource_view_ptr		mp_work_queue_size_srv[2];
+	unordered_access_view_ptr		mp_work_queue_size_uav[2];
+	buffer_ptr						mp_argument_buf;
+	unordered_access_view_ptr		mp_argument_uav;
 
 	uint							m_max_bounce = 3;
 	uint							m_max_accumulation = 64;

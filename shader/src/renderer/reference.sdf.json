@@ -8,8 +8,8 @@
           "definition": 
           [
             {
-              "name": "path_tracing",
-              "cs": [ "renderer/reference.hlsl", "path_tracing", ""]
+              "name": "tracing_and_miss_lighting",
+              "cs": [ "renderer/reference.hlsl", "tracing_and_miss_lighting", ""]
             }
           ]
         },
@@ -21,12 +21,90 @@
               "cs": ["", "", ""]
             },
             {
-              "name": "_use_realistic_camera",
-              "cs": ["", "", "-DUSE_REALISTIC_CAMERA"]
+              "name": "_first",
+              "cs": ["", "", "-DFIRST"]
+            }
+          ]
+        },
+        {
+          "definition": 
+          [
+            {
+              "name": "",
+              "cs": ["", "", ""]
+            },
+            {
+              "name": "_last",
+              "cs": ["", "", "-DLAST"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "direct_product" : 
+      [
+        {
+          "definition": 
+          [
+            {
+              "name": "tracing_and_miss_lighting_use_realistic_camera_first",
+              "cs": [ "renderer/reference.hlsl", "tracing_and_miss_lighting", "-DUSE_REALISTIC_CAMERA -DFIRST"]
+            }
+          ]
+        },
+        {
+          "definition": 
+          [
+            {
+              "name": "",
+              "cs": ["", "", ""]
+            },
+            {
+              "name": "_last",
+              "cs": ["", "", "-DLAST"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "direct_product" : 
+      [
+        {
+          "definition": 
+          [
+            {
+              "name": "lighting_and_sampling",
+              "cs": [ "renderer/reference.hlsl", "lighting_and_sampling", ""]
+            }
+          ]
+        },
+        {
+          "definition": 
+          [
+            {
+              "name": "",
+              "cs": ["", "", ""]
+            },
+            {
+              "name": "_first",
+              "cs": ["", "", "-DFIRST"]
             }
           ]
         }
       ]
     }
+  ],
+  "definition": 
+  [
+    {
+      "name": "init_dispatch_argument",
+      "cs": ["renderer/reference.hlsl", "init_dispatch_argument", ""]
+    },
+    {
+      "name": "accumulate",
+      "cs": ["renderer/reference.hlsl", "accumulate", ""]
+    },
   ]
 }
