@@ -79,11 +79,19 @@ public:
 
 		separator();
 
+		float subsurface = m_mtl.subsurface();
+		if(slider_float("subsurface", subsurface, 0, 1)){ m_mtl.set_subsurface(subsurface); }
+
 		float subsurface_radius_scale = m_mtl.subsurface_radius_scale();
 		if(input_float("subsurface_radius_scale", subsurface_radius_scale)){ m_mtl.set_subsurface_radius_scale(subsurface_radius_scale); }
 
 		float3 subsurface_radius = m_mtl.subsurface_radius();
 		if(color_edit("subsurface_radius", subsurface_radius)){ m_mtl.set_subsurface_radius(subsurface_radius); }
+
+		separator();
+
+		bool is_twoside = m_mtl.is_twoside();
+		if(checkbox("twoside", is_twoside)){ m_mtl.set_twoside(is_twoside); }
 	}
 	
 	void serialize(json_file::values_t& json)
@@ -105,8 +113,11 @@ public:
 		write_float(json, "emissive_scale", m_mtl.emissive_scale());
 		write_float3(json, "emissive_color", m_mtl.emissive_color());
 		
+		write_float(json, "subsurface", m_mtl.subsurface());
 		write_float(json, "subsurface_radius_scale", m_mtl.subsurface_radius_scale());
 		write_float3(json, "subsurface_radius", m_mtl.subsurface_radius());
+
+		write_bool(json, "twoside", m_mtl.is_twoside());
 	}
 
 	void deserialize(const json_file::values_t& json)
@@ -147,11 +158,17 @@ public:
 		float3 emissive_color;
 		if(read_float3(json, "emissive_color", emissive_color)){ m_mtl.set_emissive_color(emissive_color); }
 		
+		float subsurface;
+		if(read_float(json, "subsurface", subsurface)){ m_mtl.set_subsurface(subsurface); }
+		
 		float subsurface_radius_scale;
 		if(read_float(json, "subsurface_radius_scale", subsurface_radius_scale)){ m_mtl.set_subsurface_radius_scale(subsurface_radius_scale); }
 
 		float3 subsurface_radius;
 		if(read_float3(json, "subsurface_radius", subsurface_radius)){ m_mtl.set_subsurface_radius(subsurface_radius); }
+
+		bool is_twoside;
+		if(read_bool(json, "twoside", is_twoside)){ m_mtl.set_twoside(is_twoside); }
 	}
 
 private:

@@ -41,6 +41,7 @@ struct standard_material
 	uint	roughness; //sheen,coat,specular
 	uint	roughness_subsurface_misc; //diffuse,subsurface
 	uint	scale; //coat,specular
+	uint	flags;
 };
 
 float3	get_coat_normal(standard_material mtl){ return oct_to_f32x3(u16x2_unorm_to_f32x2(mtl.coat_normal) * 2 - 1); }
@@ -63,6 +64,7 @@ float	get_diffuse_roughness(standard_material mtl){ return r10g10b10a2_to_f32x4(
 float3	get_diffuse_reflectance(standard_material mtl){ return r10g10b10a2_to_f32x4(mtl.diffuse_reflectance).xyz; }
 float	get_subsurface(standard_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness_subsurface_misc).y; }
 float3	get_subsurface_radius(standard_material mtl){ return r9g9b9e5_to_f32x3(mtl.subsurface_radius); }
+bool	is_twoside(standard_material mtl){ return mtl.flags & 1; }
 
 #else
 
@@ -88,6 +90,7 @@ struct standard_material
 	float3	diffuse_reflectance;
 	float	subsurface;
 	float3	subsurface_radius;
+	uint	flags;
 };
 
 float3	get_coat_normal(standard_material mtl){ return mtl.coat_normal; }
@@ -110,6 +113,7 @@ float	get_diffuse_roughness(standard_material mtl){ return mtl.diffuse_roughness
 float3	get_diffuse_reflectance(standard_material mtl){ return mtl.diffuse_reflectance; }
 float	get_subsurface(standard_material mtl){ return mtl.subsurface; }
 float3	get_subsurface_radius(standard_material mtl){ return mtl.subsurface_radius; }
+bool	is_twoside(standard_material mtl){ return mtl.flags & 1; }
 
 #endif
 
@@ -144,6 +148,7 @@ struct standard_material_host
 	uint	coat_specular_color; //coat.yz,specular.xy
 	//5
 	uint	specular_diffuse_color; //specular.z,diffuse_xyz
+	uint	flags;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,7 +161,7 @@ standard_material load_standard_material(uint handle, float3 wo, float3 normal, 
 	uint4 data2 = buf.Load4(16 * 2);
 	uint4 data3 = buf.Load4(16 * 3);
 	uint4 data4 = buf.Load4(16 * 4);
-	uint  data5 = buf.Load (16 * 5);
+	uint2 data5 = buf.Load2(16 * 5);
 
 	float3 emissive_color = r9g9b9e5_to_f32x3(data4.x);
 	float3 subsurface_radius = r9g9b9e5_to_f32x3(data4.y);
@@ -310,6 +315,7 @@ standard_material load_standard_material(uint handle, float3 wo, float3 normal, 
 	}
 
 	standard_material mtl;
+	mtl.flags = data5.y;
 
 #if defined(COMPRESS_MATERIAL)
 	
@@ -362,7 +368,12 @@ standard_material load_standard_material(uint handle, float3 wo, float3 normal, 
 
 bool has_contribution(float nwi, standard_material mtl)
 {
-	return (nwi > cosine_threshold);
+	if(nwi > cosine_threshold)
+		return true;
+	else if(nwi < -cosine_threshold)
+		return is_twoside(mtl) && (get_subsurface(mtl) > 0);
+	else
+		return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -379,65 +390,64 @@ float3 calc_emissive(float3 wo, float3 normal, standard_material mtl)
 
 void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl, out float3 diffuse, out float3 non_diffuse, out float pdf, uint2 dtid = 0)
 {
+	pdf = 0;
 	diffuse = 0;
 	non_diffuse = 0;
-	pdf = 0;
 
 	float3 throughput = 1;
-	float sum_weight = 0;
+	float sum_weight = 1e-10;
 
 	float3 sheen_reflectance = get_sheen_reflectance(mtl);
 	if(any(sheen_reflectance > 0))
 	{
+		float weight = luminance(sheen_reflectance);
+		sum_weight += weight;
+
 		float3 sheen_tangent, sheen_binormal;
 		sheen::calc_orthonormal_basis(wo, normal, sheen_tangent, sheen_binormal);
 		float3 sheen_wo = float3(dot(sheen_tangent, wo), dot(sheen_binormal, wo), dot(normal, wo));
 		float3 sheen_wi = float3(dot(sheen_tangent, wi), dot(sheen_binormal, wi), dot(normal, wi));
 
-		if((sheen_wo.z > cosine_threshold) && (sheen_wi.z > cosine_threshold))
+		if(sheen_wi.z > cosine_threshold)
 		{
-			float weight = luminance(sheen_reflectance);
-			sum_weight += weight;
-
 			float4 brdf_pdf = sheen::calc_brdf_pdf(sheen_wo, sheen_wi, get_sheen_roughness(mtl));
 			brdf_pdf.xyz *= sheen_reflectance;
 			non_diffuse += brdf_pdf.xyz;
 			pdf += brdf_pdf.w * weight;
+		}
 
-			throughput *= 1 - sheen_reflectance;
-			if(all(throughput == 0))
-			{
-				pdf /= sum_weight;
-				return;
-			}
+		throughput *= 1 - sheen_reflectance;
+		if(all(throughput == 0))
+		{
+			pdf /= sum_weight;
+			return;
 		}
 	}
 
-	float coat_scale = get_coat_scale(mtl);
-	if(coat_scale > 0)
+	float3 coat_reflectance = get_coat_reflectance(mtl);
+	if(any(coat_reflectance > 0))
 	{
+		float weight = luminance(coat_reflectance * throughput);
+		sum_weight += weight;
+	
 		float3 coat_tangent, coat_binormal;
 		float3 coat_normal = get_coat_normal(mtl);
 		calc_orthonormal_basis(coat_normal, coat_tangent, coat_binormal);
 		float3 coat_wo = float3(dot(coat_tangent, wo), dot(coat_binormal, wo), dot(coat_normal, wo));
 		float3 coat_wi = float3(dot(coat_tangent, wi), dot(coat_binormal, wi), dot(coat_normal, wi));
 	
-		if((coat_wo.z > 0) && (coat_wi.z > 0))
+		if(coat_wi.z > cosine_threshold)
 		{
-			float3 reflectance = get_coat_reflectance(mtl);
-			float weight = luminance(reflectance * throughput);
-			sum_weight += weight;
-	
 			float4 brdf_pdf = microfacet::calc_brdf_pdf(coat_wo, coat_wi, get_coat_color0(mtl), get_coat_roughness(mtl));
-			non_diffuse += coat_scale * brdf_pdf.xyz * throughput;
+			non_diffuse += get_coat_scale(mtl) * brdf_pdf.xyz * throughput;
 			pdf += brdf_pdf.w * weight;
+		}
 
-			throughput *= 1 - reflectance;
-			if(all(throughput == 0))
-			{
-				pdf /= sum_weight;
-				return;
-			}
+		throughput *= 1 - coat_reflectance;
+		if(all(throughput == 0))
+		{
+			pdf /= sum_weight;
+			return;
 		}
 	}
 
@@ -447,52 +457,63 @@ void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl, o
 	float3 base_wo = float3(dot(base_tangent, wo), dot(base_binormal, wo), dot(base_normal, wo));
 	float3 base_wi = float3(dot(base_tangent, wi), dot(base_binormal, wi), dot(base_normal, wi));
 
-	if((base_wo.z > 0) && (base_wi.z > 0))
+	float3 matte_reflectance = get_matte_reflectance(mtl);
+	float3 specular_reflectance = get_specular_reflectance(mtl);
+	if(any(specular_reflectance) > 0)
 	{
-		float specular_scale = get_specular_scale(mtl);
-		if(specular_scale > 0)
-		{
-			float3 reflectance = get_specular_reflectance(mtl);
-			float weight = specular_scale * luminance(throughput * reflectance);
-			sum_weight += weight;
+		float weight_s = luminance(throughput * specular_reflectance);
+		float weight_m = luminance(throughput * matte_reflectance);
+		sum_weight += weight_s + weight_m;
 
+		if(base_wi.z > cosine_threshold)
+		{
+			float specular_scale = get_specular_scale(mtl);
 			float roughness = get_specular_roughness(mtl);
 			float4 brdf_pdf = microfacet::calc_brdf_pdf(base_wo, base_wi, get_specular_color0(mtl), roughness);
 			non_diffuse += specular_scale * brdf_pdf.xyz * throughput;
-			pdf += brdf_pdf.w * weight;
-
-			float3 matte_reflectance = get_matte_reflectance(mtl);
-			weight = specular_scale * luminance(throughput * matte_reflectance);
-			sum_weight += weight;
+			pdf += brdf_pdf.w * weight_s;
 
 			brdf_pdf = microfacet::calc_matte_brdf_pdf(base_wo, base_wi, matte_reflectance, roughness);
 			non_diffuse += specular_scale * brdf_pdf.xyz * throughput;
-			pdf += brdf_pdf.w * weight;
-
-			throughput *= 1 - (reflectance + matte_reflectance);
-			if(all(throughput == 0))
-			{
-				pdf /= sum_weight;
-				return;
-			}
+			pdf += brdf_pdf.w * weight_m;
 		}
 
-		float3 diffuse_color = get_diffuse_color(mtl);
-		if(any(diffuse_color > 0))
+		throughput *= 1 - (specular_reflectance + matte_reflectance);
+		if(all(throughput == 0))
 		{
-			float3 reflectance = get_diffuse_reflectance(mtl);
-			float weight = luminance(throughput * reflectance);
-			sum_weight += weight;
+			pdf /= sum_weight;
+			return;
+		}
+	}
 
-			float4 brdf_pdf = oren_nayer::calc_brdf_pdf(base_wo, base_wi, get_diffuse_color(mtl), get_diffuse_roughness(mtl));
+	float3 diffuse_reflectance = get_diffuse_reflectance(mtl);
+	if(any(diffuse_reflectance > 0))
+	{
+		float weight = luminance(throughput * diffuse_reflectance);
+		sum_weight += weight;
+
+		if((base_wi.z > cosine_threshold) || (base_wi.z < -cosine_threshold)) //サンプリングから呼ぶときは片面でも計算してほしい.NEEのときはhas_contributionで片面下半球をはじく
+		//if((base_wi.z > cosine_threshold) || ((base_wi.z < -cosine_threshold) && is_twoside(mtl)))
+		{
+			float subsurface = get_subsurface(mtl);
+			float3 diffuse_color = get_diffuse_color(mtl);
+			if(base_wi.z > cosine_threshold)
+			{
+				diffuse_color *= (1 - subsurface);
+			}
+			else
+			{
+				diffuse_color *= subsurface;
+				base_wi = -base_wi;
+			}
+
+			float4 brdf_pdf = oren_nayer::calc_brdf_pdf(base_wo, base_wi, diffuse_color, get_diffuse_roughness(mtl));
 			diffuse += brdf_pdf.xyz * throughput;
 			pdf += brdf_pdf.w * weight;
 		}
 	}
 
-	//NEEでの接続先がdarkspotのとき0になりうる
-	if(sum_weight > 0)
-		pdf /= sum_weight;
+	pdf /= sum_weight;
 }
 
 float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl, uint2 dtid = 0)
@@ -511,7 +532,6 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 	
 	int sample_type;
 	float sum_weight = 0;
-	float sample_weight;
 	
 	float3 sheen_reflectance = get_sheen_reflectance(mtl);
 	if(any(sheen_reflectance) > 0)
@@ -524,7 +544,6 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 		{
 			u0 /= pmf;
 			sample_type = 0;
-			sample_weight = weight;
 		}
 		else
 		{
@@ -544,7 +563,6 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 		{
 			u0 /= pmf;
 			sample_type = 1;
-			sample_weight = weight;
 		}
 		else
 		{
@@ -564,7 +582,6 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 		{
 			u0 /= pmf;
 			sample_type = 2;
-			sample_weight = weight;
 		}
 		else
 		{
@@ -580,7 +597,6 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 		{
 			u0 /= pmf;
 			sample_type = 3;
-			sample_weight = weight;
 		}
 		else
 		{
@@ -600,7 +616,17 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 		{
 			u0 /= pmf;
 			sample_type = 4;
-			sample_weight = weight;
+
+			float subsurface = get_subsurface(mtl);
+			if(u0 < subsurface)
+			{
+				u0 /= subsurface;
+				sample_type = 5;
+			}
+			else
+			{
+				u0 = (1 - u0) / (1 - subsurface);
+			}
 		}
 		else
 		{
@@ -660,6 +686,7 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 		else
 		{
 			s.is_valid = oren_nayer::sample_brdf(base_wo, s.w, get_diffuse_color(mtl), get_diffuse_roughness(mtl), u1, u2);
+			if(sample_type == 5){ s.w = -s.w; }
 		}
 		if(!s.is_valid)
 			return s;
@@ -675,11 +702,6 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u
 	
 	float3 diffuse, non_diffuse;
 	calc_bsdf_pdf(wo, s.w, normal, mtl, diffuse, non_diffuse, s.pdf, dtid);
-	//if(pdf <= 0) //なんでいるんやっけ？
-	//{
-	//	s.is_valid = false;
-	//	return s;
-	//}
 
 	float inv_pdf = 1 / s.pdf;
 	s.diffuse_weight = diffuse * inv_pdf;

@@ -55,6 +55,7 @@ public:
 		uint	sheen_coat_color; //sheen.xyz,coat.x
 		uint	coat_specular_color; //coat.yz,specular.xy
 		uint	specular_diffuse_color; //specular.z,diffuse_xyz
+		uint	flags;
 	};
 
 	//コンストラクタ
@@ -104,6 +105,8 @@ public:
 		params.coat_specular_color = f32x4_to_u8x4_unorm(float4(m_coat_color0.yz, m_specular_color0.xy));
 		params.specular_diffuse_color = f32x4_to_u8x4_unorm(float4(m_specular_color0.z, m_diffuse_color));
 
+		params.flags = m_is_twoside ? 1 : 0;
+
 		push_priority push_priority(context);
 		context.set_priority(priority_initiaize);
 		void* dst = context.update_buffer(*mp_buf, 0, sizeof(params));
@@ -146,6 +149,7 @@ public:
 	void set_subsurface_map(texture_resource_ptr t){ set_impl(mp_subsurface_map, t); }
 	void set_subsurface_radius(const float3 &c){ set_impl(m_subsurface_radius, c); }
 	void set_subsurface_radius_scale(const float s){ set_impl(m_subsurface_radius_scale, s); }
+	void set_twoside(const bool b){ set_impl(m_is_twoside, b); }
 
 	float3	sheen_color() const { return m_sheen_color; }
 	float	sheen_roughness() const { return m_sheen_roughness; }
@@ -162,6 +166,7 @@ public:
 	float	subsurface() const { return m_subsurface; }
 	float3	subsurface_radius() const { return m_subsurface_radius; }
 	float	subsurface_radius_scale() const { return m_subsurface_radius_scale; }
+	bool	is_twoside() const { return m_is_twoside; }
 
 private:
 
@@ -213,6 +218,8 @@ private:
 	float3					m_subsurface_radius = float3(1);
 	float					m_subsurface_radius_scale = 1;
 	texture_resource_ptr	mp_subsurface_map;
+
+	bool					m_is_twoside = false;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
