@@ -1011,7 +1011,7 @@ inline bottom_level_acceleration_structure::bottom_level_acceleration_structure(
 	for(uint i = 0; i < num_descs; i++)
 	{
 		m_descs[i].Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-		m_descs[i].Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+		m_descs[i].Flags = D3D12_RAYTRACING_GEOMETRY_FLAGS(descs[i].flags);
 		m_descs[i].Triangles.IndexBuffer = ib->GetGPUVirtualAddress() + ib.stride() * descs[i].start_index_location;
 		m_descs[i].Triangles.IndexCount = descs[i].index_count;
 		m_descs[i].Triangles.IndexFormat = DXGI_FORMAT_R16_UINT;

@@ -237,18 +237,53 @@ public:
 			context.set_pipeline_resource("throughput_pdf_srv", *mp_throughput_pdf_srv[i]);
 			context.set_pipeline_resource("throughput_pdf_uav", *mp_throughput_pdf_uav[1 - i]);
 			context.set_pipeline_state(*m_shader_file.get(shader_name));
-			context.dispatch_with_32bit_constant(*mp_argument_buf, 0, bounce);
+			context.dispatch_with_32bit_constant(*mp_argument_buf, 0, m_engine());
 			i = 1 - i;
+
+			bool enable_sss = true;
+			//bool enable_sss = false;
+			if(enable_sss)
+			{
+				context.set_pipeline_resource("dispatch_arg_uav", *mp_argument_uav);
+				context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[0]);
+				context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[1]);
+				context.set_pipeline_state(*m_shader_file.get("init_sss_dispatch_argument"));
+				context.dispatch(1, 1, 1);
+
+				context.set_pipeline_resource("hit_info_uav", *mp_hit_info_uav);
+				context.set_pipeline_resource("ray_info_srv", *mp_ray_info_srv[i]);
+				context.set_pipeline_resource("work_queue_srv", *mp_work_queue_srv[0]);
+				context.set_pipeline_resource("work_queue_uav", *mp_work_queue_uav[1]);
+				context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[0]);
+				context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[1]);
+				context.set_pipeline_resource("throughput_pdf_srv", *mp_throughput_pdf_srv[i]);
+				context.set_pipeline_resource("throughput_pdf_uav", *mp_throughput_pdf_uav[1 - i]);
+				context.set_pipeline_state(*m_shader_file.get("sss_sampling_and_tracing"));
+				context.dispatch_with_32bit_constant(*mp_argument_buf, 0, m_engine());
+
+				context.set_pipeline_resource("dispatch_arg_uav", *mp_argument_uav);
+				context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[1]);
+				context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[0]);
+				context.set_pipeline_state(*m_shader_file.get("init_sss_dispatch_argument"));
+				context.dispatch(1, 1, 1);
+
+				context.set_pipeline_resource("hit_info_srv", *mp_hit_info_srv);
+				context.set_pipeline_resource("ray_info_uav", *mp_ray_info_uav[i]);
+				context.set_pipeline_resource("work_queue_srv", *mp_work_queue_srv[1]);
+				context.set_pipeline_resource("work_queue_uav", *mp_work_queue_uav[0]);
+				context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[1]);
+				context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[0]);
+				context.set_pipeline_resource("throughput_pdf_srv", *mp_throughput_pdf_srv[1 - i]);
+				context.set_pipeline_resource("throughput_pdf_uav", *mp_throughput_pdf_uav[i]);
+				context.set_pipeline_state(*m_shader_file.get("sss_lighting_and_sampling"));
+				context.dispatch_with_32bit_constant(*mp_argument_buf, 0, m_engine());
+			}
 
 			context.set_pipeline_resource("dispatch_arg_uav", *mp_argument_uav);
 			context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[0]);
 			context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[1]);
 			context.set_pipeline_state(*m_shader_file.get("init_dispatch_argument"));
 			context.dispatch(1, 1, 1);
-
-			//context.set_pipeline_state(*m_shader_file.get("sss_tracing"));
-
-			//context.set_pipeline_state(*m_shader_file.get("sss_nee_lighting_and_sampling"));
 		}
 
 		context.set_pipeline_resource("accum_uav", *mp_accum_uav);
@@ -296,6 +331,7 @@ private:
 	unordered_access_view_ptr		mp_work_queue_size_uav[2];
 	buffer_ptr						mp_argument_buf;
 	unordered_access_view_ptr		mp_argument_uav;
+	std::mt19937					m_engine;
 
 	uint							m_max_bounce = 3;
 	uint							m_max_accumulation = 64;

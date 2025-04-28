@@ -8,6 +8,55 @@ namespace nn{
 namespace render{
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+namespace anon{
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+static constexpr uint blas_group_key_max = 3;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//BLASのグループキーを返す
+inline uint get_blas_group_key(const material& material)
+{
+	uint key = 0;
+	if(material.has_alpha_map())
+		key = 0x1;
+	if(material.has_subsurface_scattering())
+		key |= 0x2;
+	return key;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//インスタンスマスクを返す
+inline raytracing_instance_mask get_raytracing_instance_mask(const material& material)
+{
+	raytracing_instance_mask mask = raytracing_instance_mask_default;
+	if(material.has_subsurface_scattering())
+		mask = raytracing_instance_mask(mask | raytracing_instance_mask_subsurface);
+	return mask;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//ジオメトリフラグを返す
+inline raytracing_geometry_flags get_raytracing_geometry_flag(const material& material)
+{
+	raytracing_geometry_flags flags = raytracing_geometry_flag_none;
+	if(not(material.has_alpha_map()))
+		flags = raytracing_geometry_flags(flags | raytracing_geometry_flag_opaque);
+	if(material.has_subsurface_scattering())
+		flags = raytracing_geometry_flags(flags | raytracing_geometry_flag_no_duplicate_anyhit_invocation);
+	return flags;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+} //namespace anon
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 //mesh
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -22,9 +71,10 @@ inline mesh::mesh()
 //更新
 inline void mesh::update(render_context& context, const float dt)
 {
+	update_material(context);
 	update_geometry(context);
 	update_raytracing(context);
-	update_material(context);
+	update_emissive(context);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -55,16 +105,52 @@ inline void mesh::draw(render_context& context, draw_type type)
 //マテリアルの更新
 inline void mesh::update_material(render_context& context)
 {
-	for(auto& p_mtl : m_material_ptrs)
+	if(m_blas_group_keys.empty())
 	{
-		if(p_mtl->has_update())
-			p_mtl->update(context);
+		m_blas_group_keys.resize(m_material_ptrs.size(), -1);
+		for(auto& p_mtl : m_material_ptrs)
+			p_mtl->register_bindless();
 	}
 
+	bool need_regroup = false;
+	for(uint i = 0; i < uint(m_material_ptrs.size()); i++)
+	{
+		auto& material = *m_material_ptrs[i];
+		if(material.has_update())
+		{
+			material.update(context);
+
+			const uint key = anon::get_blas_group_key(material);
+			if(m_blas_group_keys[i] != key)
+			{
+				m_blas_group_keys[i] = key;
+				need_regroup = true;
+			}
+		}
+	}
+	if(need_regroup && m_blas_infos.size())
+	{
+		m_blas_infos.clear();
+		gp_raytracing_manager->unregister_instance(bindless_instance_index(), raytracing_instance_index());
+
+		for(auto& info : m_emissive_infos)
+		{
+			if(info.emissive_instance_index != 0xffffffff)
+				gp_raytracing_manager->unregister_emissive(info.emissive_instance_index);
+		}
+		m_emissive_infos.clear();
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//Emissive用の更新
+inline void mesh::update_emissive(render_context& context)
+{
 	for(size_t i = 0; i < m_clusters.size(); i++)
 	{
 		auto& cluster = m_clusters[i];
-		auto& info = m_emissive_info[i];
+		auto& info = m_emissive_infos[i];
 
 		float power = m_material_ptrs[cluster.material_index]->emissive_power();
 		if(power > 0)
@@ -94,30 +180,30 @@ inline void mesh::update_material(render_context& context)
 inline void mesh::update_raytracing(render_context& context)
 {
 	const bool is_static = (m_gs_ptrs[0] == m_gs_ptrs[1]);
-	const bool is_first_call = m_blas_ptrs.empty();
+	const bool is_first_call = m_blas_infos.empty();
 	if(is_first_call)
 	{
 		uint num_blas = 0;
-		uint num_descs[material::blas_group_key_max] = {};
+		uint num_descs[anon::blas_group_key_max] = {};
 		for(auto& cluster : m_clusters)
 		{
-			if(num_descs[m_material_ptrs[cluster.material_index]->blas_group_key()]++ == 0)
+			if(num_descs[anon::get_blas_group_key(*m_material_ptrs[cluster.material_index])]++ == 0)
 				num_blas++;
 		}
 		uint sum = 0;
-		uint offsets[material::blas_group_key_max + 1];
-		for(uint i = 0; i < material::blas_group_key_max; i++)
+		uint offsets[anon::blas_group_key_max + 1];
+		for(uint i = 0; i < anon::blas_group_key_max; i++)
 		{
 			const uint tmp = std::exchange(num_descs[i], 0);
 			offsets[i] = std::exchange(sum, sum + tmp);
 		}
-		offsets[material::blas_group_key_max] = sum;
+		offsets[anon::blas_group_key_max] = sum;
 	
-		m_blas_ptrs.resize(num_blas);
+		m_blas_infos.resize(num_blas);
 		num_blas = 0;
 
 		const auto bindless_instance_count = uint(m_clusters.size());
-		const auto raytracing_instance_count = uint(m_blas_ptrs.size());
+		const auto raytracing_instance_count = uint(m_blas_infos.size());
 		register_instance(bindless_instance_count, raytracing_instance_count);
 		const auto bindless_instance_index = this->bindless_instance_index();
 		const auto raytracing_instance_index = this->raytracing_instance_index();
@@ -129,9 +215,6 @@ inline void mesh::update_raytracing(render_context& context)
 		else
 			m_bindless_gs_ptrs[1] = m_bindless_gs_ptrs[0];
 
-		for(auto& p_material : m_material_ptrs)
-			p_material->register_bindless();
-
 		const auto& gs = geometry_state();
 		const auto& ib = gs.index_buffer();
 		const auto& vb = gs.vertex_buffer(0);
@@ -140,7 +223,7 @@ inline void mesh::update_raytracing(render_context& context)
 		for(auto& cluster : m_clusters)
 		{
 			const auto& material = *m_material_ptrs[cluster.material_index];
-			const uint key = material.blas_group_key();
+			const uint key = anon::get_blas_group_key(material);
 			const uint offset = offsets[key] + num_descs[key]++;
 
 			auto& desc = descs[offset];
@@ -148,17 +231,18 @@ inline void mesh::update_raytracing(render_context& context)
 			desc.vertex_count = cluster.vertex_count;
 			desc.start_index_location = cluster.start_index_location;
 			desc.base_vertex_location = cluster.base_vertex_location;
+			desc.flags = anon::get_raytracing_geometry_flag(material);
 
 			if(offset + 1 == offsets[key + 1])
 			{
-				auto& p_blas = m_blas_ptrs[num_blas];
-				p_blas = gp_render_device->create_bottom_level_acceleration_structure(gs, &descs[offsets[key]], num_descs[key], not(is_static));
+				auto& info = m_blas_infos[num_blas];
+				info.p_blas = gp_render_device->create_bottom_level_acceleration_structure(gs, &descs[offsets[key]], num_descs[key], not(is_static));
 
 				auto* p_raytracing_instance_desc = gp_raytracing_manager->update_raytracing_instance(raytracing_instance_index + num_blas);
 				p_raytracing_instance_desc->id = bindless_instance_index + offsets[key];
-				p_raytracing_instance_desc->mask = raytracing_instance_mask_default;
+				p_raytracing_instance_desc->mask = anon::get_raytracing_instance_mask(material);
 				p_raytracing_instance_desc->flags = raytracing_instance_flag_triangle_front_ccw;
-				p_raytracing_instance_desc->blas_address = p_blas->gpu_virtual_address();
+				p_raytracing_instance_desc->blas_address = info.p_blas->gpu_virtual_address();
 
 				const auto ltow = ltow_matrix();
 				memcpy(p_raytracing_instance_desc->transform, &ltow, sizeof(float4) * 3);
@@ -171,20 +255,20 @@ inline void mesh::update_raytracing(render_context& context)
 			p_bindless_instance_desc->bindless_geometry_handle = bindless_geometry().bindless_handle();
 			p_bindless_instance_desc->bindless_material_handle = material.bindless_handle();
 
-			m_emissive_info.emplace_back();
-			m_emissive_info.back().emissive_instance_index = 0xffffffff;
-			m_emissive_info.back().bindless_instance_index = bindless_instance_index + offset;
+			m_emissive_infos.emplace_back();
+			m_emissive_infos.back().emissive_instance_index = 0xffffffff;
+			m_emissive_infos.back().bindless_instance_index = bindless_instance_index + offset;
 		}
 	
 		context.set_priority(priority_build_bottom_level_acceleration_structure);
-		for(auto& p_blas : m_blas_ptrs){ context.build_bottom_level_acceleration_structure(*p_blas); }
+		for(auto& info : m_blas_infos){ context.build_bottom_level_acceleration_structure(*info.p_blas); }
 
 		m_update_frame = gp_render_device->frame_count();
 	}
 	else if(m_update_frame < transform::update_frame())
 	{
 		const auto ltow = ltow_matrix();
-		for(uint i = 0; i < uint(m_blas_ptrs.size()); i++)
+		for(uint i = 0; i < uint(m_blas_infos.size()); i++)
 		{
 			auto* p_raytracing_instance_desc = gp_raytracing_manager->update_raytracing_instance(raytracing_instance_index() + i);
 			memcpy(p_raytracing_instance_desc->transform, &ltow, sizeof(float4) * 3);
@@ -199,9 +283,9 @@ inline void mesh::update_raytracing(render_context& context)
 			m_compaction_completed = true;
 	
 			context.set_priority(priority_compact_bottom_level_acceleration_structure);
-			for(uint i = 0; i < uint(m_blas_ptrs.size()); i++)
+			for(uint i = 0; i < uint(m_blas_infos.size()); i++)
 			{
-				auto& p_blas = m_blas_ptrs[i];
+				auto& p_blas = m_blas_infos[i].p_blas;
 				auto state = p_blas->compaction_state();
 				if(state == raytracing_compaction_state_not_support)
 					continue;
@@ -226,8 +310,8 @@ inline void mesh::update_raytracing(render_context& context)
 		if(not(is_first_call))
 		{
 			context.set_priority(priority_refit_bottom_level_acceleration_structure);
-			for(auto& p_blas : m_blas_ptrs)
-				context.refit_bottom_level_acceleration_structure(*p_blas, &geometry_state());
+			for(auto& info : m_blas_infos)
+				context.refit_bottom_level_acceleration_structure(*info.p_blas, &geometry_state());
 
 			for(uint i = 0; i < uint(m_clusters.size()); i++)
 			{

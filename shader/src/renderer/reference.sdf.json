@@ -94,6 +94,34 @@
           ]
         }
       ]
+    },
+    {
+      "direct_product" : 
+      [
+        {
+          "definition": 
+          [
+            {
+              "name": "sss_sampling_and_tracing",
+              "cs": [ "renderer/reference.hlsl", "sss_sampling_and_tracing", ""]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "direct_product" : 
+      [
+        {
+          "definition": 
+          [
+            {
+              "name": "sss_lighting_and_sampling",
+              "cs": [ "renderer/reference.hlsl", "sss_lighting_and_sampling", "-DSSS_LIGHTING_AND_SAMPLING"]
+            }
+          ]
+        }
+      ]
     }
   ],
   "definition": 
@@ -101,6 +129,10 @@
     {
       "name": "init_dispatch_argument",
       "cs": ["renderer/reference.hlsl", "init_dispatch_argument", ""]
+    },
+    {
+      "name": "init_sss_dispatch_argument",
+      "cs": ["renderer/reference.hlsl", "init_dispatch_argument", "-DSSS"]
     },
     {
       "name": "accumulate",

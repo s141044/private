@@ -2,10 +2,12 @@
 #ifndef RENDERER_REFERENCE_HLSL
 #define RENDERER_REFERENCE_HLSL
 
+#include"../debug.hlsl"
 #include"../random.hlsl"
 #include"../utility.hlsl"
 #include"../packing.hlsl"
 #include"../raytracing.hlsl"
+#include"../bssrdf_utility.hlsl"
 #include"../raytracing_utility.hlsl"
 #include"../global_constant.hlsl"
 #include"../root_constant.hlsl"
@@ -63,8 +65,8 @@ void add_sss_job(uint2 pixel_pos)
 		work_queue_size_uav.InterlockedAdd(4, count, offset);
 
 	offset = WaveReadLaneFirst(offset);
-	offset += count - WavePrefixCountBits(1) - 1;
-	offset += screen_size.x * screen_size.y - count;
+	offset = screen_size.x * screen_size.y - offset - count;
+	offset += WavePrefixCountBits(1);
 	work_queue_uav.Store(4 * offset, pixel_pos.x | (pixel_pos.y << 16));
 }
 
@@ -120,6 +122,51 @@ ray_payload get_hit_info(uint2 pixel_pos)
 	return decode_payload(enc);
 }
 
+namespace ref{ bool has_contribution(float nwi, standard_material mtl)
+{
+#if defined(SSS_LIGHTING_AND_SAMPLING)
+	return (nwi > 0);
+#else
+	return ::has_contribution(nwi, mtl);
+#endif
+}}
+
+namespace ref{ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl)
+{
+#if defined(SSS_LIGHTING_AND_SAMPLING)
+
+	float3 tangent, binormal;
+	calc_orthonormal_basis(normal, tangent, binormal);
+
+	wi = float3(dot(tangent, wi), dot(binormal, wi), dot(normal, wi));
+	return float4(calc_subsurface(mtl) * wi.z * inv_PI, sample_cosine_hemisphere_pdf(wi)); //本当はwiでmaterialを読みなおさないとダメ.重すぎるのでwi=normalのmaterialで近似.
+
+#else
+	return ::calc_bsdf_pdf(wo, wi, normal, mtl);
+#endif
+}}
+
+namespace ref{ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u0, float u1, uint2 dtid = 0)
+{
+#if defined(SSS_LIGHTING_AND_SAMPLING)
+
+	float3 tangent, binormal;
+	calc_orthonormal_basis(normal, tangent, binormal);
+	
+	bsdf_sample s;
+	s.w = sample_cosine_hemisphere(u0, u1);
+	s.w = s.w.x * tangent + s.w.y * binormal + s.w.z * normal;
+	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, s.w, normal, mtl);
+	s.weight = bsdf_pdf.rgb / bsdf_pdf.a;
+	s.pdf = bsdf_pdf.a;
+	s.is_valid = true;
+	return s;
+
+#else
+	return ::sample_bsdf(wo, normal, mtl, u0, u1, dtid);
+#endif
+}}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 float calc_mis_weight(float pdf_a, float pdf_b)
@@ -143,7 +190,7 @@ float3 emissive_lighting(intersection isect, standard_material mtl, float3 wo, i
 	wi *= inv_dist;
 
 	float nwi = dot(isect.normal, wi);
-	if(!has_contribution(nwi, mtl))
+	if(!ref::has_contribution(nwi, mtl))
 		return 0;
 
 	float light_nwo = -dot(s.normal, wi);
@@ -153,7 +200,7 @@ float3 emissive_lighting(intersection isect, standard_material mtl, float3 wo, i
 	if(is_occluded(isect.position, wi, 1 / inv_dist))
 		return 0;
 
-	float4 bsdf_pdf = calc_bsdf_pdf(wo, wi, isect.normal, mtl);
+	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, wi, isect.normal, mtl);
 
 	float mis_weight = 1;
 #if ENABLE_HIT_EVAL || FORCE_MIS
@@ -165,13 +212,13 @@ float3 emissive_lighting(intersection isect, standard_material mtl, float3 wo, i
 float3 directional_lighting(intersection isect, standard_material mtl, float3 wo, inout rng rng)
 {
 	float3 wi = sample_directional_light(randF(rng), randF(rng));
-	if(!has_contribution(dot(isect.normal, wi), mtl))
+	if(!ref::has_contribution(dot(isect.normal, wi), mtl))
 		return 0;
 
 	if(is_occluded(isect.position, wi, FLT_MAX))
 		return 0;
 
-	float4 bsdf_pdf = calc_bsdf_pdf(wo, wi, isect.normal, mtl);
+	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, wi, isect.normal, mtl);
 
 	float mis_weight = 1;
 #if ENABLE_HIT_EVAL || FORCE_MIS
@@ -190,13 +237,13 @@ float3 environment_lighting(intersection isect, standard_material mtl, float3 wo
 	environment_sample s = decompress(environment_sample_srv[index]);
 
 	float nwi = dot(isect.normal, s.w);
-	if(!has_contribution(nwi, mtl))
+	if(!ref::has_contribution(nwi, mtl))
 		return 0;
 
 	if(is_occluded(isect.position, s.w, FLT_MAX))
 		return 0;
 
-	float4 bsdf_pdf = calc_bsdf_pdf(wo, s.w, isect.normal, mtl);
+	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, s.w, isect.normal, mtl);
 
 	float mis_weight = 1;
 #if ENABLE_HIT_EVAL || FORCE_MIS
@@ -217,7 +264,6 @@ void tracing_and_miss_lighting(uint2 dtid : SV_DispatchThreadID)
 	ray ray;
 	ray.tmin = 0.001f;
 	ray.tmax = 1000;
-
 
 #if defined(FIRST)
 
@@ -372,11 +418,11 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 
 #endif
 
-#if ENABLE_NEE_EVAL
-
 	rng rng;
 	rng.state = dtid.x + screen_size.x * (dtid.y + screen_size.y * frame_count);
 	rng.state += root_constant;
+
+#if ENABLE_NEE_EVAL
 
 	if(exists_emissive())
 		radiance += emissive_lighting(isect, mtl, wo, rng);
@@ -387,17 +433,108 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 	if(exists_environment_light())
 		radiance += environment_lighting(isect, mtl, wo, rng);
 
-	bsdf_sample s = sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng), randF(rng));
+#endif
+
+	bsdf_sample s = ref::sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng));
+	if(s.is_valid)
+	{
+		if((dot(s.w, isect.normal) > 0) || is_twoside(mtl))
+		{
+			add_job(dtid);
+			store_ray_info(dtid, isect.position, s.w);
+			store_throughput_pdf(dtid, throughput * s.weight, s.pdf);
+		}
+		else
+		{
+			add_sss_job(dtid);
+			store_ray_info(dtid, isect.position, isect.normal);
+			store_throughput_pdf(dtid, throughput * s.weight, asfloat(f32x3_to_r9g9b9e5(get_subsurface_radius(mtl))));
+		}
+	}
+
+	store_radiance(dtid, radiance * throughput, true);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+[numthreads(32, 1, 1)]
+void sss_sampling_and_tracing(uint2 dtid : SV_DispatchThreadID)
+{
+	if(dtid.x >= work_queue_size_srv.Load(4))
+		return;
+
+	dtid = get_sss_job(dtid.x);
+	
+	float3 position, normal;
+	get_ray_info(dtid, position, normal);
+
+	float4 throughput_d = get_throughput_pdf(dtid);
+	float3 throughput = throughput_d.rgb;
+	float3 d = r9g9b9e5_to_f32x3(asuint(throughput_d.w));
+
+	rng rng;
+	rng.state = dtid.x + screen_size.x * (dtid.y + screen_size.y * frame_count);
+	rng.state += root_constant;
+
+	sss_payload payload;
+	ray ray = sample_bssrdf(position, normal, d, randF(rng), randF(rng), dtid);
+	if(find_hit(ray, randF(rng), payload, dtid))
+	{
+		intersection isect = get_intersection(payload);
+		float pdf = sample_bssrdf_pdf(position, normal, isect.position, isect.geometry_normal, payload.hit_count, d);
+		throughput *= bssrdf(length(position - isect.position), d) / pdf;
+
+		add_sss_job(dtid);
+		store_hit_info(dtid, payload);
+		store_throughput_pdf(dtid, throughput, 0);
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+[numthreads(32, 1, 1)]
+void sss_lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
+{
+	if(dtid.x >= work_queue_size_srv.Load(4))
+		return;
+
+	dtid = get_sss_job(dtid.x);
+	ray_payload payload = get_hit_info(dtid);
+	intersection isect = get_intersection(payload);
+	float4 throughput_pdf = get_throughput_pdf(dtid);
+	float3 throughput = throughput_pdf.rgb;
+
+	float3 wo = isect.normal; //近似.本当はwiが決まるごとにmaterialを初期化
+	standard_material mtl = load_standard_material(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
+
+	rng rng;
+	rng.state = dtid.x + screen_size.x * (dtid.y + screen_size.y * frame_count);
+	rng.state += root_constant;
+
+#if ENABLE_NEE_EVAL
+
+	float3 radiance = 0;
+
+	if(exists_emissive())
+		radiance += emissive_lighting(isect, mtl, wo, rng);
+
+	if(exists_directional_light())
+		radiance += directional_lighting(isect, mtl, wo, rng);
+
+	if(exists_environment_light())
+		radiance += environment_lighting(isect, mtl, wo, rng);
+
+	store_radiance(dtid, radiance * throughput, true);
+
+#endif
+
+	bsdf_sample s = ref::sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng));
 	if(s.is_valid)
 	{
 		add_job(dtid);
 		store_ray_info(dtid, isect.position, s.w);
 		store_throughput_pdf(dtid, throughput * s.weight, s.pdf);
 	}
-
-#endif
-
-	store_radiance(dtid, radiance * throughput, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -405,9 +542,14 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 [numthreads(1, 1, 1)]
 void init_dispatch_argument()
 {
-	uint size = work_queue_size_srv.Load(0);
+#if defined(SSS)
+	uint offset = 4;
+#else
+	uint offset = 0;
+#endif
+	uint size = work_queue_size_srv.Load(offset);
 	dispatch_arg_uav.Store3(0, uint3((size + 31) / 32, 1, 1));
-	work_queue_size_uav.Store(0, 0);
+	work_queue_size_uav.Store(offset, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -539,7 +681,7 @@ void path_tracing(uint2 dtid : SV_DispatchThreadID)
 				radiance += environment_lighting(isect, mtl, wo, rng) * throughput;
 #endif
 
-			bsdf_sample s = sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng), randF(rng));
+			bsdf_sample s = sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng));
 			if(!s.is_valid)
 				break;
 

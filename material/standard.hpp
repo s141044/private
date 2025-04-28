@@ -100,7 +100,7 @@ public:
 		set_texture_and_u8_unorm(params.subsurface_map, mp_subsurface_map, m_subsurface);
 
 		params.emissive_color = f32x3_to_r9g9b9e5(m_emissive_color * m_emissive_scale);
-		params.subsurface_radius = f32x3_to_r9g9b9e5(m_subsurface_radius * m_subsurface_radius_scale);
+		params.subsurface_radius = f32x3_to_r9g9b9e5(m_subsurface_radius * m_subsurface_radius_scale / 1000);
 		params.sheen_coat_color = f32x4_to_u8x4_unorm(float4(m_sheen_color, m_coat_color0.x));
 		params.coat_specular_color = f32x4_to_u8x4_unorm(float4(m_coat_color0.yz, m_specular_color0.xy));
 		params.specular_diffuse_color = f32x4_to_u8x4_unorm(float4(m_specular_color0.z, m_diffuse_color));
@@ -116,6 +116,12 @@ public:
 		//テクスチャの考慮はできない
 		m_emissive_power = luminance(m_emissive_color * m_emissive_scale);
 	}
+
+	//アルファマップがあるか
+	bool has_alpha_map() const override { return (mp_alpha_map != nullptr); }
+
+	//SSSがあるか
+	bool has_subsurface_scattering() const override { return not(m_is_twoside) && (m_subsurface > 0); }
 
 	//パラメータ
 	void set_alpha_map(texture_resource_ptr t){ set_impl(mp_alpha_map, t); }

@@ -162,8 +162,6 @@ class material
 {
 public:
 
-	static constexpr uint blas_group_key_max = 16;
-
 	struct bindless_material_base
 	{
 		bindless_material_base(const material_type type, const uint alpha_map) : alpha_map_type((alpha_map & 0x00ffffff) | (type << 24)){}
@@ -171,7 +169,7 @@ public:
 	};
 
 	//コンストラクタ
-	material(const material_type type) : m_type(type), m_blas_group_key(0), m_has_update(false){}
+	material(const material_type type) : m_type(type), m_has_update(false){}
 
 	//デストラクタ
 	virtual ~material(){ if((mp_srv != nullptr) && (mp_srv->bindless_handle() != invalid_bindless_handle)){ gp_render_device->unregister_bindless(*mp_srv); } }
@@ -195,12 +193,12 @@ public:
 	//バインドレスハンドルを返す
 	uint bindless_handle() const { return mp_srv->bindless_handle(); }
 
-	//BLASグルーピングのキーを返す
-	uint blas_group_key() const { return assert(m_blas_group_key < blas_group_key_max), m_blas_group_key; }
+	//アルファマップ/SSSがあるか
+	virtual bool has_alpha_map() const { return false;}
+	virtual bool has_subsurface_scattering() const { return false; }
 
 protected:
 
-	uint						m_blas_group_key;
 	buffer_ptr					mp_buf;
 	shader_resource_view_ptr	mp_srv;
 	float						m_emissive_power;
@@ -431,6 +429,9 @@ protected:
 	//マテリアルの更新
 	void update_material(render_context& context);
 
+	//Emissive用の更新
+	void update_emissive(render_context& context);
+
 	//法線/接線/UVを圧縮
 	static uint encode_normal(const float3& normal);
 	static uint encode_tangent(const float3& tangent, const float3& binormal, const float3& normal);
@@ -445,12 +446,18 @@ protected:
 
 private:
 
+	struct blas_info
+	{
+		bottom_level_acceleration_structure_ptr		p_blas;
+	};
+
 	shader_file_holder								m_shaders;
-	vector<bottom_level_acceleration_structure_ptr> m_blas_ptrs;
+	vector<blas_info>								m_blas_infos;
+	vector<uint>									m_blas_group_keys;
 	bindless_geometry_ptr							m_bindless_gs_ptrs[2];
 	uint											m_update_frame = 0;
 	bool											m_compaction_completed = false;
-	
+
 	struct emissive_info
 	{
 		uint										bindless_instance_index;
@@ -458,7 +465,7 @@ private:
 		unique_ptr<emissive_blas>					p_emissive_blas;
 		float										power;
 	};
-	vector<emissive_info>							m_emissive_info;
+	vector<emissive_info>							m_emissive_infos;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
