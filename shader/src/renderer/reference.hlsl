@@ -481,8 +481,8 @@ void sss_sampling_and_tracing(uint2 dtid : SV_DispatchThreadID)
 	if(find_hit(ray, randF(rng), payload, dtid))
 	{
 		intersection isect = get_intersection(payload);
-		float pdf = sample_bssrdf_pdf(position, normal, isect.position, isect.geometry_normal, payload.hit_count, d);
-		throughput *= bssrdf(length(position - isect.position), d) / pdf;
+		float pdf = sample_bssrdf_pdf(position, normal, isect.position, isect.geometry_normal, payload.hit_count, d, dtid);
+		throughput *= min(bssrdf(length(position - isect.position), d) / pdf, 100);
 
 		add_sss_job(dtid);
 		store_hit_info(dtid, payload);

@@ -95,7 +95,7 @@ ray sample_bssrdf(float3 position, float3 normal, float3 d, float u0, float u1, 
 	return ray;
 }
 
-float sample_bssrdf_pdf(float3 position, float3 normal, float3 sample_position, float3 sample_normal, int hit_count, float3 d)
+float sample_bssrdf_pdf(float3 position, float3 normal, float3 sample_position, float3 sample_normal, int hit_count, float3 d, uint2 dtid = 0)
 {
 	float3 axes[3];
 	axes[0] = normal;
@@ -103,7 +103,7 @@ float sample_bssrdf_pdf(float3 position, float3 normal, float3 sample_position, 
 	
 	float pmf_ch = 1.0 / 3.0;
 	float pmf_axis[3] = { BSSRDF_SAMPLE_PMF_AXIS };
-	float3 R = sample_bssrdf_max_r(d[0]);
+	float3 R = sample_bssrdf_max_r(d);
 
 	float pdf = 0;
 	for(int v = 0; v < 3; v++)
@@ -112,7 +112,7 @@ float sample_bssrdf_pdf(float3 position, float3 normal, float3 sample_position, 
 		diff -= axes[v] * dot(axes[v], diff);
 
 		float r = length(diff);
-		float3 pdfs = bssrdf(r, d) * pmf_axis[v] * pmf_ch * abs(dot(axes[v], sample_normal));
+		float3 pdfs = bssrdf(r, d) * pmf_axis[v] * pmf_ch * max(abs(dot(axes[v], sample_normal)), 1e-6);
 		if(r < R[0]){ pdf += pdfs[0]; }
 		if(r < R[1]){ pdf += pdfs[1]; }
 		if(r < R[2]){ pdf += pdfs[2]; }
