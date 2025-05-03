@@ -24,6 +24,7 @@ enum priority
 {
 	priority_initiaize = 0, 
 	priority_compute_skinning = 100,
+	priority_after_compute_skinning = 150,
 	priority_build_bottom_level_acceleration_structure = 200,
 	priority_refit_bottom_level_acceleration_structure = 300,
 	priority_compact_bottom_level_acceleration_structure = 400,
@@ -141,21 +142,20 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //material_type
-///////////////////////////////////////////////////////////////////////////////////////////////////
+/*/////////////////////////////////////////////////////////////////////////////////////////////////
+最大8個
+/////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-enum material_type : uint
+enum material_type : uint8_t
 {
 	material_type_standard,
-	material_type_transparent,
-
-	//
-	material_type_lambert,
+	//TODO: その他
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //material
 /*/////////////////////////////////////////////////////////////////////////////////////////////////
-bindlessデータの先頭は固定
+bindlessデータの先頭は固定.flagsは5bitまで
 /////////////////////////////////////////////////////////////////////////////////////////////////*/
 
 class material
@@ -164,8 +164,10 @@ public:
 
 	struct bindless_material_base
 	{
-		bindless_material_base(const material_type type, const uint alpha_map) : alpha_map_type((alpha_map & 0x00ffffff) | (type << 24)){}
-		uint	alpha_map_type;
+		bindless_material_base(const material_type type, const uint flags, const uint alpha_map, const uint displacement_map, const float max_displacement) : displacement_map(displacement_map), max_displacement(max_displacement), alpha_map_type_flags((alpha_map & 0x00ffffff) | ((type | (flags << 3)) << 24)){}
+		uint	displacement_map;
+		float	max_displacement;
+		uint	alpha_map_type_flags;
 	};
 
 	//コンストラクタ
@@ -187,21 +189,26 @@ public:
 	//発光パワーを返す
 	float emissive_power() const { return m_emissive_power; }
 
+	//変位の最大値を返す
+	float max_displacement() const { return m_max_displacement; }
+
 	//マテリアルタイプを返す
 	material_type type() const { return m_type; }
 
 	//バインドレスハンドルを返す
 	uint bindless_handle() const { return mp_srv->bindless_handle(); }
 
-	//アルファマップ/SSSがあるか
+	//アルファマップ/変位マップ/SSSがあるか
 	virtual bool has_alpha_map() const { return false;}
+	virtual bool has_displacement_map() const { return false; }
 	virtual bool has_subsurface_scattering() const { return false; }
 
 protected:
 
 	buffer_ptr					mp_buf;
 	shader_resource_view_ptr	mp_srv;
-	float						m_emissive_power;
+	float						m_emissive_power = 0;
+	float						m_max_displacement = 0;
 	bool						m_has_update;
 
 private:
@@ -219,7 +226,7 @@ using material_ptr = shared_ptr<material>;
 uint32	num_vbs;
 uint32	ib_handle;
 uint32	vb_handles[8];
-uint32	offsets[8]; //頂点の先頭からのオフセットも含める
+uint32	offsets[8]; //頂点の先頭からのオフセットも含める(struct Vertex{float3 p,n;}のnはpの分のオフセットも含める)
 uint8	strides[8];
 /////////////////////////////////////////////////////////////////////////////////////////////////*/
 
@@ -425,7 +432,8 @@ protected:
 
 	//レイトレ用データの更新
 	void update_raytracing(render_context& context);
-	
+	bool update_displacement(render_context& context);
+
 	//マテリアルの更新
 	void update_material(render_context& context);
 
@@ -466,6 +474,11 @@ private:
 		float										power;
 	};
 	vector<emissive_info>							m_emissive_infos;
+
+	buffer_ptr										mp_aabb_buf;
+	unordered_access_view_ptr						mp_aabb_uav;
+	shader_resource_view_ptr						m_vb_srv_ptrs[2];
+	bool											m_has_displacement_map;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

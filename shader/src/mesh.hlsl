@@ -51,6 +51,18 @@ geometry_desc load_geometry_desc(uint handle)
 	return desc;
 }
 
+uint3 load_index(uint ib_handle, uint i)
+{
+	i *= sizeof(uint16_t);
+	
+	ByteAddressBuffer ib = get_byteaddress_buffer(ib_handle);
+	uint2 index = ib.Load2(i & 0xfffffffc);
+	if(i & 2)
+		return uint3(index.x >> 16, index.y & 0xffff, index.y >> 16);
+	else
+		return uint3(index.x & 0xffff, index.x >> 16, index.y & 0xffff);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 float3 decode_normal(float2 v)

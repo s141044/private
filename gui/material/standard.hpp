@@ -82,8 +82,8 @@ public:
 		float subsurface = m_mtl.subsurface();
 		if(slider_float("subsurface", subsurface, 0, 1)){ m_mtl.set_subsurface(subsurface); }
 
-		float subsurface_radius_scale = m_mtl.subsurface_radius_scale();
-		if(input_float("subsurface_radius_scale", subsurface_radius_scale)){ m_mtl.set_subsurface_radius_scale(subsurface_radius_scale); }
+		float subsurface_radius_scale = m_mtl.subsurface_radius_scale() * 1000;
+		if(input_float("subsurface_radius_scale", subsurface_radius_scale)){ m_mtl.set_subsurface_radius_scale(std::max<float>(subsurface_radius_scale / 1000, 0)); }
 
 		float3 subsurface_radius = m_mtl.subsurface_radius();
 		if(color_edit("subsurface_radius", subsurface_radius)){ m_mtl.set_subsurface_radius(subsurface_radius); }
@@ -92,6 +92,11 @@ public:
 
 		bool is_twoside = m_mtl.is_twoside();
 		if(checkbox("twoside", is_twoside)){ m_mtl.set_twoside(is_twoside); }
+
+		separator();
+
+		float max_displacement = m_mtl.max_displacement() * 1000;
+		if(input_float("max_displacement", max_displacement)){ m_mtl.set_max_displacement(std::max<float>(max_displacement / 1000, 0)); }
 	}
 	
 	void serialize(json_file::values_t& json)
@@ -118,6 +123,8 @@ public:
 		write_float3(json, "subsurface_radius", m_mtl.subsurface_radius());
 
 		write_bool(json, "twoside", m_mtl.is_twoside());
+
+		write_float(json, "max_displacement", m_mtl.max_displacement());
 	}
 
 	void deserialize(const json_file::values_t& json)
@@ -169,6 +176,9 @@ public:
 
 		bool is_twoside;
 		if(read_bool(json, "twoside", is_twoside)){ m_mtl.set_twoside(is_twoside); }
+
+		float max_displacement;
+		if(read_float(json, "max_displacement", max_displacement)){ m_mtl.set_max_displacement(max_displacement); }
 	}
 
 private:

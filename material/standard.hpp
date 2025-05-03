@@ -33,8 +33,10 @@ public:
 	
 	struct bindless_material : bindless_material_base
 	{
-		bindless_material(texture_resource_ptr &p) : bindless_material_base(material_type_standard, p ? p->srv().bindless_handle() : -1){}
-			
+		bindless_material(texture_resource_ptr& p_alpha_map, texture_resource_ptr& p_displacement_map, const float max_displacement, const uint flags) : bindless_material_base(material_type_standard, flags, p_alpha_map ? p_alpha_map->srv().bindless_handle() : -1, p_displacement_map ? p_displacement_map->srv().bindless_handle() : -1, max_displacement)
+		{
+		}
+
 		uint	coat_normal_map;
 		uint	base_normal_map;
 		uint	sheen_color_map;
@@ -55,7 +57,6 @@ public:
 		uint	sheen_coat_color; //sheen.xyz,coat.x
 		uint	coat_specular_color; //coat.yz,specular.xy
 		uint	specular_diffuse_color; //specular.z,diffuse_xyz
-		uint	flags;
 	};
 
 	//コンストラクタ
@@ -82,7 +83,7 @@ public:
 			dst |= f32_to_u8_unorm(f) << 24;
 		};
 
-		bindless_material params(mp_alpha_map);
+		bindless_material params(mp_alpha_map, mp_displacement_map, m_max_displacement, m_is_twoside ? 1 : 0);
 		set_texture_and_u8_unorm(params.coat_normal_map, mp_coat_normal_map);
 		set_texture_and_u8_unorm(params.base_normal_map, mp_base_normal_map);
 		set_texture_and_u8_unorm(params.sheen_color_map, mp_sheen_color_map);
@@ -100,12 +101,10 @@ public:
 		set_texture_and_u8_unorm(params.subsurface_map, mp_subsurface_map, m_subsurface);
 
 		params.emissive_color = f32x3_to_r9g9b9e5(m_emissive_color * m_emissive_scale);
-		params.subsurface_radius = f32x3_to_r9g9b9e5(m_subsurface_radius * m_subsurface_radius_scale / 1000);
+		params.subsurface_radius = f32x3_to_r9g9b9e5(m_subsurface_radius * m_subsurface_radius_scale);
 		params.sheen_coat_color = f32x4_to_u8x4_unorm(float4(m_sheen_color, m_coat_color0.x));
 		params.coat_specular_color = f32x4_to_u8x4_unorm(float4(m_coat_color0.yz, m_specular_color0.xy));
 		params.specular_diffuse_color = f32x4_to_u8x4_unorm(float4(m_specular_color0.z, m_diffuse_color));
-
-		params.flags = m_is_twoside ? 1 : 0;
 
 		push_priority push_priority(context);
 		context.set_priority(priority_initiaize);
@@ -120,6 +119,9 @@ public:
 	//アルファマップがあるか
 	bool has_alpha_map() const override { return (mp_alpha_map != nullptr); }
 
+	//変位マップがあるか
+	bool has_displacement_map() const override { return (mp_displacement_map != nullptr); }
+
 	//SSSがあるか
 	bool has_subsurface_scattering() const override { return not(m_is_twoside) && (m_subsurface > 0); }
 
@@ -127,6 +129,7 @@ public:
 	void set_alpha_map(texture_resource_ptr t){ set_impl(mp_alpha_map, t); }
 	void set_coat_normal_map(texture_resource_ptr t){ set_impl(mp_coat_normal_map, t); }
 	void set_base_normal_map(texture_resource_ptr t){ set_impl(mp_base_normal_map, t); }
+	void set_displacement_map(texture_resource_ptr t){ set_impl(mp_displacement_map, t); }
 	void set_sheen_color(const float3 &c){ set_impl(m_sheen_color, c); }
 	void set_sheen_color_map(texture_resource_ptr t){ set_impl(mp_sheen_color_map, t); }
 	void set_sheen_roughness(const float s){ set_impl(m_sheen_roughness, s); }
@@ -155,6 +158,7 @@ public:
 	void set_subsurface_map(texture_resource_ptr t){ set_impl(mp_subsurface_map, t); }
 	void set_subsurface_radius(const float3 &c){ set_impl(m_subsurface_radius, c); }
 	void set_subsurface_radius_scale(const float s){ set_impl(m_subsurface_radius_scale, s); }
+	void set_max_displacement(const float d){ set_impl(m_max_displacement, d); }
 	void set_twoside(const bool b){ set_impl(m_is_twoside, b); }
 
 	float3	sheen_color() const { return m_sheen_color; }
@@ -190,6 +194,7 @@ private:
 	texture_resource_ptr	mp_alpha_map;
 	texture_resource_ptr	mp_coat_normal_map;
 	texture_resource_ptr	mp_base_normal_map;
+	texture_resource_ptr	mp_displacement_map;
 
 	float3					m_sheen_color = float3(0.0f);
 	float					m_sheen_roughness = 0.3f;

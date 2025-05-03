@@ -1000,25 +1000,50 @@ inline D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS top_level_accelerati
 //コンストラクタ
 inline bottom_level_acceleration_structure::bottom_level_acceleration_structure(render_device& device, const geometry_state& gs, const raytracing_geometry_desc* descs, const uint num_descs, const bool allow_update) : m_allow_update(allow_update)
 {
-	auto& ib = gs.index_buffer();
-	auto& vb = gs.vertex_buffer(0);
-	assert(ib.stride() == 2);
-	assert(gs.stride(0) >= 12);
-	m_vb_address = vb->GetGPUVirtualAddress();
-	m_ib_address = ib->GetGPUVirtualAddress();
-	
+	if(gs.num_vbs() > 0)
+	{
+		assert(gs.has_index_buffer());
+		auto& ib = gs.index_buffer();
+		auto& vb = gs.vertex_buffer(0);
+		assert(ib.stride() == 2);
+		assert(gs.stride(0) >= 12);
+		m_vb_address = vb->GetGPUVirtualAddress(); //update_geometryのときにvbのアドレスが変わるがオフセットは不変.vbアドレスを記録しておけば全てのオフセット値が分かる
+		m_ib_address = ib->GetGPUVirtualAddress();
+	}
+
 	m_descs.resize(num_descs);
 	for(uint i = 0; i < num_descs; i++)
 	{
-		m_descs[i].Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
 		m_descs[i].Flags = D3D12_RAYTRACING_GEOMETRY_FLAGS(descs[i].flags);
-		m_descs[i].Triangles.IndexBuffer = ib->GetGPUVirtualAddress() + ib.stride() * descs[i].start_index_location;
-		m_descs[i].Triangles.IndexCount = descs[i].index_count;
-		m_descs[i].Triangles.IndexFormat = DXGI_FORMAT_R16_UINT;
-		m_descs[i].Triangles.VertexBuffer.StartAddress = vb->GetGPUVirtualAddress() + gs.offset(0) + gs.stride(0) * descs[i].base_vertex_location;
-		m_descs[i].Triangles.VertexBuffer.StrideInBytes = gs.stride(0);
-		m_descs[i].Triangles.VertexCount = descs[i].vertex_count;
-		m_descs[i].Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+
+		switch(descs[i].type)
+		{
+		case raytracing_geometry_type_triangles:
+		{
+			auto& ib = gs.index_buffer();
+			auto& vb = gs.vertex_buffer(0);
+			m_descs[i].Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+			m_descs[i].Triangles.IndexBuffer = ib->GetGPUVirtualAddress() + ib.stride() * descs[i].triangles.start_index_location;
+			m_descs[i].Triangles.IndexCount = descs[i].triangles.index_count;
+			m_descs[i].Triangles.IndexFormat = DXGI_FORMAT_R16_UINT;
+			m_descs[i].Triangles.VertexBuffer.StartAddress = vb->GetGPUVirtualAddress() + gs.offset(0) + gs.stride(0) * descs[i].triangles.base_vertex_location;
+			m_descs[i].Triangles.VertexBuffer.StrideInBytes = gs.stride(0);
+			m_descs[i].Triangles.VertexCount = descs[i].triangles.vertex_count;
+			m_descs[i].Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+			m_descs[i].Triangles.Transform3x4 = 0;
+			break;
+		}
+		case raytracing_geometry_type_procedural:
+		{
+			m_descs[i].Type = D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS;
+			m_descs[i].AABBs.AABBCount = descs[i].aabbs.count;
+			m_descs[i].AABBs.AABBs.StartAddress = static_cast<d3d12::buffer&>(*descs[i].aabbs.p_buf)->GetGPUVirtualAddress() + sizeof(D3D12_RAYTRACING_AABB) * descs[i].aabbs.start_location;
+			m_descs[i].AABBs.AABBs.StrideInBytes = sizeof(D3D12_RAYTRACING_AABB);
+			break;
+		}
+		default:
+			assert(0);
+		}
 	}
 	
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info;
@@ -1062,6 +1087,9 @@ inline void bottom_level_acceleration_structure::update_geometry(const geometry_
 	auto& vb = gs.vertex_buffer(0);
 	for(size_t i = 0; i < m_descs.size(); i++)
 	{
+		if(m_descs[i].Type == D3D12_RAYTRACING_GEOMETRY_TYPE_PROCEDURAL_PRIMITIVE_AABBS)
+			continue;
+
 		m_descs[i].Triangles.IndexBuffer -= m_ib_address;
 		m_descs[i].Triangles.IndexBuffer += ib->GetGPUVirtualAddress();
 		m_descs[i].Triangles.VertexBuffer.StartAddress -= m_vb_address;

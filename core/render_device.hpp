@@ -390,6 +390,16 @@ enum raytracing_geometry_flags : uint
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+//raytracing_geometry_type
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+enum raytracing_geometry_type
+{
+	raytracing_geometry_type_triangles, 
+	raytracing_geometry_type_procedural, 
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 //raytracing_geometry_desc
 /*/////////////////////////////////////////////////////////////////////////////////////////////////
 vertex_countは(indexの最大値+1)以上の値
@@ -397,11 +407,28 @@ vertex_countは(indexの最大値+1)以上の値
 
 struct raytracing_geometry_desc
 {
-	uint		vertex_count;
-	uint		index_count;
-	uint64_t	start_index_location;
-	uint64_t	base_vertex_location;
-	uint		flags;
+
+	raytracing_geometry_type	type;
+	uint						flags;
+
+	union
+	{
+		struct
+		{
+			uint		vertex_count;
+			uint		index_count;
+			uint64_t	start_index_location;
+			uint64_t	base_vertex_location;
+		} triangles;
+
+		struct
+		{
+			buffer*		p_buf;
+			uint		count;
+			uint		start_location;
+		} aabbs;
+	};
+	
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

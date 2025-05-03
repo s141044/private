@@ -2,6 +2,10 @@
 #ifndef MATH_HLSL
 #define MATH_HLSL
 
+#ifndef FLT_MAX
+#define FLT_MAX asfloat(0x7F7FFFFF)
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 static const float PI		= 3.1415926535897932385f;

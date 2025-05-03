@@ -51,6 +51,7 @@ void ch_default(ray r, inout uint4 payload, hit_info info)
 
 bool ah_default(ray r, inout uint4 payload, hit_info info)
 {
+	//TODO: アルファマップ対応
 	return true;
 }
 

@@ -121,8 +121,10 @@ bool	is_twoside(standard_material mtl){ return mtl.flags & 1; }
 
 struct standard_material_host
 {
+	uint	displacement_map;
+	float	max_displacement;
 	//0
-	uint	alpha_map;
+	uint	alpha_map_type_flags;
 	uint	coat_normal_map;
 	uint	base_normal_map;
 	uint	sheen_color_map;
@@ -148,7 +150,6 @@ struct standard_material_host
 	uint	coat_specular_color; //coat.yz,specular.xy
 	//5
 	uint	specular_diffuse_color; //specular.z,diffuse_xyz
-	uint	flags;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,18 +157,18 @@ struct standard_material_host
 standard_material load_standard_material(uint handle, float3 wo, float3 normal, float3 tangent, float3 binormal, float2 uv, float lod = 0, uint2 dtid = 0)
 {
 	ByteAddressBuffer buf = get_byteaddress_buffer(handle);
-	uint4 data0 = buf.Load4(16 * 0);
-	uint4 data1 = buf.Load4(16 * 1);
-	uint4 data2 = buf.Load4(16 * 2);
-	uint4 data3 = buf.Load4(16 * 3);
-	uint4 data4 = buf.Load4(16 * 4);
-	uint2 data5 = buf.Load2(16 * 5);
+	uint4 data0 = buf.Load4(8 + 16 * 0);
+	uint4 data1 = buf.Load4(8 + 16 * 1);
+	uint4 data2 = buf.Load4(8 + 16 * 2);
+	uint4 data3 = buf.Load4(8 + 16 * 3);
+	uint4 data4 = buf.Load4(8 + 16 * 4);
+	uint  data5 = buf.Load (8 + 16 * 5);
 
 	float3 emissive_color = r9g9b9e5_to_f32x3(data4.x);
 	float3 subsurface_radius = r9g9b9e5_to_f32x3(data4.y);
 	float4 sheen_coat_color = u8x4_unorm_to_f32x4(data4.z);
 	float4 coat_specular_color = u8x4_unorm_to_f32x4(data4.w);
-	float4 specular_diffuse_color = u8x4_unorm_to_f32x4(data5.x);
+	float4 specular_diffuse_color = u8x4_unorm_to_f32x4(data5);
 	float3 sheen_color = float3(sheen_coat_color.xyz);
 	float3 coat_color0 = float3(sheen_coat_color.w, coat_specular_color.xy);
 	float3 specular_color0 = float3(coat_specular_color.zw, specular_diffuse_color.x);
@@ -315,7 +316,7 @@ standard_material load_standard_material(uint handle, float3 wo, float3 normal, 
 	}
 
 	standard_material mtl;
-	mtl.flags = data5.y;
+	mtl.flags = data0.x >> 27;
 
 #if defined(COMPRESS_MATERIAL)
 	
@@ -534,7 +535,8 @@ float3 calc_subsurface(standard_material mtl)
 	throughput *= 1 - get_sheen_reflectance(mtl);
 	throughput *= 1 - get_coat_reflectance(mtl);
 	throughput *= 1 - (get_specular_reflectance(mtl) + get_matte_reflectance(mtl));
-	return throughput * get_diffuse_reflectance(mtl) * get_subsurface(mtl);
+	//return throughput * get_diffuse_reflectance(mtl) * get_subsurface(mtl); //アルベドが2重にかかると色がおかしくなる
+	return throughput * get_subsurface(mtl);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -5,7 +5,9 @@
 #include"packing.hlsl"
 #include"global_constant.hlsl"
 
+#ifndef FLT_MAX
 #define FLT_MAX asfloat(0x7F7FFFFF)
+#endif
 
 float3 world_to_screen(float3 pos)
 {

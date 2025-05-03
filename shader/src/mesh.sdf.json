@@ -58,6 +58,10 @@
       "dss": "none",
       "vs": [ "draw.hlsl", "draw_mask_vs", ""],
       "ps": [ "draw.hlsl", "draw_mask_ps", ""]
+    },
+    {
+      "name": "calc_prism_aabbs",
+      "cs": [ "prism.hlsl", "calc_prism_aabbs", "-DCALC_PRISM_AABBS"]
     }
   ]
 }

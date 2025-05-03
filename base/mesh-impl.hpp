@@ -13,7 +13,7 @@ namespace anon{
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-static constexpr uint blas_group_key_max = 3;
+static constexpr uint blas_group_key_max_count = 8;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -23,8 +23,10 @@ inline uint get_blas_group_key(const material& material)
 	uint key = 0;
 	if(material.has_alpha_map())
 		key = 0x1;
-	if(material.has_subsurface_scattering())
+	if(material.has_displacement_map() && (material.max_displacement() > 0))
 		key |= 0x2;
+	if(material.has_subsurface_scattering())
+		key |= 0x4;
 	return key;
 }
 
@@ -113,6 +115,7 @@ inline void mesh::update_material(render_context& context)
 	}
 
 	bool need_regroup = false;
+	m_has_displacement_map = false;
 	for(uint i = 0; i < uint(m_material_ptrs.size()); i++)
 	{
 		auto& material = *m_material_ptrs[i];
@@ -127,6 +130,8 @@ inline void mesh::update_material(render_context& context)
 				need_regroup = true;
 			}
 		}
+		if(material.has_displacement_map() && (material.max_displacement() > 0))
+			m_has_displacement_map = true;
 	}
 	if(need_regroup && m_blas_infos.size())
 	{
@@ -179,25 +184,38 @@ inline void mesh::update_emissive(render_context& context)
 //レイトレ用データの更新
 inline void mesh::update_raytracing(render_context& context)
 {
+	if(m_bindless_gs_ptrs[0] == nullptr)
+	{
+		const uint vb_offsets[8] = { 0, 0, 4, 8, };
+		m_bindless_gs_ptrs[0] = std::make_shared<render::bindless_geometry>(*m_gs_ptrs[0], vb_offsets);
+		if(m_gs_ptrs[0] != m_gs_ptrs[1])
+			m_bindless_gs_ptrs[1] = std::make_shared<render::bindless_geometry>(*m_gs_ptrs[1], vb_offsets);
+		else
+			m_bindless_gs_ptrs[1] = m_bindless_gs_ptrs[0];
+	}
+
+	if(not(update_displacement(context)))
+		return;
+
 	const bool is_static = (m_gs_ptrs[0] == m_gs_ptrs[1]);
 	const bool is_first_call = m_blas_infos.empty();
 	if(is_first_call)
 	{
 		uint num_blas = 0;
-		uint num_descs[anon::blas_group_key_max] = {};
+		uint num_descs[anon::blas_group_key_max_count] = {};
 		for(auto& cluster : m_clusters)
 		{
 			if(num_descs[anon::get_blas_group_key(*m_material_ptrs[cluster.material_index])]++ == 0)
 				num_blas++;
 		}
 		uint sum = 0;
-		uint offsets[anon::blas_group_key_max + 1];
-		for(uint i = 0; i < anon::blas_group_key_max; i++)
+		uint offsets[anon::blas_group_key_max_count + 1];
+		for(uint i = 0; i < anon::blas_group_key_max_count; i++)
 		{
 			const uint tmp = std::exchange(num_descs[i], 0);
 			offsets[i] = std::exchange(sum, sum + tmp);
 		}
-		offsets[anon::blas_group_key_max] = sum;
+		offsets[anon::blas_group_key_max_count] = sum;
 	
 		m_blas_infos.resize(num_blas);
 		num_blas = 0;
@@ -207,17 +225,7 @@ inline void mesh::update_raytracing(render_context& context)
 		register_instance(bindless_instance_count, raytracing_instance_count);
 		const auto bindless_instance_index = this->bindless_instance_index();
 		const auto raytracing_instance_index = this->raytracing_instance_index();
-
-		const uint vb_offsets[8] = { 0, 0, 4, 8, };
-		m_bindless_gs_ptrs[0] = std::make_shared<render::bindless_geometry>(*m_gs_ptrs[0], vb_offsets);
-		if(m_gs_ptrs[0] != m_gs_ptrs[1])
-			m_bindless_gs_ptrs[1] = std::make_shared<render::bindless_geometry>(*m_gs_ptrs[1], vb_offsets);
-		else
-			m_bindless_gs_ptrs[1] = m_bindless_gs_ptrs[0];
-
 		const auto& gs = geometry_state();
-		const auto& ib = gs.index_buffer();
-		const auto& vb = gs.vertex_buffer(0);
 
 		std::vector<raytracing_geometry_desc> descs(sum);
 		for(auto& cluster : m_clusters)
@@ -227,11 +235,22 @@ inline void mesh::update_raytracing(render_context& context)
 			const uint offset = offsets[key] + num_descs[key]++;
 
 			auto& desc = descs[offset];
-			desc.index_count = cluster.index_count;
-			desc.vertex_count = cluster.vertex_count;
-			desc.start_index_location = cluster.start_index_location;
-			desc.base_vertex_location = cluster.base_vertex_location;
 			desc.flags = anon::get_raytracing_geometry_flag(material);
+			if(material.has_displacement_map() && (material.max_displacement() > 0))
+			{
+				desc.type = raytracing_geometry_type_procedural;
+				desc.aabbs.p_buf = mp_aabb_buf.get();
+				desc.aabbs.count = cluster.index_count / 3;
+				desc.aabbs.start_location = cluster.start_index_location / 3;
+			}
+			else
+			{
+				desc.type = raytracing_geometry_type_triangles;
+				desc.triangles.index_count = cluster.index_count;
+				desc.triangles.vertex_count = cluster.vertex_count;
+				desc.triangles.start_index_location = cluster.start_index_location;
+				desc.triangles.base_vertex_location = cluster.base_vertex_location;
+			}
 
 			if(offset + 1 == offsets[key + 1])
 			{
@@ -320,6 +339,70 @@ inline void mesh::update_raytracing(render_context& context)
 			}
 		}
 	}
+}
+
+inline bool mesh::update_displacement(render_context& context)
+{
+	if(not(m_has_displacement_map))
+	{
+		mp_aabb_buf.reset();
+		mp_aabb_uav.reset();
+		return true;
+	}
+	
+	if(m_shaders.has_update())
+		m_shaders.update();
+	else if(m_shaders.is_invalid())
+		return false;
+
+	if(mp_aabb_buf == nullptr)
+	{
+		uint count = 0;
+		for(auto& cluster : m_clusters)
+			count += cluster.index_count;
+
+		mp_aabb_buf = gp_render_device->create_structured_buffer(sizeof(float3) * 2, count / 3, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+		mp_aabb_uav = gp_render_device->create_unordered_access_view(*mp_aabb_buf, buffer_uav_desc(*mp_aabb_buf));
+	}
+
+	const bool is_static = (m_gs_ptrs[0] == m_gs_ptrs[1]);
+	const bool is_first_call = m_blas_infos.empty();
+	if(is_first_call || not(is_static))
+	{
+		context.set_priority(priority_after_compute_skinning);
+		context.set_pipeline_resource("dst_uav", *mp_aabb_uav);
+
+		bool uav_barrier = true;
+		for(auto& cluster : m_clusters)
+		{
+			auto& material = *m_material_ptrs[cluster.material_index];
+			if(material.has_displacement_map() && (material.max_displacement() > 0))
+			{
+				struct cbuffer
+				{
+					uint	triangle_count;
+					uint	base_vertex_location;
+					uint	start_index_location;
+					uint	bindless_geometry_handle;
+					float	max_displacement;
+					float3	padding;
+				};
+				auto p_cbuffer = gp_render_device->create_temporary_cbuffer(sizeof(cbuffer));
+				auto& cbuf_data = *p_cbuffer->data<cbuffer>();
+				cbuf_data.triangle_count = cluster.index_count / 3;
+				cbuf_data.base_vertex_location = cluster.base_vertex_location;
+				cbuf_data.start_index_location = cluster.start_index_location;
+				cbuf_data.bindless_geometry_handle = bindless_geometry().bindless_handle();
+				cbuf_data.max_displacement = m_material_ptrs[cluster.material_index]->max_displacement();
+
+				context.set_pipeline_resource("calc_prism_aabbs_cb", *p_cbuffer);
+				context.set_pipeline_state(*m_shaders.get("calc_prism_aabbs"));
+				context.dispatch(ceil_div(cluster.index_count / 3, 256), 1, 1, uav_barrier);
+				uav_barrier = false;
+			}
+		}
+	}
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

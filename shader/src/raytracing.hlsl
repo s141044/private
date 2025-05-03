@@ -119,18 +119,6 @@ float3 get_binormal(intersection isect)
 	return normalize(cross(isect.normal, isect.tangent.xyz) * isect.tangent.w);
 }
 
-uint3 load_index(uint ib_handle, uint offset)
-{
-	offset *= sizeof(uint16_t);
-	
-	ByteAddressBuffer ib = get_byteaddress_buffer(ib_handle);
-	uint2 index = ib.Load2(offset & 0xfffffffc);
-	if(offset & 2)
-		return uint3(index.x >> 16, index.y & 0xffff, index.y >> 16);
-	else
-		return uint3(index.x & 0xffff, index.x >> 16, index.y & 0xffff);
-}
-
 intersection get_intersection(uint instance_index, uint instance_id, uint geometry_index, uint primitive_index, float2 b12, bool is_front_face)
 {
 	float3 b;
