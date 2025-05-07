@@ -114,7 +114,8 @@ inline void mesh::update_material(render_context& context)
 			p_mtl->register_bindless();
 	}
 
-	bool need_regroup = false;
+	bool need_initialize = false;
+	m_material_changed = false;
 	m_has_displacement_map = false;
 	for(uint i = 0; i < uint(m_material_ptrs.size()); i++)
 	{
@@ -122,18 +123,24 @@ inline void mesh::update_material(render_context& context)
 		if(material.has_update())
 		{
 			material.update(context);
+			m_material_changed = true;
 
 			const uint key = anon::get_blas_group_key(material);
 			if(m_blas_group_keys[i] != key)
 			{
 				m_blas_group_keys[i] = key;
-				need_regroup = true;
+				need_initialize = true;
 			}
 		}
 		if(material.has_displacement_map() && (material.max_displacement() > 0))
 			m_has_displacement_map = true;
 	}
-	if(need_regroup && m_blas_infos.size())
+
+	//TODO: refit‚Å‘Î‰
+	if(m_material_changed && m_has_displacement_map)
+		need_initialize = true;
+
+	if(need_initialize && m_blas_infos.size())
 	{
 		m_blas_infos.clear();
 		gp_raytracing_manager->unregister_instance(bindless_instance_index(), raytracing_instance_index());
@@ -152,6 +159,9 @@ inline void mesh::update_material(render_context& context)
 //Emissive—p‚ÌXV
 inline void mesh::update_emissive(render_context& context)
 {
+	if(m_emissive_infos.empty())
+		return;
+
 	for(size_t i = 0; i < m_clusters.size(); i++)
 	{
 		auto& cluster = m_clusters[i];
@@ -367,10 +377,10 @@ inline bool mesh::update_displacement(render_context& context)
 
 	const bool is_static = (m_gs_ptrs[0] == m_gs_ptrs[1]);
 	const bool is_first_call = m_blas_infos.empty();
-	if(is_first_call || not(is_static))
+	if(is_first_call || not(is_static) || m_material_changed)
 	{
 		context.set_priority(priority_after_compute_skinning);
-		context.set_pipeline_resource("dst_uav", *mp_aabb_uav);
+		context.set_pipeline_resource("aabb_uav", *mp_aabb_uav);
 
 		bool uav_barrier = true;
 		for(auto& cluster : m_clusters)

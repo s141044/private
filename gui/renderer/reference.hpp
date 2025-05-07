@@ -52,7 +52,7 @@ public:
 	{
 		write_int(json, "max_bounce", m_ref.max_bounce());
 		write_int(json, "max_accumulation", m_ref.max_accumulation());
-		write_bool(json, "infinite_accumulation", m_ref.use_realistic_camera());
+		write_bool(json, "infinite_accumulation", m_ref.infinite_accumulation());
 		write_bool(json, "use_realistic_camera", m_ref.use_realistic_camera());
 		gui::realistic_camera(m_ref.realistic_camera()).serialize(json);
 	}
@@ -64,6 +64,9 @@ public:
 
 		int max_accumulation;
 		if(read_int(json, "max_accumulation", max_accumulation)){ m_ref.set_max_accumulation(max_accumulation); }
+
+		bool infinite_accumulation;
+		if(read_bool(json, "infinite_accumulation", infinite_accumulation)){ m_ref.set_infinite_accumulation(infinite_accumulation); }
 
 		bool use_realistic_camera;
 		if(read_bool(json, "use_realistic_camera", use_realistic_camera)){ m_ref.set_use_realistic_camera(use_realistic_camera); }

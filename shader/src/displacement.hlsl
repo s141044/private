@@ -1,6 +1,32 @@
 
-#ifndef PRISM_HLSL
-#define PRISM_HLSL
+#ifndef DISPLACEMENT_HLSL
+#define DISPLACEMENT_HLSL
+
+#include"bindless.hlsl"
+#include"static_sampler.hlsl"
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct displacement_params
+{
+	uint	tex_handle;
+	float	max_displacement;
+};
+
+displacement_params load_displacement_params(ByteAddressBuffer buf)
+{
+	displacement_params params;
+	uint2 vals = buf.Load2(0);
+	params.tex_handle = vals[0];
+	params.max_displacement = asfloat(vals[1]);
+	return params;
+}
+
+float get_displacement(displacement_params params, float2 uv)
+{
+	//return length((uv - 0.5) * (uv - 0.5)) * params.max_displacement;
+	return get_texture2d<float>(params.tex_handle).SampleLevel(bilinear_wrap, uv, 0) * params.max_displacement;
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -8,7 +34,6 @@
 
 #include"mesh.hlsl"
 #include"aabb.hlsl"
-#include"bindless.hlsl"
 
 cbuffer calc_prism_aabbs_cb
 {

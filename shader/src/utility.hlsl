@@ -87,6 +87,11 @@ float3 decode_direction(uint enc)
 	return oct_to_f32x3(u16x2_unorm_to_f32x2(enc) * 2 - 1);
 }
 
+float copysign(float a, float b)
+{
+	return asfloat((asuint(a) & 0x7fffffff) | (asuint(b) & 0x80000000));
+}
+
 void InterlockedAdd(RWByteAddressBuffer buf, uint offset, float v, out float original)
 {
 	while(true)

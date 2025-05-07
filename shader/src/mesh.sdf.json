@@ -61,7 +61,7 @@
     },
     {
       "name": "calc_prism_aabbs",
-      "cs": [ "prism.hlsl", "calc_prism_aabbs", "-DCALC_PRISM_AABBS"]
+      "cs": [ "displacement.hlsl", "calc_prism_aabbs", "-DCALC_PRISM_AABBS"]
     }
   ]
 }

@@ -15,6 +15,15 @@ bool ah_default(ray r, inout uint payload, hit_info info)
 	return true;
 }
 
+void ch_displacement(ray r, inout uint payload, hit_info info)
+{
+}
+
+bool ah_displacement(ray r, inout uint payload, inout hit_info info)
+{
+	return false;
+}
+
 void ms_default(ray r, inout uint payload)
 {
 	payload = 0xffffffff;
@@ -43,6 +52,6 @@ void pick()
 	ray.tmax = 1000;
 
 	uint index;
-	trace_ray(ray, index, RAY_FLAG_NONE, INSTANCE_MASK_ALL, ch_default, ah_default, ms_default);
+	trace_ray(ray, index, RAY_FLAG_NONE, INSTANCE_MASK_ALL, ch_default, ah_default, ch_displacement, ah_displacement, ms_default);
 	result.Store(0, index);
 }

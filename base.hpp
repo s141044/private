@@ -465,6 +465,7 @@ private:
 	bindless_geometry_ptr							m_bindless_gs_ptrs[2];
 	uint											m_update_frame = 0;
 	bool											m_compaction_completed = false;
+	bool											m_material_changed = false;
 
 	struct emissive_info
 	{

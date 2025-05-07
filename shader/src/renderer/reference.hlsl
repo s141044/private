@@ -301,8 +301,14 @@ void tracing_and_miss_lighting(uint2 dtid : SV_DispatchThreadID)
 
 #endif
 
+#if defined(FIRST)
+	bool enable_displacement = true;
+#else
+	bool enable_displacement = false;
+#endif
+
 	ray_payload payload;
-	if(!find_closest(ray, payload))
+	if(!find_closest(ray, payload, enable_displacement, dtid))
 	{
 #if defined(FIRST)
 
@@ -353,7 +359,7 @@ void tracing_and_miss_lighting(uint2 dtid : SV_DispatchThreadID)
 #endif
 
 #elif defined(LAST) && ENABLE_HIT_EVAL
-	
+
 		float3 wo = -ray.direction;
 		intersection isect = get_intersection(payload);
 		isect.normal = normal_correction(isect.normal, wo);
@@ -446,8 +452,17 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 		}
 		else
 		{
+			//bssrdfの入射位置サンプリングはdisplacement無効にするので,出射位置もdisplacement無効状態の位置にする
+			//こうしないと出射位置と入射位置が必ずある程度離れた状態になってしまう
+			float3 position = isect.position;
+			if(payload.hit_type == HIT_TYPE_DISPLACEMENT)
+			{
+				payload.hit_type = HIT_TYPE_TRIANGLE;
+				position = get_intersection(payload).position;
+			}
+
 			add_sss_job(dtid);
-			store_ray_info(dtid, isect.position, isect.normal);
+			store_ray_info(dtid, position, isect.normal);
 			store_throughput_pdf(dtid, throughput * s.weight, asfloat(f32x3_to_r9g9b9e5(get_subsurface_radius(mtl))));
 		}
 	}
