@@ -206,7 +206,7 @@ public:
 			calc_pupil = true;
 		}
 
-		if(calc_pupil)
+		if(calc_pupil || m_update_sensitivity)
 		{
 			const float f = m_front_pz - m_front_fz;
 			const float a = m_front_pz + camera.distance();
@@ -224,7 +224,8 @@ public:
 				float2	sensor_min;
 				float2	sensor_size;
 				float	closure_ratio;
-				float3	padding;
+				float	sensitivity;
+				float2	padding;
 			};
 			mp_cbuf = gp_render_device->create_constant_buffer(sizeof(cbuffer));
 			auto& cbuf_data = *mp_cbuf->data<cbuffer>();
@@ -236,14 +237,22 @@ public:
 			cbuf_data.sensor_size = float2(width, height);
 			cbuf_data.closure_ratio = m_closure_ratio;
 
-			context.set_pipeline_resource("realistic_camera_cb", *mp_cbuf);
-			context.set_pipeline_resource("realistic_camera_pupil_uav", *mp_pupil_uav);
-			context.set_pipeline_resource("realistic_camera_interface_srv", *mp_interface_srv);
-			context.set_pipeline_state(*m_shader_file.get("init_pupil"));
-			context.dispatch(ceil_div(m_r_divide_count, 256), 1, 1);
-			context.set_pipeline_state(*m_shader_file.get("calc_pupil"));
-			context.dispatch_with_32bit_constant(ceil_div(m_sample_count, 256), m_r_divide_count, 1, m_sample_count);
-			m_calc_pupil = false;
+			cbuf_data.sensitivity = m_sensitivity;
+			if(m_auto_exposure)
+				cbuf_data.sensitivity /= (1 - m_closure_ratio) * (1 - m_closure_ratio);
+			m_update_sensitivity = false;
+
+			if(calc_pupil)
+			{
+				context.set_pipeline_resource("realistic_camera_cb", *mp_cbuf);
+				context.set_pipeline_resource("realistic_camera_pupil_uav", *mp_pupil_uav);
+				context.set_pipeline_resource("realistic_camera_interface_srv", *mp_interface_srv);
+				context.set_pipeline_state(*m_shader_file.get("init_pupil"));
+				context.dispatch(ceil_div(m_r_divide_count, 256), 1, 1);
+				context.set_pipeline_state(*m_shader_file.get("calc_pupil"));
+				context.dispatch_with_32bit_constant(ceil_div(m_sample_count, 256), m_r_divide_count, 1, m_sample_count);
+				m_calc_pupil = false;
+			}
 		}
 		
 		if(m_calc_stop)
@@ -367,6 +376,10 @@ public:
 	void set_blade_count(const uint n){ if(m_blade_count != n){ m_blade_count = n; m_calc_stop = true; }}
 	float closure_ratio() const { return m_closure_ratio; }
 	void set_closure_ratio(const float r){ if(m_closure_ratio != r){ m_closure_ratio = r; m_calc_pupil = true; }}
+	float sensitivity() const { return m_sensitivity; }
+	void set_sensitivity(const float s){ m_sensitivity = s; m_update_sensitivity = true; }
+	bool auto_exposure() const { return m_auto_exposure; }
+	void set_auto_exposure(const bool b){ m_auto_exposure = b; m_update_sensitivity = true; }
 
 private:
 
@@ -588,9 +601,12 @@ private:
 	float					m_back_pz;
 	float					m_closure_ratio = 0;
 	uint					m_blade_count = 6;
+	float					m_sensitivity = 1;
+	bool					m_auto_exposure = true;
 	bool					m_calc_stop = true;
 	bool					m_calc_pupil = true;
 	bool					m_load_file = false;
+	bool					m_update_sensitivity = true;
 	string					m_filename;
 };
 

@@ -25,7 +25,8 @@ cbuffer realistic_camera_cb
 	float2	realistic_camera_sensor_min;
 	float2	realistic_camera_sensor_size;
 	float	realistic_camera_closure_ratio;
-	float3	realistic_camera_padding;
+	float	realistic_camera_sensitivity;
+	float2	realistic_camera_padding;
 };
 
 ByteAddressBuffer								realistic_camera_pupil_srv;
@@ -132,6 +133,7 @@ bool trace(inout float3 o, inout float3 d, inout float throughput, float lambda,
 			ior = iface_ior;
 		}
 	}
+	throughput *= realistic_camera_sensitivity;
 	return true;
 }
 

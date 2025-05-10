@@ -42,6 +42,12 @@ public:
 
 		float closure_ratio = m_ref.closure_ratio();
 		if(slider_float("closure_ratio", closure_ratio, 1e-3f, 1)){ m_ref.set_closure_ratio(closure_ratio); }
+
+		float sensitivity = m_ref.sensitivity();
+		if(input_float("sensitivity", sensitivity)){ m_ref.set_sensitivity(std::max<float>(0, sensitivity)); }
+
+		bool auto_exposure = m_ref.auto_exposure();
+		if(checkbox("auto_exposure", auto_exposure)){ m_ref.set_auto_exposure(auto_exposure); }
 	}
 	
 	void serialize(json_file::values_t& json) override
@@ -49,6 +55,8 @@ public:
 		write_text(json, "filename", m_ref.filename());
 		write_int(json, "blade_count", m_ref.blade_count());
 		write_float(json, "closure_ratio", m_ref.closure_ratio());
+		write_float(json, "sensitivity", m_ref.sensitivity());
+		write_bool(json, "auto_exposure", m_ref.auto_exposure());
 	}
 
 	void deserialize(const json_file::values_t& json) override
@@ -61,6 +69,12 @@ public:
 
 		float closure_ratio;
 		if(read_float(json, "closure_ratio", closure_ratio)){ m_ref.set_closure_ratio(closure_ratio); }
+
+		float sensitivity;
+		if(read_float(json, "sensitivity", sensitivity)){ m_ref.set_sensitivity(sensitivity); }
+
+		bool auto_exposure;
+		if(read_bool(json, "auto_exposure", auto_exposure)){ m_ref.set_auto_exposure(auto_exposure); }
 	}
 
 private:

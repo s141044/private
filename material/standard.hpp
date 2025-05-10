@@ -227,7 +227,7 @@ private:
 
 	float					m_subsurface = 0;
 	float3					m_subsurface_radius = float3(1);
-	float					m_subsurface_radius_scale = 1;
+	float					m_subsurface_radius_scale = 1e-3f;
 	texture_resource_ptr	mp_subsurface_map;
 
 	bool					m_is_twoside = false;
