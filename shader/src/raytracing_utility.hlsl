@@ -18,7 +18,7 @@ struct ray_payload
 uint4 encode_payload(uint instance_id, uint instance_index, uint geometry_index, uint primitive_index, bool is_front_face, float2 barycentrics, float ray_t, uint hit_type)
 {
 	uint4 ret;
-	ret.x = (instance_id + geometry_index) | instance_index;
+	ret.x = (instance_id + geometry_index) | (instance_index << 16);
 	ret.y = primitive_index | (hit_type << 31);
 	ret.z = f32x2_to_u16x2_unorm(barycentrics);
 	ret.w = asuint(ray_t) | (is_front_face ? 0x80000000 : 0);
