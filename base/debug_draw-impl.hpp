@@ -73,15 +73,15 @@ inline void debug_draw::draw(std::function<void()> func)
 //•`‰æ
 inline debug_draw::vertex* debug_draw::draw_xxx(const uint vertex_count, const draw_type type)
 {
-	if(m_front + vertex_count >= m_capacity)
-		return nullptr;
+	if(m_back + vertex_count >= m_capacity)
+		m_back = 0;
 
 	auto& info = m_draw_infos[type].emplace_back();
 	info.vertex_count = vertex_count;
-	info.start_vertex_location = m_front;
+	info.start_vertex_location = m_back;
 
-	auto* ret = mp_vertex_ubuf->data<vertex>() + m_front;
-	m_front += vertex_count;
+	auto* ret = mp_vertex_ubuf->data<vertex>() + m_back;
+	m_back += vertex_count;
 	return ret;
 }
 
@@ -100,9 +100,16 @@ inline bool debug_draw::draw(render_context& context, target_state& target_state
 	if(m_shader_file.has_update())
 		m_shader_file.update();
 
-	if(m_shader_file.is_valid() && (m_front > 0))
+	if(m_shader_file.is_valid() && (m_front != m_back))
 	{
-		context.copy_buffer(*mp_vertex_buf, 0, *mp_vertex_ubuf, 0, sizeof(vertex) * m_front);
+		uint size = m_back - m_front;
+		if(m_back < m_front)
+		{
+			size = m_capacity - m_front;
+			context.copy_buffer(*mp_vertex_buf, 0, *mp_vertex_ubuf, 0, sizeof(vertex) * m_back);
+		}
+		const uint offset = sizeof(vertex) * m_front;
+		context.copy_buffer(*mp_vertex_buf, offset, *mp_vertex_ubuf, offset, sizeof(vertex) * size);
 	
 		context.set_geometry_state(*mp_geometry_state);
 		context.set_pipeline_state(*m_shader_file.get("draw_lines"));
@@ -120,7 +127,7 @@ inline bool debug_draw::draw(render_context& context, target_state& target_state
 	for(uint i = 0; i < draw_type_count; i++)
 		m_draw_infos[i].clear();
 
-	m_front = 0;
+	m_front = m_back;
 	return m_shader_file.is_valid();
 }
 

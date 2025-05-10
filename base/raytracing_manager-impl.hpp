@@ -17,15 +17,14 @@ inline raytracing_manager::raytracing_manager(const uint max_size) : m_emissive_
 	mp_tlas = gp_render_device->create_top_level_acceleration_structure(max_size);
 	mp_bindless_instance_descs_buf = gp_render_device->create_structured_buffer(sizeof(bindless_instance_desc), max_size, resource_flags(resource_flag_allow_shader_resource | resource_flag_scratch));
 	mp_bindless_instance_descs_srv = gp_render_device->create_shader_resource_view(*mp_bindless_instance_descs_buf, buffer_srv_desc(*mp_bindless_instance_descs_buf));
-	mp_bindless_instance_descs_ubuf = gp_render_device->create_upload_buffer(sizeof(bindless_instance_desc) * max_size);
 	mp_raytracing_instance_descs_srv = gp_render_device->create_shader_resource_view(mp_tlas->instance_descs(), buffer_srv_desc(mp_tlas->instance_descs()));
-	mp_raytracing_instance_descs_ubuf = gp_render_device->create_upload_buffer(sizeof(raytracing_instance_desc) * max_size);
 
 	gp_render_device->set_name(*mp_tlas, L"tlas");
 	gp_render_device->set_name(*mp_bindless_instance_descs_buf, L"bindless_instance_descs_buf");
-	gp_render_device->set_name(*mp_bindless_instance_descs_ubuf, L"bindless_instance_descs_ubuf");
-	gp_render_device->set_name(*mp_raytracing_instance_descs_ubuf, L"raytracing_instance_descs_ubuf");
 	gp_render_device->set_name(mp_tlas->instance_descs(), L"raytracing_instance_descs_buf");
+
+	m_bindless_instance_descs.resize(max_size);
+	m_raytracing_instance_descs.resize(max_size);
 
 	for(uint i = 0; i < max_size; i++)
 		update_raytracing_instance(i)->blas_address = 0;
@@ -82,8 +81,13 @@ inline void raytracing_manager::build(render_context& context)
 	{
 		push_priority push_priority(context);
 		context.set_priority(priority_build_top_level_acceleration_structure);
-		context.copy_buffer(mp_tlas->instance_descs(), 0, *mp_raytracing_instance_descs_ubuf, 0, sizeof(raytracing_instance_desc) * raytracing_instance_count);
-		context.copy_buffer(*mp_bindless_instance_descs_buf, 0, *mp_bindless_instance_descs_ubuf, 0, sizeof(bindless_instance_desc) * bindless_instance_count);
+
+		void* bindless_dst = context.update_buffer(*mp_bindless_instance_descs_buf, 0, sizeof(bindless_instance_desc) * bindless_instance_count);
+		memcpy(bindless_dst, m_bindless_instance_descs.data(), sizeof(bindless_instance_desc) * bindless_instance_count);
+
+		void* instance_dst = context.update_buffer(mp_tlas->instance_descs(), 0, sizeof(raytracing_instance_desc) * raytracing_instance_count);
+		memcpy(instance_dst, m_raytracing_instance_descs.data(), sizeof(raytracing_instance_desc) * raytracing_instance_count);
+
 		context.build_top_level_acceleration_structure(*mp_tlas, raytracing_instance_count);
 	}
 	m_emissive_tlas.build(context);

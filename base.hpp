@@ -339,7 +339,7 @@ private:
 
 	shader_file_holder			m_shaders;
 	default_allocator			m_blas_allocator;
-	upload_buffer_ptr			mp_blas_handle_ubuf;
+	vector<uint>				m_blas_handles;
 	buffer_ptr					mp_blas_handle_buf;
 	shader_resource_view_ptr	mp_blas_handle_srv;
 	unordered_access_view_ptr	mp_blas_handle_uav;
@@ -514,8 +514,8 @@ public:
 	void bind(render_context& context);
 
 	//更新用アドレスを返す
-	bindless_instance_desc* update_bindless_instance(const uint i){ return mp_bindless_instance_descs_ubuf->data<bindless_instance_desc>() + i; }
-	raytracing_instance_desc* update_raytracing_instance(const uint i){ return mp_raytracing_instance_descs_ubuf->data<raytracing_instance_desc>() + i; }
+	bindless_instance_desc* update_bindless_instance(const uint i){ return &m_bindless_instance_descs[i]; }
+	raytracing_instance_desc* update_raytracing_instance(const uint i){ return &m_raytracing_instance_descs[i]; }
 
 private:
 
@@ -523,9 +523,9 @@ private:
 	emissive_tlas							m_emissive_tlas;
 	buffer_ptr								mp_bindless_instance_descs_buf;
 	shader_resource_view_ptr				mp_bindless_instance_descs_srv;
-	upload_buffer_ptr						mp_bindless_instance_descs_ubuf;
 	shader_resource_view_ptr				mp_raytracing_instance_descs_srv;
-	upload_buffer_ptr						mp_raytracing_instance_descs_ubuf;
+	vector<bindless_instance_desc>			m_bindless_instance_descs;
+	vector<raytracing_instance_desc>		m_raytracing_instance_descs;
 	default_allocator						m_bindless_instance_allocator;
 	default_allocator						m_raytracing_instance_allocator;
 };

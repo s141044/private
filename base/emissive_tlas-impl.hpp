@@ -12,11 +12,10 @@ namespace render{
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //コンストラクタ
-inline emissive_tlas::emissive_tlas(const uint max_instance) : m_blas_allocator(max_instance)
+inline emissive_tlas::emissive_tlas(const uint max_instance) : m_blas_allocator(max_instance), m_blas_handles(max_instance, 0xffffffff)
 {
 	m_shaders = gp_shader_manager->create(L"emissive_build.sdf.json");
 	
-	mp_blas_handle_ubuf = gp_render_device->create_upload_buffer(sizeof(uint) * max_instance);
 	mp_blas_handle_buf = gp_render_device->create_byteaddress_buffer(sizeof(uint) * max_instance, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access | resource_flag_scratch));
 	mp_blas_handle_srv = gp_render_device->create_shader_resource_view(*mp_blas_handle_buf, buffer_srv_desc(*mp_blas_handle_buf));
 	mp_blas_handle_uav = gp_render_device->create_unordered_access_view(*mp_blas_handle_buf, buffer_uav_desc(*mp_blas_handle_buf));
@@ -46,8 +45,7 @@ inline emissive_tlas::emissive_tlas(const uint max_instance) : m_blas_allocator(
 inline uint emissive_tlas::register_blas(const emissive_blas& blas)
 {
 	auto index = m_blas_allocator.allocate(1);
-	auto* blas_handle = mp_blas_handle_ubuf->data<uint>();
-	blas_handle[index] = blas.bindless_handle();
+	m_blas_handles[index] = blas.bindless_handle();
 	return uint(index);
 }
 
@@ -57,8 +55,7 @@ inline uint emissive_tlas::register_blas(const emissive_blas& blas)
 inline void emissive_tlas::unregister_blas(uint index)
 {
 	m_blas_allocator.deallocate(index);
-	auto* blas_handle = mp_blas_handle_ubuf->data<uint>();
-	blas_handle[index] = 0xffffffff;
+	m_blas_handles[index] = 0xffffffff;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -104,7 +101,9 @@ inline bool emissive_tlas::build(render_context& context)
 		return true;
 	}
 
-	context.copy_buffer(*mp_blas_handle_buf, 0, *mp_blas_handle_ubuf, 0, sizeof(u32) * blas_count);
+	void* dst = context.update_buffer(*mp_blas_handle_buf, 0, sizeof(uint) * blas_count);
+	memcpy(dst, m_blas_handles.data(), sizeof(uint) * blas_count);
+
 	context.clear_unordered_access_view(*mp_sum_weight_uav, uint4(0, 0, 0, 0));
 	context.clear_unordered_access_view(*mp_scan_scratch_uav, uint4(0, 0, 0, 0));
 
