@@ -197,7 +197,7 @@ float3 emissive_lighting(intersection isect, standard_material mtl, float3 wo, i
 	if(light_nwo <= 0)
 		return 0;
 
-	if(is_occluded(isect.position, wi, 1 / inv_dist))
+	if(is_occluded(isect.position, wi, 1 / inv_dist, randF(rng)))
 		return 0;
 
 	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, wi, isect.normal, mtl);
@@ -215,7 +215,7 @@ float3 directional_lighting(intersection isect, standard_material mtl, float3 wo
 	if(!ref::has_contribution(dot(isect.normal, wi), mtl))
 		return 0;
 
-	if(is_occluded(isect.position, wi, FLT_MAX))
+	if(is_occluded(isect.position, wi, FLT_MAX, randF(rng)))
 		return 0;
 
 	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, wi, isect.normal, mtl);
@@ -240,7 +240,7 @@ float3 environment_lighting(intersection isect, standard_material mtl, float3 wo
 	if(!ref::has_contribution(nwi, mtl))
 		return 0;
 
-	if(is_occluded(isect.position, s.w, FLT_MAX))
+	if(is_occluded(isect.position, s.w, FLT_MAX, randF(rng)))
 		return 0;
 
 	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, s.w, isect.normal, mtl);
@@ -265,13 +265,13 @@ void tracing_and_miss_lighting(uint2 dtid : SV_DispatchThreadID)
 	ray.tmin = 0.001f;
 	ray.tmax = 1000;
 
+	rng rng;
+	rng.state = dtid.x + screen_size.x * (dtid.y + screen_size.y * frame_count);
+
 #if defined(FIRST)
 
 	if(any(dtid >= screen_size))
 		return;
-
-	rng rng;
-	rng.state = dtid.x + screen_size.x * (dtid.y + screen_size.y * frame_count);
 
 	float2 pixel_pos;
 	pixel_pos.x = dtid.x + randF(rng);
@@ -308,7 +308,7 @@ void tracing_and_miss_lighting(uint2 dtid : SV_DispatchThreadID)
 #endif
 
 	ray_payload payload;
-	if(!find_closest(ray, payload, enable_displacement, dtid))
+	if(!find_closest(ray, payload, randF(rng), enable_displacement, dtid))
 	{
 #if defined(FIRST)
 

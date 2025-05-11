@@ -3,6 +3,11 @@
 #define RAYTRACING_UTILITY_HLSL
 
 #include"raytracing.hlsl"
+#include"static_sampler.hlsl"
+
+#if !defined(RT_SAMPLER)
+#define RT_SAMPLER bilinear_wrap
+#endif
 
 struct ray_payload
 {
@@ -55,8 +60,29 @@ void ch_default(ray r, inout uint4 payload, hit_info info)
 
 bool ah_default(ray r, inout uint4 payload, hit_info info)
 {
-	//TODO: アルファマップ対応
-	return true;
+	intersection isect = get_intersection(info.instance_index, info.instance_id, info.geometry_index, info.primitive_index, info.barycentrics, info.is_front_face, HIT_TYPE_TRIANGLE);
+	ByteAddressBuffer buf = get_byteaddress_buffer(isect.material_handle);
+	uint alpha_map_handle = buf.Load(8) & 0x00ffffff;
+	if(alpha_map_handle == 0x00ffffff)
+		return true;
+	
+	Texture2D<float4> alpha_map = get_texture2d<float4>(alpha_map_handle);
+	float alpha = alpha_map.SampleLevel(bilinear_wrap, isect.uv, 0).a;
+	float u = asfloat(payload.x);
+
+	bool hit;
+	if(u < alpha)
+	{
+		u /= alpha;
+		hit = true;
+	}
+	else
+	{
+		u = (u - alpha) / (1 - alpha);
+		hit = false;
+	}
+	payload.x = asuint(u);
+	return hit;
 }
 
 void ms_default(ray r, inout uint4 payload)
@@ -78,7 +104,7 @@ bool ah_displacement(ray ray, inout uint4 payload, inout hit_info info)
 {
 	bool is_front_face;
 	float2 barycentrics;
-	if(!displacement_intersection(info.instance_index, info.instance_id, info.geometry_index, info.primitive_index, ray.origin, ray.direction, info.ray_t, ray.tmin, info.ray_t, barycentrics, is_front_face, uint2(payload.w & 0xffff, payload.w >> 16)))
+	if(!displacement_intersection(info.instance_index, info.instance_id, info.geometry_index, info.primitive_index, ray.origin, ray.direction, info.ray_t, ray.tmin, info.ray_t, barycentrics, is_front_face, uint2(payload.y & 0xffff, payload.y >> 16)))
 		return false;
 
 	payload.xy = asuint(barycentrics);
@@ -103,10 +129,11 @@ bool is_hit(uint4 payload)
 	return (payload.w != 0xffffffff);
 }
 
-bool find_closest(ray ray, out ray_payload payload, bool enable_displacement = false, uint2 dtid = 0)
+bool find_closest(ray ray, out ray_payload payload, float u = 0, bool enable_displacement = false, uint2 dtid = 0)
 {
 	uint4 info;
-	info.w = dtid.x | (dtid.y << 16);
+	info.x = asuint(u);
+	info.y = dtid.x | (dtid.y << 16);
 	if(enable_displacement)
 	{
 		trace_ray(ray, info, RAY_FLAG_NONE, INSTANCE_MASK_ALL, ch_default, ah_default, ch_displacement, ah_displacement, ms_default);
@@ -122,7 +149,7 @@ bool find_closest(ray ray, out ray_payload payload, bool enable_displacement = f
 	return true;
 }
 
-bool is_occluded(float3 o, float3 d, float dist, bool enable_displacement = false)
+bool is_occluded(float3 o, float3 d, float dist, float u = 0, bool enable_displacement = false)
 {
 	ray ray;
 	ray.origin = o;
@@ -131,6 +158,7 @@ bool is_occluded(float3 o, float3 d, float dist, bool enable_displacement = fals
 	ray.tmax = dist - 1e-3f;
 
 	uint4 info = 0;
+	info.x = asuint(u);
 	if(enable_displacement)
 	{
 		trace_ray(ray, info, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, INSTANCE_MASK_ALL, ch_default, ah_default, ch_displacement, ah_displacement, ms_default);
@@ -142,11 +170,11 @@ bool is_occluded(float3 o, float3 d, float dist, bool enable_displacement = fals
 	return is_hit(info);
 }
 
-bool is_occluded(float3 x, float3 y, bool enable_displacement = true)
+bool is_occluded(float3 x, float3 y, float u = 0, bool enable_displacement = true)
 {
 	float3 d = y - x;
 	float dist = length(d);
-	return is_occluded(x, d / dist, dist, enable_displacement);
+	return is_occluded(x, d / dist, dist, u, enable_displacement);
 }
 
 #endif

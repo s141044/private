@@ -131,6 +131,7 @@ inline shared_ptr<texture_manager::texture_resource> texture_manager::create(con
 		auto &p_res = result.first->second;
 		p_res.reset(new texture_resource(std::move(p_tex), filename, result.first));
 		p_res->mp_srv = gp_render_device->create_shader_resource_view(*p_res->mp_tex, texture_srv_desc(*p_res->mp_tex));
+		gp_render_device->set_name(*p_res->mp_tex, utf8_to_utf16(filename).c_str());
 		gp_render_device->register_bindless(*p_res->mp_srv);
 		m_queue.push(p_res);
 	}
