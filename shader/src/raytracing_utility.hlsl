@@ -4,6 +4,7 @@
 
 #include"raytracing.hlsl"
 #include"static_sampler.hlsl"
+#include"material/common.hlsl"
 
 #if !defined(RT_SAMPLER)
 #define RT_SAMPLER bilinear_wrap
@@ -61,12 +62,11 @@ void ch_default(ray r, inout uint4 payload, hit_info info)
 bool ah_default(ray r, inout uint4 payload, hit_info info)
 {
 	intersection isect = get_intersection(info.instance_index, info.instance_id, info.geometry_index, info.primitive_index, info.barycentrics, info.is_front_face, HIT_TYPE_TRIANGLE);
-	ByteAddressBuffer buf = get_byteaddress_buffer(isect.material_handle);
-	uint alpha_map_handle = buf.Load(8) & 0x00ffffff;
-	if(alpha_map_handle == 0x00ffffff)
+	material_header header = load_material_header(isect.material_handle);
+	if(!has_alpha_map(header))
 		return true;
 	
-	Texture2D<float4> alpha_map = get_texture2d<float4>(alpha_map_handle);
+	Texture2D<float4> alpha_map = get_texture2d<float4>(header.alpha_map_handle);
 	float alpha = alpha_map.SampleLevel(bilinear_wrap, isect.uv, 0).a;
 	float u = asfloat(payload.x);
 

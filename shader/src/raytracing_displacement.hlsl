@@ -139,12 +139,6 @@ bool triangle_intersection(uint instance_index, uint instance_id, uint geometry_
 	uint3 index = load_index(geom.ib_handle, instance.start_index_location + 3 * primitive_index);
 	index += instance.base_vertex_location;
 
-	ByteAddressBuffer mtl_buf = get_byteaddress_buffer(instance.bindless_material_handle);
-	uint2 mtl_vals = mtl_buf.Load2(0);
-
-	Texture2D<float> displacement_map = get_texture2d<float>(mtl_vals[0]);
-	float max_displacement = mtl_vals[1];
-
 	ByteAddressBuffer vb0 = get_byteaddress_buffer(geom.vb_handles[0]);
 	ByteAddressBuffer vb1 = get_byteaddress_buffer(geom.vb_handles[1]);
 	ByteAddressBuffer vb2 = get_byteaddress_buffer(geom.vb_handles[2]);
@@ -168,8 +162,7 @@ bool displacement_intersection(uint instance_index, uint instance_id, uint geome
 	uint3 index = load_index(geom.ib_handle, instance.start_index_location + 3 * primitive_index);
 	index += instance.base_vertex_location;
 
-	ByteAddressBuffer mtl_buf = get_byteaddress_buffer(instance.bindless_material_handle);
-	displacement_params params = load_displacement_params(mtl_buf);
+	displacement_params params = load_displacement_params(instance.bindless_material_handle);
 
 	ByteAddressBuffer vb0 = get_byteaddress_buffer(geom.vb_handles[0]);
 	ByteAddressBuffer vb1 = get_byteaddress_buffer(geom.vb_handles[1]);

@@ -92,6 +92,19 @@
               "cs": ["", "", "-DFIRST"]
             }
           ]
+        },
+        {
+          "definition": 
+          [
+            {
+              "name": "_type0",
+              "cs": ["", "", "-DMATERIAL_TYPE=0"]
+            },
+            {
+              "name": "_type1",
+              "cs": ["", "", "-DMATERIAL_TYPE=1"]
+            }
+          ]
         }
       ]
     },
@@ -138,5 +151,13 @@
       "name": "accumulate",
       "cs": ["renderer/reference.hlsl", "accumulate", ""]
     },
+    {
+      "name": "prepare_filtering",
+      "cs": ["renderer/reference.hlsl", "prepare_filtering", ""]
+    },
+    {
+      "name": "filtering",
+      "cs": ["renderer/reference.hlsl", "filtering", ""]
+    }
   ]
 }

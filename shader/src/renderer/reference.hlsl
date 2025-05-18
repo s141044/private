@@ -16,6 +16,9 @@
 #include"../environment_sampling.hlsl"
 #include"realistic_camera.hlsl"
 
+#include"../material/hair.hlsl"
+#include"../material/standard.hlsl"
+
 #define ENABLE_HIT_EVAL 1
 #define ENABLE_NEE_EVAL 1
 #define FORCE_MIS 0
@@ -43,11 +46,27 @@ ByteAddressBuffer	work_queue_srv;
 RWByteAddressBuffer	work_queue_uav;
 ByteAddressBuffer	work_queue_size_srv;
 RWByteAddressBuffer	work_queue_size_uav;
+ByteAddressBuffer	work_queue_offset_srv;
+RWByteAddressBuffer	work_queue_offset_uav;
 RWByteAddressBuffer	dispatch_arg_uav;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void add_job(uint2 pixel_pos)
+#if !defined(MATERIAL_TYPE)
+#define MATERIAL_TYPE 0
+#endif
+
+#if MATERIAL_TYPE == MATERIAL_TYPE_HAIR
+#define MATERIAL		hair_material
+#define LOAD_MATERIAL	load_hair_material
+#else
+#define MATERIAL		standard_material
+#define LOAD_MATERIAL	load_standard_material
+#endif
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+void add_job(uint2 pixel_pos, uint material_type = -1)
 {
 	uint offset, count = WaveActiveCountBits(1);
 	if(WaveIsFirstLane())
@@ -55,7 +74,21 @@ void add_job(uint2 pixel_pos)
 
 	offset = WaveReadLaneFirst(offset);
 	offset += WavePrefixCountBits(1);
-	work_queue_uav.Store(4 * offset, pixel_pos.x | (pixel_pos.y << 16));
+	work_queue_uav.Store(4 * offset, pixel_pos.x | (pixel_pos.y << 12) | (material_type << 24));
+
+	if(material_type == -1)
+		return;
+
+	for(uint i = 0; i < 32; i++)
+	{
+		uint current = WaveReadLaneFirst(material_type);
+		uint count = WaveActiveCountBits(material_type == current);
+		if(WaveIsFirstLane())
+			work_queue_size_uav.InterlockedAdd(8 + 4 * material_type, count);
+		if(material_type == current)
+			break;
+	
+	}
 }
 
 void add_sss_job(uint2 pixel_pos)
@@ -91,10 +124,19 @@ void store_radiance(uint2 pixel_pos, float3 radiance, bool add = true)
 	color_uav[pixel_pos] = f32x3_to_r9g9b9e5(radiance);
 }
 
+uint get_material_type(uint enc)
+{
+	return enc >> 24;
+}
+
 uint2 get_job(uint index)
 {
-	uint enc = work_queue_srv.Load(4 * index);
-	return uint2(enc & 0xffff, enc >> 16);
+	uint offset = 0;
+#if defined(MATERIAL_TYPE)
+	offset = work_queue_offset_srv.Load(4 * MATERIAL_TYPE);
+#endif
+	uint enc = work_queue_srv.Load(4 * (offset + index));
+	return uint2(enc & 0xfff, (enc >> 12) & 0xfff);
 }
 
 uint2 get_sss_job(uint index)
@@ -122,7 +164,7 @@ ray_payload get_hit_info(uint2 pixel_pos)
 	return decode_payload(enc);
 }
 
-namespace ref{ bool has_contribution(float nwi, standard_material mtl)
+namespace ref{ bool has_contribution(float nwi, MATERIAL mtl)
 {
 #if defined(SSS_LIGHTING_AND_SAMPLING)
 	return (nwi > 0);
@@ -131,7 +173,7 @@ namespace ref{ bool has_contribution(float nwi, standard_material mtl)
 #endif
 }}
 
-namespace ref{ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standard_material mtl)
+namespace ref{ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, MATERIAL mtl)
 {
 #if defined(SSS_LIGHTING_AND_SAMPLING)
 
@@ -146,7 +188,7 @@ namespace ref{ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, standar
 #endif
 }}
 
-namespace ref{ bsdf_sample sample_bsdf(float3 wo, float3 normal, standard_material mtl, float u0, float u1, uint2 dtid = 0)
+namespace ref{ bsdf_sample sample_bsdf(float3 wo, float3 normal, MATERIAL mtl, float u0, float u1, uint2 dtid = 0)
 {
 #if defined(SSS_LIGHTING_AND_SAMPLING)
 
@@ -174,7 +216,7 @@ float calc_mis_weight(float pdf_a, float pdf_b)
 	return pdf_a / (pdf_a + pdf_b);
 }
 
-float3 emissive_lighting(intersection isect, standard_material mtl, float3 wo, inout rng rng)
+float3 emissive_lighting(intersection isect, MATERIAL mtl, float3 wo, inout rng rng)
 {
 	uint2 active_thread_count_and_offset = calc_active_thread_count_and_offset();
 	uint index = WaveReadLaneFirst(rand(rng)) + active_thread_count_and_offset.y;
@@ -209,7 +251,7 @@ float3 emissive_lighting(intersection isect, standard_material mtl, float3 wo, i
 	return s.L * bsdf_pdf.rgb * light_nwo * pow2(inv_dist) * mis_weight;
 }
 
-float3 directional_lighting(intersection isect, standard_material mtl, float3 wo, inout rng rng)
+float3 directional_lighting(intersection isect, MATERIAL mtl, float3 wo, inout rng rng)
 {
 	float3 wi = sample_directional_light(randF(rng), randF(rng));
 	if(!ref::has_contribution(dot(isect.normal, wi), mtl))
@@ -228,7 +270,7 @@ float3 directional_lighting(intersection isect, standard_material mtl, float3 wo
 	return directional_light_power * bsdf_pdf.rgb * mis_weight * inv_pdf;
 }
 
-float3 environment_lighting(intersection isect, standard_material mtl, float3 wo, inout rng rng)
+float3 environment_lighting(intersection isect, MATERIAL mtl, float3 wo, inout rng rng)
 {
 	uint2 active_thread_count_and_offset = calc_active_thread_count_and_offset();
 	uint index = WaveReadLaneFirst(rand(rng)) + active_thread_count_and_offset.y;
@@ -348,9 +390,16 @@ void tracing_and_miss_lighting(uint2 dtid : SV_DispatchThreadID)
 	}
 	else
 	{
+		float3 wo = -ray.direction;
+		intersection isect = get_intersection(payload);
+		isect.normal = normal_correction(isect.normal, wo);
+		isect.position = ray.origin + ray.direction * payload.ray_t;
+
+		material_header header = load_material_header(isect.material_handle);
+
 #if !defined(LAST)
 
-		add_job(dtid);
+		add_job(dtid, header.material_type);
 		store_hit_info(dtid, payload);
 
 #if defined(FIRST)
@@ -360,21 +409,19 @@ void tracing_and_miss_lighting(uint2 dtid : SV_DispatchThreadID)
 
 #elif defined(LAST) && ENABLE_HIT_EVAL
 
-		float3 wo = -ray.direction;
-		intersection isect = get_intersection(payload);
-		isect.normal = normal_correction(isect.normal, wo);
-		isect.position = ray.origin + ray.direction * payload.ray_t;
-		
-		standard_material mtl = load_standard_material(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
-
-		float3 Le = get_emissive_color(mtl);
-		if(any(Le > 0))
+		if(header.material_type == MATERIAL_TYPE_STANDARD) //emissiveをcommonにしてもいい
 		{
-			float mis_weight = 1;
+			standard_material mtl = load_standard_material(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
+
+			float3 Le = get_emissive_color(mtl);
+			if(any(Le > 0))
+			{
+				float mis_weight = 1;
 #if ENABLE_NEE_EVAL || FORCE_MIS
-			mis_weight = calc_mis_weight(pdf_w * dot(wo, isect.geometry_normal) / pow2(payload.ray_t), emissive_sample_pdf(Le));
+				mis_weight = calc_mis_weight(pdf_w * dot(wo, isect.geometry_normal) / pow2(payload.ray_t), emissive_sample_pdf(Le));
 #endif
-			store_radiance(dtid, Le * throughput * mis_weight, true);
+				store_radiance(dtid, Le * throughput * mis_weight, true);
+			}
 		}
 #endif
 	}
@@ -385,7 +432,7 @@ void tracing_and_miss_lighting(uint2 dtid : SV_DispatchThreadID)
 [numthreads(32, 1, 1)]
 void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 {
-	if(dtid.x >= work_queue_size_srv.Load(0))
+	if(dtid.x >= work_queue_size_srv.Load(8 + 4 * MATERIAL_TYPE))
 		return;
 
 	dtid = get_job(dtid.x);
@@ -402,10 +449,11 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 	float3 throughput = throughput_pdf.rgb;
 	float pdf_w = throughput_pdf.a;
 
-	standard_material mtl = load_standard_material(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
+	MATERIAL mtl = LOAD_MATERIAL(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
 
 	float3 radiance = 0;
 
+#if MATERIAL_TYPE == MATERIAL_TYPE_STANDARD //emiisiveをcommonにしてもいい
 #if defined(FIRST)
 
 	radiance = get_emissive_color(mtl);
@@ -422,6 +470,7 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 		radiance = Le * mis_weight;
 	}
 
+#endif
 #endif
 
 	rng rng;
@@ -444,13 +493,8 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 	bsdf_sample s = ref::sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng));
 	if(s.is_valid)
 	{
-		if((dot(s.w, isect.normal) > 0) || is_twoside(mtl))
-		{
-			add_job(dtid);
-			store_ray_info(dtid, isect.position, s.w);
-			store_throughput_pdf(dtid, throughput * s.weight, s.pdf);
-		}
-		else
+#if MATERIAL_TYPE == MATERIAL_TYPE_STANDARD
+		if((dot(s.w, isect.normal) <= 0) && !is_twoside(mtl))
 		{
 			//bssrdfの入射位置サンプリングはdisplacement無効にするので,出射位置もdisplacement無効状態の位置にする
 			//こうしないと出射位置と入射位置が必ずある程度離れた状態になってしまう
@@ -464,6 +508,13 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 			add_sss_job(dtid);
 			store_ray_info(dtid, position, isect.normal);
 			store_throughput_pdf(dtid, throughput * s.weight, asfloat(f32x3_to_r9g9b9e5(get_subsurface_radius(mtl))));
+		}
+		else
+#endif
+		{
+			add_job(dtid);
+			store_ray_info(dtid, isect.position, s.w);
+			store_throughput_pdf(dtid, throughput * s.weight, s.pdf);
 		}
 	}
 
@@ -520,7 +571,7 @@ void sss_lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 	float3 throughput = throughput_pdf.rgb;
 
 	float3 wo = isect.normal; //近似.本当はwiが決まるごとにmaterialを初期化
-	standard_material mtl = load_standard_material(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
+	MATERIAL mtl = LOAD_MATERIAL(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
 
 	rng rng;
 	rng.state = dtid.x + screen_size.x * (dtid.y + screen_size.y * frame_count);
@@ -554,17 +605,126 @@ void sss_lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-[numthreads(1, 1, 1)]
-void init_dispatch_argument()
+groupshared uint shared_offset[256];
+
+[numthreads(256, 1, 1)]
+void prepare_filtering(uint group_index : SV_GroupIndex)
+{
+	uint lane_index = WaveGetLaneIndex();
+	uint lane_count = WaveGetLaneCount();
+	uint wave_index = group_index / lane_count;
+
+	uint count = work_queue_size_srv.Load(8 + 4 * group_index);
+	dispatch_arg_uav.Store3(12 * (group_index + 1), uint3(ceil_div(count, 32), 1, 1));
+	work_queue_size_uav.Store(8 + 4 * group_index, 0);
+	
+	if(group_index == 0)
+	{
+		uint count = work_queue_size_srv.Load(0);
+		dispatch_arg_uav.Store3(0, uint3(ceil_div(ceil_div(count, 4), 256), 1, 1));
+		work_queue_size_uav.Store(0, 0);
+	}
+
+	uint offset = WavePrefixSum(count) + count;
+	if(lane_index == lane_count - 1)
+		shared_offset[wave_index] = offset;
+	GroupMemoryBarrierWithGroupSync();
+
+	if(group_index < 256 / lane_count)
+		shared_offset[group_index] = WavePrefixSum(shared_offset[group_index]);
+	GroupMemoryBarrierWithGroupSync();
+
+	offset += shared_offset[wave_index];
+	work_queue_offset_uav.Store(4 * group_index, offset);
+}
+
+groupshared uint shared_count[256];
+
+[numthreads(256, 1, 1)]
+void filtering(uint gid : SV_GroupID, uint group_index : SV_GroupIndex)
+{
+	shared_count[group_index] = 0;
+	GroupMemoryBarrierWithGroupSync();
+
+	uint base = 256 * 4 * gid;
+	uint size = work_queue_size_srv.Load(0);
+
+	uint4 tasks = 0xffffffff;
+	if(base + 4 * group_index + 3 < size)
+		tasks.xyzw = work_queue_srv.Load4(4 * (base + 4 * group_index));
+	else if(base + 4 * group_index + 2 < size)
+		tasks.xyz = work_queue_srv.Load3(4 * (base + 4 * group_index));
+	else if(base + 4 * group_index + 1 < size)
+		tasks.xy = work_queue_srv.Load2(4 * (base + 4 * group_index));
+	else if(base + 4 * group_index + 0 < size)
+		tasks.x = work_queue_srv.Load(4 * (base + 4 * group_index));
+
+	for(uint i = 0; i < 4; i++)
+	{
+		if(tasks[i] == 0xffffffff)
+			break;
+
+		for(uint j = 0; j < 32; j++)
+		{
+			uint material_type = get_material_type(tasks[i]);
+			uint current = WaveReadLaneFirst(material_type);
+			uint count = WaveActiveCountBits(material_type == current);
+			if(WaveIsFirstLane())
+				InterlockedAdd(shared_count[current], count);
+			if(material_type == current)
+				break;
+		}
+	}
+	GroupMemoryBarrierWithGroupSync();
+
+	uint offset, count = shared_count[group_index];
+	work_queue_offset_uav.InterlockedAdd(4 * group_index, -count, offset);
+	shared_count[group_index] = offset - count;
+	GroupMemoryBarrierWithGroupSync();
+
+	for(uint i = 0; i < 4; i++)
+	{
+		if(tasks[i] == 0xffffffff)
+			break;
+
+		for(uint j = 0; j < 32; j++)
+		{
+			uint material_type = get_material_type(tasks[i]);
+			uint current = WaveReadLaneFirst(material_type);
+			uint count = WaveActiveCountBits(material_type == current);
+			uint offset = WavePrefixCountBits(material_type == current), wave_offset;
+			if(WaveIsFirstLane())
+				InterlockedAdd(shared_count[current], count, wave_offset);
+		
+			if(material_type == current)
+			{
+				offset += WaveReadLaneFirst(wave_offset);
+				work_queue_uav.Store(4 * offset, tasks[i]);
+				break;
+			}
+		}
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+[numthreads(256, 1, 1)]
+void init_dispatch_argument(uint dtid : SV_DispatchThreadID)
 {
 #if defined(SSS)
 	uint offset = 4;
 #else
 	uint offset = 0;
 #endif
-	uint size = work_queue_size_srv.Load(offset);
-	dispatch_arg_uav.Store3(0, uint3((size + 31) / 32, 1, 1));
-	work_queue_size_uav.Store(offset, 0);
+	if(dtid == 0)
+	{
+		uint size = work_queue_size_srv.Load(offset);
+		dispatch_arg_uav.Store3(0, uint3(ceil_div(size, 32), 1, 1));
+		work_queue_size_uav.Store(offset, 0);
+	}
+#if !defined(SSS)
+	work_queue_size_uav.Store(8 + 4 * dtid, 0);
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

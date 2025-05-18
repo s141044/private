@@ -210,8 +210,7 @@ intersection get_intersection(uint instance_index, uint instance_id, uint geomet
 
 	if(hit_type == HIT_TYPE_DISPLACEMENT)
 	{
-		ByteAddressBuffer buf = get_byteaddress_buffer(instance.bindless_material_handle);
-		displacement_params params = load_displacement_params(buf);
+		displacement_params params = load_displacement_params(instance.bindless_material_handle);
 
 		float3 p = p0 * b[0] + p1 * b[1] + p2 * b[2];
 		float3 n = n0 * b[0] + n1 * b[1] + n2 * b[2];

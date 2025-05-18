@@ -2,6 +2,7 @@
 #ifndef MATERIAL_STANDARD_HLSL
 #define MATERIAL_STANDARD_HLSL
 
+#include"common.hlsl"
 #include"../debug.hlsl"
 #include"../packing.hlsl"
 #include"../static_sampler.hlsl"
@@ -11,11 +12,6 @@
 #include"../bsdf/oren_nayer.hlsl"
 
 #include"../debug.hlsl"
-
-//Ç‹Ç†å≈íËÇ≈ëÂè‰ïvÇæÇÎÇ§
-#if !defined(RT_SAMPLER)
-#define RT_SAMPLER bilinear_wrap
-#endif
 
 #define COMPRESS_MATERIAL
 
@@ -121,35 +117,33 @@ bool	is_twoside(standard_material mtl){ return mtl.flags & 1; }
 
 struct standard_material_host
 {
-	uint	displacement_map;
-	float	max_displacement;
 	//0
-	uint	alpha_map_type_flags;
 	uint	coat_normal_map;
 	uint	base_normal_map;
 	uint	sheen_color_map;
-	//1
 	uint	sheen_roughness_map;
+	//1
 	uint	coat_scale_map;
 	uint	coat_color0_map;
 	uint	coat_roughness_map;
-	//2
 	uint	emissive_scale_map;
+	//2
 	uint	emissive_color_map;
 	uint	specular_scale_map;
 	uint	specular_color0_map;
-	//3
 	uint	specular_roughness_map;
+	//3
 	uint	diffuse_color_map;
 	uint	diffuse_roughness_map;
 	uint	subsurface_map;
-	//4
 	uint	emissive_color;
+	//4
 	uint	subsurface_radius;
 	uint	sheen_coat_color; //sheen.xyz,coat.x
 	uint	coat_specular_color; //coat.yz,specular.xy
-	//5
 	uint	specular_diffuse_color; //specular.z,diffuse_xyz
+	//5
+	uint	flags;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -157,123 +151,123 @@ struct standard_material_host
 standard_material load_standard_material(uint handle, float3 wo, float3 normal, float3 tangent, float3 binormal, float2 uv, float lod = 0, uint2 dtid = 0)
 {
 	ByteAddressBuffer buf = get_byteaddress_buffer(handle);
-	uint4 data0 = buf.Load4(8 + 16 * 0);
-	uint4 data1 = buf.Load4(8 + 16 * 1);
-	uint4 data2 = buf.Load4(8 + 16 * 2);
-	uint4 data3 = buf.Load4(8 + 16 * 3);
-	uint4 data4 = buf.Load4(8 + 16 * 4);
-	uint  data5 = buf.Load (8 + 16 * 5);
+	uint4 data0 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 0);
+	uint4 data1 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 1);
+	uint4 data2 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 2);
+	uint4 data3 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 3);
+	uint4 data4 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 4);
+	uint  data5 = buf.Load (MATERIAL_HEADER_SIZE + 16 * 5);
 
-	float3 emissive_color = r9g9b9e5_to_f32x3(data4.x);
-	float3 subsurface_radius = r9g9b9e5_to_f32x3(data4.y);
-	float4 sheen_coat_color = u8x4_unorm_to_f32x4(data4.z);
-	float4 coat_specular_color = u8x4_unorm_to_f32x4(data4.w);
-	float4 specular_diffuse_color = u8x4_unorm_to_f32x4(data5);
+	float3 emissive_color = r9g9b9e5_to_f32x3(data3.w);
+	float3 subsurface_radius = r9g9b9e5_to_f32x3(data4.x);
+	float4 sheen_coat_color = u8x4_unorm_to_f32x4(data4.y);
+	float4 coat_specular_color = u8x4_unorm_to_f32x4(data4.z);
+	float4 specular_diffuse_color = u8x4_unorm_to_f32x4(data4.w);
 	float3 sheen_color = float3(sheen_coat_color.xyz);
 	float3 coat_color0 = float3(sheen_coat_color.w, coat_specular_color.xy);
 	float3 specular_color0 = float3(coat_specular_color.zw, specular_diffuse_color.x);
 	float3 diffuse_color = float3(specular_diffuse_color.yzw);
 
 	float3 coat_normal = normal;
-	if((data0.y & 0x00ffffff) != 0x00ffffff)
+	if((data0.x & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float3> tex = get_texture2d<float3>(data0.y & 0x00ffffff);
+		Texture2D<float3> tex = get_texture2d<float3>(data0.x & 0x00ffffff);
 		float3 local_normal = tex.SampleLevel(RT_SAMPLER, uv, lod);
 		local_normal.xy = 2 * local_normal.xy - 1;
 		coat_normal = normalize(tangent * local_normal.x + binormal * local_normal.y + normal * local_normal.z);
 	}
 
 	float3 base_normal = normal;
-	if((data0.z & 0x00ffffff) != 0x00ffffff)
+	if((data0.y & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float3> tex = get_texture2d<float3>(data0.z & 0x00ffffff);
+		Texture2D<float3> tex = get_texture2d<float3>(data0.y & 0x00ffffff);
 		float3 local_normal = tex.SampleLevel(RT_SAMPLER, uv, lod);
 		local_normal.xy = 2 * local_normal.xy - 1;
 		base_normal = normalize(tangent * local_normal.x + binormal * local_normal.y + normal * local_normal.z);
 	}
 
-	if((data0.w & 0x00ffffff) != 0x00ffffff)
+	if((data0.z & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float3> tex = get_texture2d<float3>(data0.w & 0x00ffffff);
+		Texture2D<float3> tex = get_texture2d<float3>(data0.z & 0x00ffffff);
 		sheen_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	float sheen_roughness = u8_unorm_to_f32(data1.x >> 24);
-	if((data1.x & 0x00ffffff) != 0x00ffffff)
+	float sheen_roughness = u8_unorm_to_f32(data0.w >> 24);
+	if((data0.w & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float> tex = get_texture2d<float>(data1.x & 0x00ffffff);
+		Texture2D<float> tex = get_texture2d<float>(data0.w & 0x00ffffff);
 		sheen_roughness *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	float coat_scale = u8_unorm_to_f32(data1.y >> 24);
-	if((data1.y & 0x00ffffff) != 0x00ffffff)
+	float coat_scale = u8_unorm_to_f32(data1.x >> 24);
+	if((data1.x & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float> tex = get_texture2d<float>(data1.y & 0x00ffffff);
+		Texture2D<float> tex = get_texture2d<float>(data1.x & 0x00ffffff);
 		coat_scale *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	if((data1.z & 0x00ffffff) != 0x00ffffff)
+	if((data1.y & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float3> tex = get_texture2d<float3>(data1.z & 0x00ffffff);
+		Texture2D<float3> tex = get_texture2d<float3>(data1.y & 0x00ffffff);
 		coat_color0 *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	float coat_roughness = u8_unorm_to_f32(data1.w >> 24);
+	float coat_roughness = u8_unorm_to_f32(data1.z >> 24);
+	if((data1.z & 0x00ffffff) != 0x00ffffff)
+	{
+		Texture2D<float> tex = get_texture2d<float>(data1.z & 0x00ffffff);
+		coat_roughness *= tex.SampleLevel(RT_SAMPLER, uv, lod);
+	}
+
 	if((data1.w & 0x00ffffff) != 0x00ffffff)
 	{
 		Texture2D<float> tex = get_texture2d<float>(data1.w & 0x00ffffff);
-		coat_roughness *= tex.SampleLevel(RT_SAMPLER, uv, lod);
+		emissive_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
 	if((data2.x & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float> tex = get_texture2d<float>(data2.x & 0x00ffffff);
+		Texture2D<float3> tex = get_texture2d<float3>(data2.x & 0x00ffffff);
 		emissive_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
+	float specular_scale = u8_unorm_to_f32(data2.y >> 24);
 	if((data2.y & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float3> tex = get_texture2d<float3>(data2.y & 0x00ffffff);
-		emissive_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
-	}
-
-	float specular_scale = u8_unorm_to_f32(data2.z >> 24);
-	if((data2.z & 0x00ffffff) != 0x00ffffff)
-	{
-		Texture2D<float> tex = get_texture2d<float>(data2.z & 0x00ffffff);
+		Texture2D<float> tex = get_texture2d<float>(data2.y & 0x00ffffff);
 		specular_scale *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	if((data2.w & 0x00ffffff) != 0x00ffffff)
+	if((data2.z & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float3> tex = get_texture2d<float3>(data2.w & 0x00ffffff);
+		Texture2D<float3> tex = get_texture2d<float3>(data2.z & 0x00ffffff);
 		specular_color0 *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	float specular_roughness = u8_unorm_to_f32(data3.x >> 24);
-	if((data3.x & 0x00ffffff) != 0x00ffffff)
+	float specular_roughness = u8_unorm_to_f32(data2.w >> 24);
+	if((data2.w & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float> tex = get_texture2d<float>(data3.x & 0x00ffffff);
+		Texture2D<float> tex = get_texture2d<float>(data2.w & 0x00ffffff);
 		specular_roughness *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	if((data3.y & 0x00ffffff) != 0x00ffffff)
+	if((data3.x & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float3> tex = get_texture2d<float3> (data3.y & 0x00ffffff);
+		Texture2D<float3> tex = get_texture2d<float3> (data3.x & 0x00ffffff);
 		diffuse_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 	
-	float diffuse_roughness = u8_unorm_to_f32(data3.z >> 24);
-	if((data3.z & 0x00ffffff) != 0x00ffffff)
+	float diffuse_roughness = u8_unorm_to_f32(data3.y >> 24);
+	if((data3.y & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float> tex = get_texture2d<float>(data3.z & 0x00ffffff);
+		Texture2D<float> tex = get_texture2d<float>(data3.y & 0x00ffffff);
 		diffuse_roughness *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	float subsurface = u8_unorm_to_f32(data3.w >> 24);
-	if((data3.w & 0x00ffffff) != 0x00ffffff)
+	float subsurface = u8_unorm_to_f32(data3.z >> 24);
+	if((data3.z & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float> tex = get_texture2d<float>(data3.w & 0x00ffffff);
+		Texture2D<float> tex = get_texture2d<float>(data3.z & 0x00ffffff);
 		subsurface *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
@@ -316,7 +310,7 @@ standard_material load_standard_material(uint handle, float3 wo, float3 normal, 
 	}
 
 	standard_material mtl;
-	mtl.flags = data0.x >> 27;
+	mtl.flags = data5;
 
 #if defined(COMPRESS_MATERIAL)
 	

@@ -33,7 +33,7 @@ public:
 	
 	struct bindless_material : bindless_material_base
 	{
-		bindless_material(texture_resource_ptr& p_alpha_map, texture_resource_ptr& p_displacement_map, const float max_displacement, const uint flags) : bindless_material_base(material_type_standard, flags, p_alpha_map ? p_alpha_map->srv().bindless_handle() : -1, p_displacement_map ? p_displacement_map->srv().bindless_handle() : -1, max_displacement)
+		bindless_material(texture_resource_ptr& p_alpha_map, texture_resource_ptr& p_displacement_map, const float max_displacement) : bindless_material_base(material_type_standard, p_alpha_map ? p_alpha_map->srv().bindless_handle() : -1, p_displacement_map ? p_displacement_map->srv().bindless_handle() : -1, max_displacement)
 		{
 		}
 
@@ -57,6 +57,7 @@ public:
 		uint	sheen_coat_color; //sheen.xyz,coat.x
 		uint	coat_specular_color; //coat.yz,specular.xy
 		uint	specular_diffuse_color; //specular.z,diffuse_xyz
+		uint	flags;
 	};
 
 	//コンストラクタ
@@ -83,7 +84,7 @@ public:
 			dst |= f32_to_u8_unorm(f) << 24;
 		};
 
-		bindless_material params(mp_alpha_map, mp_displacement_map, m_max_displacement, m_is_twoside ? 1 : 0);
+		bindless_material params(mp_alpha_map, mp_displacement_map, m_max_displacement);
 		set_texture_and_u8_unorm(params.coat_normal_map, mp_coat_normal_map);
 		set_texture_and_u8_unorm(params.base_normal_map, mp_base_normal_map);
 		set_texture_and_u8_unorm(params.sheen_color_map, mp_sheen_color_map);
@@ -105,6 +106,7 @@ public:
 		params.sheen_coat_color = f32x4_to_u8x4_unorm(float4(m_sheen_color, m_coat_color0.x));
 		params.coat_specular_color = f32x4_to_u8x4_unorm(float4(m_coat_color0.yz, m_specular_color0.xy));
 		params.specular_diffuse_color = f32x4_to_u8x4_unorm(float4(m_specular_color0.z, m_diffuse_color));
+		params.flags = m_is_twoside ? 1 : 0;
 
 		push_priority push_priority(context);
 		context.set_priority(priority_initiaize);

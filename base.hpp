@@ -143,19 +143,19 @@ private:
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //material_type
 /*/////////////////////////////////////////////////////////////////////////////////////////////////
-最大8個
 /////////////////////////////////////////////////////////////////////////////////////////////////*/
 
 enum material_type : uint8_t
 {
 	material_type_standard,
-	//TODO: その他
+	material_type_hair,
+	material_type_count,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //material
 /*/////////////////////////////////////////////////////////////////////////////////////////////////
-bindlessデータの先頭は固定.flagsは5bitまで
+bindlessデータの先頭は固定.
 /////////////////////////////////////////////////////////////////////////////////////////////////*/
 
 class material
@@ -164,10 +164,11 @@ public:
 
 	struct bindless_material_base
 	{
-		bindless_material_base(const material_type type, const uint flags, const uint alpha_map, const uint displacement_map, const float max_displacement) : displacement_map(displacement_map), max_displacement(max_displacement), alpha_map_type_flags((alpha_map & 0x00ffffff) | ((type | (flags << 3)) << 24)){}
+		bindless_material_base(const material_type type, const uint alpha_map, const uint displacement_map, const float max_displacement) : displacement_map(displacement_map), max_displacement(max_displacement), alpha_map(alpha_map), type(type){}
+		uint	type : 8;
+		uint	alpha_map : 24;
 		uint	displacement_map;
 		float	max_displacement;
-		uint	alpha_map_type_flags;
 	};
 
 	//コンストラクタ

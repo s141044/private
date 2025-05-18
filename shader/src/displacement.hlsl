@@ -4,6 +4,7 @@
 
 #include"bindless.hlsl"
 #include"static_sampler.hlsl"
+#include"material/common.hlsl"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -13,12 +14,13 @@ struct displacement_params
 	float	max_displacement;
 };
 
-displacement_params load_displacement_params(ByteAddressBuffer buf)
+displacement_params load_displacement_params(uint material_handle)
 {
+	material_header header = load_material_header(material_handle);
+
 	displacement_params params;
-	uint2 vals = buf.Load2(0);
-	params.tex_handle = vals[0];
-	params.max_displacement = asfloat(vals[1]);
+	params.tex_handle = header.displacement_map_handle;
+	params.max_displacement = header.max_displacement;
 	return params;
 }
 

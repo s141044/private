@@ -108,4 +108,9 @@ void InterlockedAdd(RWByteAddressBuffer buf, uint offset, float v)
 	InterlockedAdd(buf, offset, v, original);
 }
 
+uint ceil_div(uint x, uint y)
+{
+	return (x + y - 1) / y;
+}
+
 #endif
