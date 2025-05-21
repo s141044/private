@@ -38,7 +38,7 @@ bool ah_sss(ray r, inout uint4 payload, hit_info info, uint hit_type = HIT_TYPE_
 	{
 		u /= pmf;
 
-		payload.x = (info.instance_id + info.geometry_index) | info.instance_index;
+		payload.x = (info.instance_id + info.geometry_index) | (info.instance_index << 16);
 		payload.y = info.primitive_index | (hit_type << 31);
 		payload.z = f32x2_to_u16x2_unorm(info.barycentrics);
 	}
