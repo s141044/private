@@ -5,6 +5,7 @@
 #include"common.hlsl"
 #include"../debug.hlsl"
 #include"../packing.hlsl"
+#include"../intersection.hlsl"
 #include"../static_sampler.hlsl"
 
 #include"../debug.hlsl"
@@ -100,8 +101,15 @@ struct hair_material
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-hair_material load_hair_material(uint handle, float3 wo, float3 normal, float3 tangent, float3 binormal, float2 uv, float lod = 0, uint2 dtid = 0)
+hair_material load_hair_material(intersection isect, float3 wo, float lod = 0, uint2 dtid = 0)
 {
+	uint handle = isect.material_handle;
+	float3 position = isect.position;
+	float3 normal = isect.normal;
+	float3 tangent = isect.tangent.xyz;
+	float3 binormal = get_binormal(isect);
+	float2 uv = isect.uv;
+
 	ByteAddressBuffer buf = get_byteaddress_buffer(handle);
 	uint4 data0 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 0);
 	uint2 data1 = buf.Load2(MATERIAL_HEADER_SIZE + 16 * 1);

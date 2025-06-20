@@ -17,6 +17,7 @@
 #include"realistic_camera.hlsl"
 
 #include"../material/hair.hlsl"
+#include"../material/glint.hlsl"
 #include"../material/standard.hlsl"
 
 #define ENABLE_HIT_EVAL 1
@@ -56,7 +57,10 @@ RWByteAddressBuffer	dispatch_arg_uav;
 #define MATERIAL_TYPE 0
 #endif
 
-#if MATERIAL_TYPE == MATERIAL_TYPE_HAIR
+#if MATERIAL_TYPE == MATERIAL_TYPE_GLINT
+#define MATERIAL		glint_material
+#define LOAD_MATERIAL	load_glint_material
+#elif MATERIAL_TYPE == MATERIAL_TYPE_HAIR
 #define MATERIAL		hair_material
 #define LOAD_MATERIAL	load_hair_material
 #else
@@ -173,7 +177,7 @@ namespace ref{ bool has_contribution(float nwi, MATERIAL mtl)
 #endif
 }}
 
-namespace ref{ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, MATERIAL mtl)
+namespace ref{ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, MATERIAL mtl, uint2 dtid = 0)
 {
 #if defined(SSS_LIGHTING_AND_SAMPLING)
 
@@ -184,7 +188,7 @@ namespace ref{ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, MATERIA
 	return float4(calc_subsurface(mtl) * wi.z * inv_PI, sample_cosine_hemisphere_pdf(wi)); //本当はwiでmaterialを読みなおさないとダメ.重すぎるのでwi=normalのmaterialで近似.
 
 #else
-	return ::calc_bsdf_pdf(wo, wi, normal, mtl);
+	return ::calc_bsdf_pdf(wo, wi, normal, mtl, dtid);
 #endif
 }}
 
@@ -251,7 +255,7 @@ float3 emissive_lighting(intersection isect, MATERIAL mtl, float3 wo, inout rng 
 	return s.L * bsdf_pdf.rgb * light_nwo * pow2(inv_dist) * mis_weight;
 }
 
-float3 directional_lighting(intersection isect, MATERIAL mtl, float3 wo, inout rng rng)
+float3 directional_lighting(intersection isect, MATERIAL mtl, float3 wo, inout rng rng, uint2 dtid = 0)
 {
 	float3 wi = sample_directional_light(randF(rng), randF(rng));
 	if(!ref::has_contribution(dot(isect.normal, wi), mtl))
@@ -260,7 +264,7 @@ float3 directional_lighting(intersection isect, MATERIAL mtl, float3 wo, inout r
 	if(is_occluded(isect.position, wi, FLT_MAX, randF(rng)))
 		return 0;
 
-	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, wi, isect.normal, mtl);
+	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, wi, isect.normal, mtl, dtid);
 
 	float mis_weight = 1;
 #if ENABLE_HIT_EVAL || FORCE_MIS
@@ -411,7 +415,7 @@ void tracing_and_miss_lighting(uint2 dtid : SV_DispatchThreadID)
 
 		if(header.material_type == MATERIAL_TYPE_STANDARD) //emissiveをcommonにしてもいい
 		{
-			standard_material mtl = load_standard_material(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
+			standard_material mtl = load_standard_material(isect, wo, 0);
 
 			float3 Le = get_emissive_color(mtl);
 			if(any(Le > 0))
@@ -442,14 +446,14 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 
 	float3 wo = -ray.direction;
 	ray_payload payload = get_hit_info(dtid);
-	intersection isect = get_intersection(payload);
+	intersection isect = get_intersection(payload, dtid);
 	isect.normal = normal_correction(isect.normal, wo);
 
 	float4 throughput_pdf = get_throughput_pdf(dtid);
 	float3 throughput = throughput_pdf.rgb;
 	float pdf_w = throughput_pdf.a;
 
-	MATERIAL mtl = LOAD_MATERIAL(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
+	MATERIAL mtl = LOAD_MATERIAL(isect, wo, 0, dtid);
 
 	float3 radiance = 0;
 
@@ -483,17 +487,17 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 		radiance += emissive_lighting(isect, mtl, wo, rng);
 
 	if(exists_directional_light())
-		radiance += directional_lighting(isect, mtl, wo, rng);
+		radiance += directional_lighting(isect, mtl, wo, rng, dtid);
 
 	if(exists_environment_light())
 		radiance += environment_lighting(isect, mtl, wo, rng);
 
 #endif
 
-	bsdf_sample s = ref::sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng));
+	bsdf_sample s = ref::sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng), dtid);
 	if(s.is_valid)
 	{
-#if MATERIAL_TYPE == MATERIAL_TYPE_STANDARD
+#if (MATERIAL_TYPE == MATERIAL_TYPE_STANDARD) || (MATERIAL_TYPE == MATERIAL_TYPE_GLINT)
 		if((dot(s.w, isect.normal) <= 0) && !is_twoside(mtl))
 		{
 			//bssrdfの入射位置サンプリングはdisplacement無効にするので,出射位置もdisplacement無効状態の位置にする
@@ -571,7 +575,7 @@ void sss_lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 	float3 throughput = throughput_pdf.rgb;
 
 	float3 wo = isect.normal; //近似.本当はwiが決まるごとにmaterialを初期化
-	MATERIAL mtl = LOAD_MATERIAL(isect.material_handle, wo, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv, 0);
+	MATERIAL mtl = LOAD_MATERIAL(isect, wo, 0);
 
 	rng rng;
 	rng.state = dtid.x + screen_size.x * (dtid.y + screen_size.y * frame_count);

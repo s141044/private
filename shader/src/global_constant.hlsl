@@ -21,6 +21,10 @@ cbuffer scene_info
 	float4x4	prev_inv_view_proj_mat;
 };
 
+#define camera_axis_x float3(view_mat[0][0], view_mat[1][0], view_mat[2][0])
+#define camera_axis_y float3(view_mat[0][1], view_mat[1][1], view_mat[2][1])
+#define camera_axis_z float3(view_mat[0][2], view_mat[1][2], view_mat[2][2])
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 cbuffer light_info

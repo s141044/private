@@ -35,7 +35,7 @@ float randF(inout rng r)
 
 float van_der_corput_sequence(uint n)
 {
-	float s = 1.0f / (1ull << 32);
+	float s = 1.0 / (1ull << 32);
 	return reversebits(n) * s;
 }
 

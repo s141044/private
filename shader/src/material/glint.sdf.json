@@ -1,0 +1,13 @@
+{
+  "definition":
+  [
+    {
+      "name": "calc_dictionary", 
+      "cs": [ "bsdf/glint.hlsl", "calc_dictionary", "-DCALC_DICTIONARY" ]
+    }, 
+    {
+      "name": "calc_reflectance", 
+      "cs": [ "bsdf/glint.hlsl", "calc_reflectance", "-DCALC_REFLECTANCE" ]
+    }, 
+  ]
+}

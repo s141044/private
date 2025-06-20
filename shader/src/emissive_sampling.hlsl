@@ -89,7 +89,7 @@ emissive_sample sample_emissive(float u0, float u1, uint dtid = 0)
 	s.position = isect.position;
 	s.normal = isect.normal;
 
-	standard_material mtl = load_standard_material(isect.material_handle, isect.normal, isect.normal, isect.tangent.xyz, get_binormal(isect), isect.uv);
+	standard_material mtl = load_standard_material(isect, isect.normal);
 	s.L = get_emissive_color(mtl);
 	s.pdf_approx = emissive_sample_pdf(s.L);
 

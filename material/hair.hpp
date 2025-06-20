@@ -126,7 +126,7 @@ private:
 	float3					m_I_TRT = 0.25f;
 	float					m_a_TRT = to_radian(0.0f);
 	float					m_b_TRT = to_radian(30.0f);
-	float3					m_I_g = 1.0f;
+	float3					m_I_g = 0.0f;
 	float					m_r_g = to_radian(2.5f);
 	float					m_phi_g = to_radian(20.0f);
 };

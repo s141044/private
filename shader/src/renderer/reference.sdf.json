@@ -103,6 +103,10 @@
             {
               "name": "_type1",
               "cs": ["", "", "-DMATERIAL_TYPE=1"]
+            },
+            {
+              "name": "_type2",
+              "cs": ["", "", "-DMATERIAL_TYPE=2"]
             }
           ]
         }

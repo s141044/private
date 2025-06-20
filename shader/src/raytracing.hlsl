@@ -53,6 +53,7 @@ StructuredBuffer<bindless_instance_desc>	bindless_instance_descs;   //instance_i
 StructuredBuffer<raytracing_instance_desc>	raytracing_instance_descs; //instance_indexでアクセス
 
 #include"mesh.hlsl"
+#include"intersection.hlsl"
 #include"raytracing_displacement.hlsl"
 
 //void closest_hit_shader(ray r, inout ray_payload payload, hit_info info);
@@ -137,23 +138,6 @@ StructuredBuffer<raytracing_instance_desc>	raytracing_instance_descs; //instance
 	}}																																										\
 }
 
-struct intersection
-{
-	float3	position;
-	float3	prev_position;
-	float3	normal;
-	float4	tangent;
-	float3	geometry_normal;
-	float2	uv;
-	uint	material_handle;
-	bool	is_front_face;
-};
-
-float3 get_binormal(intersection isect)
-{
-	return normalize(cross(isect.normal, isect.tangent.xyz) * isect.tangent.w);
-}
-
 intersection get_intersection(uint instance_index, uint instance_id, uint geometry_index, uint primitive_index, float2 b12, bool is_front_face, uint hit_type = HIT_TYPE_TRIANGLE, uint2 dtid = 0)
 {
 	float3 b;
@@ -178,7 +162,10 @@ intersection get_intersection(uint instance_index, uint instance_id, uint geomet
 	float3 p1 = asfloat(vb0.Load3(geom.offsets[0] + (geom.strides[0] & 0xff) * index.y));
 	float3 p2 = asfloat(vb0.Load3(geom.offsets[0] + (geom.strides[0] & 0xff) * index.z));
 	isect.position = p0 * b[0] + p1 * b[1] + p2 * b[2];
-	isect.geometry_normal = normalize(cross(p1 - p0, p2 - p0));
+
+	float3 e1 = p1 - p0;
+	float3 e2 = p2 - p0;
+	isect.geometry_normal = normalize(cross(e1, e2));
 
 	if(geom.vb_handles[4] != invalid_bindless_handle)
 	{
@@ -207,6 +194,12 @@ intersection get_intersection(uint instance_index, uint instance_id, uint geomet
 	float2 uv1 = asfloat(tuv1.yz);
 	float2 uv2 = asfloat(tuv2.yz);
 	isect.uv = uv0 * b[0] + uv1 * b[1] + uv2 * b[2];
+
+	float2 euv1 = uv1 - uv0;
+	float2 euv2 = uv2 - uv0;
+	float inv_det = 1 / (euv1.x * euv2.y - euv1.y * euv2.x);
+	isect.dpdu = (e1 * euv2.y - e2 * euv1.y) * inv_det;
+	isect.dpdv = (e2 * euv1.x - e1 * euv2.x) * inv_det;
 
 	if(hit_type == HIT_TYPE_DISPLACEMENT)
 	{
@@ -254,6 +247,8 @@ intersection get_intersection(uint instance_index, uint instance_id, uint geomet
 		isect.normal = normalize(mul(isect.normal, (float3x3)ltow)); //等方スケーリングを仮定
 		isect.geometry_normal = normalize(mul(isect.geometry_normal, (float3x3)ltow));
 		isect.tangent.xyz = normalize(mul(isect.tangent.xyz, (float3x3)ltow));
+		isect.dpdu = mul(float4(isect.dpdu, 0), ltow);
+		isect.dpdv = mul(float4(isect.dpdv, 0), ltow);
 	}
 	return isect;
 }

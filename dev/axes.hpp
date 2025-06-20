@@ -33,7 +33,7 @@ public:
 	}
 
 	//•`‰æ
-	bool draw(render_context& context, target_state& target_state, const camera& camera, const uint2 & screen_size)
+	bool draw(render_context& context, target_state& target_state, const camera& camera, const uint2& screen_size)
 	{
 		if(m_shader_file.has_update())
 			m_shader_file.update();
