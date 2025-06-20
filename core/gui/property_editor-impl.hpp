@@ -110,9 +110,11 @@ inline bool property_editor::slider_int(const char* label, int& value, int min, 
 	return ImGui::SliderInt(label, &value, min, max);
 }
 
-inline bool property_editor::slider_float(const char* label, float& value, float min, float max)
+inline bool property_editor::slider_float(const char* label, float& value, float min, float max, bool log)
 {
-	return ImGui::SliderFloat(label, &value, min, max, "%.6f");
+	auto flags = ImGuiSliderFlags_None;
+	if(log){ flags = ImGuiSliderFlags_Logarithmic; }
+	return ImGui::SliderFloat(label, &value, min, max, "%.6f", flags);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -61,6 +61,9 @@ public:
 		float coat_roughness = m_mtl.coat_roughness();
 		if(slider_float("coat_roughness", coat_roughness, 0, 1)){ m_mtl.set_coat_roughness(coat_roughness); }
 
+		float coat_glint_density = m_mtl.coat_glint_density();
+		if(slider_float("coat_glint_density", coat_glint_density, 1, 100000, true)){ m_mtl.set_coat_glint_density(coat_glint_density); }
+
 		separator();
 
 		float3 sheen_color = m_mtl.sheen_color();
@@ -68,14 +71,6 @@ public:
 
 		float sheen_roughness = m_mtl.sheen_roughness();
 		if(slider_float("sheen_roughness", sheen_roughness, 0, 1)){ m_mtl.set_sheen_roughness(sheen_roughness); }
-
-		separator();
-
-		float emissive_scale = m_mtl.emissive_scale();
-		if(input_float("emissive_scale", emissive_scale)){ m_mtl.set_emissive_scale(emissive_scale); }
-
-		float3 emissive_color = m_mtl.emissive_color();
-		if(color_edit("emissive_color", emissive_color)){ m_mtl.set_emissive_color(emissive_color); }
 
 		separator();
 
@@ -111,12 +106,10 @@ public:
 		write_float(json, "coat_scale", m_mtl.coat_scale());
 		write_float3(json, "coat_color0", m_mtl.coat_color0());
 		write_float(json, "coat_roughness", m_mtl.coat_roughness());
+		write_float(json, "coat_glint_density", m_mtl.coat_glint_density());
 
 		write_float3(json, "sheen_color", m_mtl.sheen_color());
 		write_float(json, "sheen_roughness", m_mtl.sheen_roughness());
-		
-		write_float(json, "emissive_scale", m_mtl.emissive_scale());
-		write_float3(json, "emissive_color", m_mtl.emissive_color());
 		
 		write_float(json, "subsurface", m_mtl.subsurface());
 		write_float(json, "subsurface_radius_scale", m_mtl.subsurface_radius_scale());
@@ -152,18 +145,15 @@ public:
 		
 		float coat_roughness;
 		if(read_float(json, "coat_roughness", coat_roughness)){ m_mtl.set_coat_roughness(coat_roughness); }
+		
+		float coat_glint_density;
+		if(read_float(json, "coat_glint_density", coat_glint_density)){ m_mtl.set_coat_glint_density(coat_glint_density); }
 
 		float3 sheen_color;
 		if(read_float3(json, "sheen_color", sheen_color)){ m_mtl.set_sheen_color(sheen_color); }
 		
 		float sheen_roughness;
 		if(read_float(json, "sheen_roughness", sheen_roughness)){ m_mtl.set_sheen_roughness(sheen_roughness); }
-		
-		float emissive_scale;
-		if(read_float(json, "emissive_scale", emissive_scale)){ m_mtl.set_emissive_scale(emissive_scale); }
-
-		float3 emissive_color;
-		if(read_float3(json, "emissive_color", emissive_color)){ m_mtl.set_emissive_color(emissive_color); }
 		
 		float subsurface;
 		if(read_float(json, "subsurface", subsurface)){ m_mtl.set_subsurface(subsurface); }

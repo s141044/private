@@ -138,7 +138,7 @@ protected:
 
 	//スライダー
 	bool slider_int(const char* label, int& value, int min, int max);
-	bool slider_float(const char* label, float& value, float min, float max);
+	bool slider_float(const char* label, float& value, float min, float max, bool log = false);
 
 	//色
 	bool color_edit(const char* label, float3& color);

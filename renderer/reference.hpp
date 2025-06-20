@@ -281,12 +281,22 @@ public:
 				context.set_pipeline_resource("throughput_pdf_uav", *mp_throughput_pdf_uav[1 - ray_index]);
 				context.set_pipeline_state(*m_shader_file.get("sss_sampling_and_tracing"));
 				context.dispatch_with_32bit_constant(*mp_argument_buf, 0, m_engine());
+				queue_index = 1 - queue_index;
 
 				context.set_pipeline_resource("dispatch_arg_uav", *mp_argument_uav);
 				context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[1]);
 				context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[0]);
-				context.set_pipeline_state(*m_shader_file.get("init_sss_dispatch_argument"));
+				context.set_pipeline_resource("work_queue_offset_uav", *mp_work_queue_offset_uav);
+				context.set_pipeline_state(*m_shader_file.get("sss_prepare_filtering"));
 				context.dispatch(1, 1, 1);
+
+				context.set_pipeline_resource("work_queue_srv", *mp_work_queue_srv[queue_index]);
+				context.set_pipeline_resource("work_queue_uav", *mp_work_queue_uav[1 - queue_index]);
+				context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[1]);
+				context.set_pipeline_resource("work_queue_offset_uav", *mp_work_queue_offset_uav);
+				context.set_pipeline_state(*m_shader_file.get("sss_filtering"));
+				context.dispatch(*mp_argument_buf, 0);
+				queue_index = 1 - queue_index;
 
 				context.set_pipeline_resource("hit_info_srv", *mp_hit_info_srv);
 				context.set_pipeline_resource("ray_info_uav", *mp_ray_info_uav[ray_index]);
@@ -294,10 +304,15 @@ public:
 				context.set_pipeline_resource("work_queue_uav", *mp_work_queue_uav[queue_index]);
 				context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[1]);
 				context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[0]);
+				context.set_pipeline_resource("work_queue_offset_srv", *mp_work_queue_offset_srv);
 				context.set_pipeline_resource("throughput_pdf_srv", *mp_throughput_pdf_srv[1 - ray_index]);
 				context.set_pipeline_resource("throughput_pdf_uav", *mp_throughput_pdf_uav[ray_index]);
-				context.set_pipeline_state(*m_shader_file.get("sss_lighting_and_sampling"));
-				context.dispatch_with_32bit_constant(*mp_argument_buf, 0, m_engine());
+				for(uint i = 0; i < material_type_count; i++)
+				{
+					context.set_pipeline_state(*m_shader_file.get("sss_lighting_and_sampling_type" + std::to_string(i)));
+					context.dispatch_with_32bit_constant(*mp_argument_buf, 12 * (i + 1), m_engine(), i == 0);
+				}
+				queue_index = 1 - queue_index;
 			}
 
 			context.set_pipeline_resource("dispatch_arg_uav", *mp_argument_uav);

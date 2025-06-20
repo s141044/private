@@ -303,6 +303,12 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, hair_material mtl, float u0, f
 	return s;
 }
 
+
+float3 calc_subsurface(hair_material mtl)
+{
+	return 0;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif

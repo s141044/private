@@ -90,12 +90,11 @@ void add_job(uint2 pixel_pos, uint material_type = -1)
 		if(WaveIsFirstLane())
 			work_queue_size_uav.InterlockedAdd(8 + 4 * material_type, count);
 		if(material_type == current)
-			break;
-	
+			break;	
 	}
 }
 
-void add_sss_job(uint2 pixel_pos)
+void add_sss_job(uint2 pixel_pos, uint material_type = -1)
 {
 	uint offset, count = WaveActiveCountBits(1);
 	if(WaveIsFirstLane())
@@ -104,7 +103,20 @@ void add_sss_job(uint2 pixel_pos)
 	offset = WaveReadLaneFirst(offset);
 	offset = screen_size.x * screen_size.y - offset - count;
 	offset += WavePrefixCountBits(1);
-	work_queue_uav.Store(4 * offset, pixel_pos.x | (pixel_pos.y << 16));
+	work_queue_uav.Store(4 * offset, pixel_pos.x | (pixel_pos.y << 12) | (material_type << 24));
+
+	if(material_type == -1)
+		return;
+
+	for(uint i = 0; i < 32; i++)
+	{
+		uint current = WaveReadLaneFirst(material_type);
+		uint count = WaveActiveCountBits(material_type == current);
+		if(WaveIsFirstLane())
+			work_queue_size_uav.InterlockedAdd(8 + 4 * material_type, count);
+		if(material_type == current)
+			break;
+	}
 }
 
 void store_throughput_pdf(uint2 pixel_pos, float3 throughput, float pdf)
@@ -145,9 +157,13 @@ uint2 get_job(uint index)
 
 uint2 get_sss_job(uint index)
 {
+	uint offset = 0;
+#if defined(MATERIAL_TYPE)
+	offset = work_queue_offset_srv.Load(4 * MATERIAL_TYPE);
+#endif
 	uint size = work_queue_size_srv.Load(4);
-	uint enc = work_queue_srv.Load(4 * (screen_size.x * screen_size.y - size + index));
-	return uint2(enc & 0xffff, enc >> 16);
+	uint enc = work_queue_srv.Load(4 * (offset + screen_size.x * screen_size.y - size + index));
+	return uint2(enc & 0xfff, (enc >> 12) & 0xfff);
 }
 
 float4 get_throughput_pdf(uint2 pixel_pos)
@@ -554,7 +570,9 @@ void sss_sampling_and_tracing(uint2 dtid : SV_DispatchThreadID)
 		float pdf = sample_bssrdf_pdf(position, normal, isect.position, isect.geometry_normal, payload.hit_count, d, dtid);
 		throughput *= min(bssrdf(length(position - isect.position), d) / pdf, 100);
 
-		add_sss_job(dtid);
+		material_header header = load_material_header(isect.material_handle);
+
+		add_sss_job(dtid, header.material_type);
 		store_hit_info(dtid, payload);
 		store_throughput_pdf(dtid, throughput, 0);
 	}
@@ -565,7 +583,7 @@ void sss_sampling_and_tracing(uint2 dtid : SV_DispatchThreadID)
 [numthreads(32, 1, 1)]
 void sss_lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 {
-	if(dtid.x >= work_queue_size_srv.Load(4))
+	if(dtid.x >= work_queue_size_srv.Load(8 + 4 * MATERIAL_TYPE))
 		return;
 
 	dtid = get_sss_job(dtid.x);
@@ -621,12 +639,16 @@ void prepare_filtering(uint group_index : SV_GroupIndex)
 	uint count = work_queue_size_srv.Load(8 + 4 * group_index);
 	dispatch_arg_uav.Store3(12 * (group_index + 1), uint3(ceil_div(count, 32), 1, 1));
 	work_queue_size_uav.Store(8 + 4 * group_index, 0);
-	
+
 	if(group_index == 0)
 	{
-		uint count = work_queue_size_srv.Load(0);
+		uint queue_size_start = 0;
+#if defined(SSS)
+		queue_size_start = 4;
+#endif
+		uint count = work_queue_size_srv.Load(queue_size_start);
 		dispatch_arg_uav.Store3(0, uint3(ceil_div(ceil_div(count, 4), 256), 1, 1));
-		work_queue_size_uav.Store(0, 0);
+		work_queue_size_uav.Store(queue_size_start, 0);
 	}
 
 	uint offset = WavePrefixSum(count) + count;
@@ -650,18 +672,28 @@ void filtering(uint gid : SV_GroupID, uint group_index : SV_GroupIndex)
 	shared_count[group_index] = 0;
 	GroupMemoryBarrierWithGroupSync();
 
+	uint queue_size_start = 0;
+#if defined(SSS)
+	queue_size_start = 4;
+#endif
+
 	uint base = 256 * 4 * gid;
-	uint size = work_queue_size_srv.Load(0);
+	uint size = work_queue_size_srv.Load(queue_size_start);
+
+	uint queue_start = 0;
+#if defined(SSS)
+	queue_start = screen_size.x * screen_size.y - size;
+#endif
 
 	uint4 tasks = 0xffffffff;
 	if(base + 4 * group_index + 3 < size)
-		tasks.xyzw = work_queue_srv.Load4(4 * (base + 4 * group_index));
+		tasks.xyzw = work_queue_srv.Load4(4 * (queue_start + base + 4 * group_index));
 	else if(base + 4 * group_index + 2 < size)
-		tasks.xyz = work_queue_srv.Load3(4 * (base + 4 * group_index));
+		tasks.xyz = work_queue_srv.Load3(4 * (queue_start + base + 4 * group_index));
 	else if(base + 4 * group_index + 1 < size)
-		tasks.xy = work_queue_srv.Load2(4 * (base + 4 * group_index));
+		tasks.xy = work_queue_srv.Load2(4 * (queue_start + base + 4 * group_index));
 	else if(base + 4 * group_index + 0 < size)
-		tasks.x = work_queue_srv.Load(4 * (base + 4 * group_index));
+		tasks.x = work_queue_srv.Load(4 * (queue_start + base + 4 * group_index));
 
 	for(uint i = 0; i < 4; i++)
 	{
@@ -703,7 +735,7 @@ void filtering(uint gid : SV_GroupID, uint group_index : SV_GroupIndex)
 			if(material_type == current)
 			{
 				offset += WaveReadLaneFirst(wave_offset);
-				work_queue_uav.Store(4 * offset, tasks[i]);
+				work_queue_uav.Store(4 * (queue_start + offset), tasks[i]);
 				break;
 			}
 		}
@@ -726,9 +758,7 @@ void init_dispatch_argument(uint dtid : SV_DispatchThreadID)
 		dispatch_arg_uav.Store3(0, uint3(ceil_div(size, 32), 1, 1));
 		work_queue_size_uav.Store(offset, 0);
 	}
-#if !defined(SSS)
 	work_queue_size_uav.Store(8 + 4 * dtid, 0);
-#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -25,7 +25,6 @@ struct glint_material
 	uint	sheen_reflectance;
 	uint	coat_color0;
 	uint	coat_reflectance;
-	uint	emissive_color;
 	uint	specular_color0;
 	uint	specular_reflectance;
 	uint	matte_reflectance;
@@ -34,13 +33,12 @@ struct glint_material
 	uint	subsurface_radius;
 	uint	roughness; //sheen,coat,glint
 	uint	roughness_subsurface_misc; //diffuse,subsurface
-	uint	scale; //coat,glint
-	uint	flags;
+	uint	scale; //coat,specular
+	uint	flags_glint_cell_size;
 
 	float2	patch_center;
 	float2	patch_axis0;
 	float2	patch_axis1;
-	uint	glint_param;
 };
 
 float3	get_coat_normal(glint_material mtl){ return oct_to_f32x3(u16x2_unorm_to_f32x2(mtl.coat_normal) * 2 - 1); }
@@ -52,7 +50,6 @@ float	get_coat_scale(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.scale)
 float3	get_coat_color0(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.coat_color0).xyz; }
 float	get_coat_roughness(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness).y; }
 float3	get_coat_reflectance(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.coat_reflectance).xyz; }
-float3	get_emissive_color(glint_material mtl){ return r9g9b9e5_to_f32x3(mtl.emissive_color); }
 float	get_specular_scale(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.scale).y; }
 float3	get_specular_color0(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.specular_color0).xyz; }
 float	get_specular_roughness(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness).z; }
@@ -63,13 +60,13 @@ float	get_diffuse_roughness(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl
 float3	get_diffuse_reflectance(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.diffuse_reflectance).xyz; }
 float	get_subsurface(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness_subsurface_misc).y; }
 float3	get_subsurface_radius(glint_material mtl){ return r9g9b9e5_to_f32x3(mtl.subsurface_radius); }
-bool	is_twoside(glint_material mtl){ return mtl.flags & 1; }
+bool	is_twoside(glint_material mtl){ return mtl.flags_glint_cell_size & 1; }
 
 float2	get_patch_center(glint_material mtl) { return mtl.patch_center; }
 float2	get_patch_axis0(glint_material mtl){ return mtl.patch_axis0; }
 float2	get_patch_axis1(glint_material mtl){ return mtl.patch_axis1; }
-float	get_lod_bias(glint_material mtl){ return f16tof32(mtl.glint_param & 0xffff); }
-float	get_cell_size(glint_material mtl){ return f16tof32(mtl.glint_param >> 16); }
+float	get_lod_bias(glint_material mtl){ return 2; }
+float	get_cell_size(glint_material mtl){ return f16tof32(mtl.flags_glint_cell_size >> 16); }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -84,25 +81,20 @@ struct glint_material_host
 	uint	coat_scale_map;
 	uint	coat_color0_map;
 	uint	coat_roughness_map;
-	uint	emissive_scale_map;
-	//2
-	uint	emissive_color_map;
 	uint	specular_scale_map;
+	//2
 	uint	specular_color0_map;
 	uint	specular_roughness_map;
-	//3
 	uint	diffuse_color_map;
 	uint	diffuse_roughness_map;
+	//3
 	uint	subsurface_map;
-	uint	emissive_color;
-	//4
 	uint	subsurface_radius;
 	uint	sheen_coat_color; //sheen.xyz,coat.x
 	uint	coat_specular_color; //coat.yz,specular.xy
+	//4
 	uint	specular_diffuse_color; //specular.z,diffuse_xyz
-	//5
-	uint	flags;
-	uint	glint_param; //cell_size,lod_bias
+	uint	flags_glint_cell_size; //two_side, 
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -121,14 +113,12 @@ glint_material load_glint_material(intersection isect, float3 wo, float lod = 0,
 	uint4 data1 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 1);
 	uint4 data2 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 2);
 	uint4 data3 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 3);
-	uint4 data4 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 4);
-	uint  data5 = buf.Load (MATERIAL_HEADER_SIZE + 16 * 5);
+	uint2 data4 = buf.Load2(MATERIAL_HEADER_SIZE + 16 * 4);
 
-	float3 emissive_color = r9g9b9e5_to_f32x3(data3.w);
-	float3 subsurface_radius = r9g9b9e5_to_f32x3(data4.x);
-	float4 sheen_coat_color = u8x4_unorm_to_f32x4(data4.y);
-	float4 coat_specular_color = u8x4_unorm_to_f32x4(data4.z);
-	float4 specular_diffuse_color = u8x4_unorm_to_f32x4(data4.w);
+	float3 subsurface_radius = r9g9b9e5_to_f32x3(data3.y);
+	float4 sheen_coat_color = u8x4_unorm_to_f32x4(data3.z);
+	float4 coat_specular_color = u8x4_unorm_to_f32x4(data3.w);
+	float4 specular_diffuse_color = u8x4_unorm_to_f32x4(data4.x);
 	float3 sheen_color = float3(sheen_coat_color.xyz);
 	float3 coat_color0 = float3(sheen_coat_color.w, coat_specular_color.xy);
 	float3 specular_color0 = float3(coat_specular_color.zw, specular_diffuse_color.x);
@@ -185,55 +175,43 @@ glint_material load_glint_material(intersection isect, float3 wo, float lod = 0,
 		coat_roughness *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
+	float specular_scale = u8_unorm_to_f32(data1.w >> 24);
 	if((data1.w & 0x00ffffff) != 0x00ffffff)
 	{
 		Texture2D<float> tex = get_texture2d<float>(data1.w & 0x00ffffff);
-		emissive_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
+		specular_scale *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
 	if((data2.x & 0x00ffffff) != 0x00ffffff)
 	{
 		Texture2D<float3> tex = get_texture2d<float3>(data2.x & 0x00ffffff);
-		emissive_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
+		specular_color0 *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	float specular_scale = u8_unorm_to_f32(data2.y >> 24);
+	float specular_roughness = u8_unorm_to_f32(data2.y >> 24);
 	if((data2.y & 0x00ffffff) != 0x00ffffff)
 	{
 		Texture2D<float> tex = get_texture2d<float>(data2.y & 0x00ffffff);
-		specular_scale *= tex.SampleLevel(RT_SAMPLER, uv, lod);
+		specular_roughness *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
 	if((data2.z & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float3> tex = get_texture2d<float3>(data2.z & 0x00ffffff);
-		specular_color0 *= tex.SampleLevel(RT_SAMPLER, uv, lod);
-	}
-
-	float specular_roughness = u8_unorm_to_f32(data2.w >> 24);
-	if((data2.w & 0x00ffffff) != 0x00ffffff)
-	{
-		Texture2D<float> tex = get_texture2d<float>(data2.w & 0x00ffffff);
-		specular_roughness *= tex.SampleLevel(RT_SAMPLER, uv, lod);
-	}
-
-	if((data3.x & 0x00ffffff) != 0x00ffffff)
-	{
-		Texture2D<float3> tex = get_texture2d<float3> (data3.x & 0x00ffffff);
+		Texture2D<float3> tex = get_texture2d<float3> (data2.z & 0x00ffffff);
 		diffuse_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 	
-	float diffuse_roughness = u8_unorm_to_f32(data3.y >> 24);
-	if((data3.y & 0x00ffffff) != 0x00ffffff)
+	float diffuse_roughness = u8_unorm_to_f32(data2.w >> 24);
+	if((data2.w & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float> tex = get_texture2d<float>(data3.y & 0x00ffffff);
+		Texture2D<float> tex = get_texture2d<float>(data2.w & 0x00ffffff);
 		diffuse_roughness *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
-	float subsurface = u8_unorm_to_f32(data3.z >> 24);
-	if((data3.z & 0x00ffffff) != 0x00ffffff)
+	float subsurface = u8_unorm_to_f32(data3.x >> 24);
+	if((data3.x & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float> tex = get_texture2d<float>(data3.z & 0x00ffffff);
+		Texture2D<float> tex = get_texture2d<float>(data3.x & 0x00ffffff);
 		subsurface *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
@@ -276,7 +254,7 @@ glint_material load_glint_material(intersection isect, float3 wo, float lod = 0,
 	}
 
 	glint_material mtl;
-	mtl.flags = data5;
+	mtl.flags_glint_cell_size = data4.y;
 
 	float view_z = abs(mul(float4(position, 1), view_mat).z);
 	float3 ray_o = camera_pos - position;
@@ -306,13 +284,12 @@ glint_material load_glint_material(intersection isect, float3 wo, float lod = 0,
 		uv_axis1 = uv_axis_x - dot(uv_axis_x, uv_axis_y) * uv_axis_y;
 	}
 	
-	mtl.coat_normal = f32x2_to_u16x2_unorm(f32x3_to_oct(coat_normal) * 0.5f + 0.5f);
-	mtl.base_normal = f32x2_to_u16x2_unorm(f32x3_to_oct(base_normal) * 0.5f + 0.5f);
+	mtl.coat_normal = f32x2_to_u16x2_unorm(f32x3_to_oct(coat_normal) * 0.5 + 0.5);
+	mtl.base_normal = f32x2_to_u16x2_unorm(f32x3_to_oct(base_normal) * 0.5 + 0.5);
 	mtl.sheen_color = f32x4_to_r10g10b10a2(float4(sheen_color, 0));
 	mtl.sheen_reflectance = f32x4_to_r10g10b10a2(float4(sheen_reflectance, 0));
 	mtl.coat_color0 = f32x4_to_r10g10b10a2(float4(coat_color0, 0));
 	mtl.coat_reflectance = f32x4_to_r10g10b10a2(float4(coat_reflectance, 0));
-	mtl.emissive_color = f32x3_to_r9g9b9e5(emissive_color);
 	mtl.specular_color0 = f32x4_to_r10g10b10a2(float4(specular_color0, 0));
 	mtl.specular_reflectance = f32x4_to_r10g10b10a2(float4(specular_reflectance, 0));
 	mtl.matte_reflectance = f32x4_to_r10g10b10a2(float4(matte_reflectance, 0));
@@ -326,12 +303,6 @@ glint_material load_glint_material(intersection isect, float3 wo, float lod = 0,
 	mtl.patch_center = uv;
 	mtl.patch_axis0 = uv_axis0 / 2;
 	mtl.patch_axis1 = uv_axis1 / 2;
-
-	float lod_bias = 2;
-	float cell_size = 1e-4;
-	//float cell_size = 1e-5;
-	//float cell_size = 1e-3;
-	mtl.glint_param = f32x2_to_f16x2(float2(lod_bias, cell_size));
 
 	return mtl;
 }
