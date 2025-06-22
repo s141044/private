@@ -107,6 +107,10 @@
             {
               "name": "_type2",
               "cs": ["", "", "-DMATERIAL_TYPE=2"]
+            },
+            {
+              "name": "_type3",
+              "cs": ["", "", "-DMATERIAL_TYPE=3"]
             }
           ]
         }
@@ -152,6 +156,10 @@
             {
               "name": "_type2",
               "cs": ["", "", "-DMATERIAL_TYPE=2"]
+            },
+            {
+              "name": "_type3",
+              "cs": ["", "", "-DMATERIAL_TYPE=3"]
             }
           ]
         }

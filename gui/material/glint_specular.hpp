@@ -1,10 +1,10 @@
 
 #pragma once
 
-#ifndef NN_RENDER_GUI_MATERIAL_GLINT_HPP
-#define NN_RENDER_GUI_MATERIAL_GLINT_HPP
+#ifndef NN_RENDER_GUI_MATERIAL_GLINT_SPECULAR_HPP
+#define NN_RENDER_GUI_MATERIAL_GLINT_SPECULAR_HPP
 
-#include"../../material/glint.hpp"
+#include"../../material/glint_specular.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -19,15 +19,15 @@ namespace render{
 namespace gui{
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//glint_material
+//glint_specular_material
 /*/////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-class glint_material : public property_editor
+class glint_specular_material : public property_editor
 {
 public:
 
-	glint_material(render::glint_material& mtl, string name = "glint_material") : property_editor(std::move(name)), m_mtl(mtl)
+	glint_specular_material(render::glint_specular_material& mtl, string name = "glint_specular_material") : property_editor(std::move(name)), m_mtl(mtl)
 	{
 	}
 
@@ -50,6 +50,9 @@ public:
 		float specular_roughness = m_mtl.specular_roughness();
 		if(slider_float("specular_roughness", specular_roughness, 0, 1)){ m_mtl.set_specular_roughness(specular_roughness); }
 
+		float specular_glint_density = m_mtl.specular_glint_density();
+		if(slider_float("specular_glint_density", specular_glint_density, 1, 100000, true)){ m_mtl.set_specular_glint_density(specular_glint_density); }
+
 		separator();
 
 		float coat_scale = m_mtl.coat_scale();
@@ -60,9 +63,6 @@ public:
 
 		float coat_roughness = m_mtl.coat_roughness();
 		if(slider_float("coat_roughness", coat_roughness, 0, 1)){ m_mtl.set_coat_roughness(coat_roughness); }
-
-		float coat_glint_density = m_mtl.coat_glint_density();
-		if(slider_float("coat_glint_density", coat_glint_density, 1, 100000, true)){ m_mtl.set_coat_glint_density(coat_glint_density); }
 
 		separator();
 
@@ -102,11 +102,11 @@ public:
 		write_float(json, "specular_scale", m_mtl.specular_scale());
 		write_float3(json, "specular_color0", m_mtl.specular_color0());
 		write_float(json, "specular_roughness", m_mtl.specular_roughness());
+		write_float(json, "specular_glint_density", m_mtl.specular_glint_density());
 
 		write_float(json, "coat_scale", m_mtl.coat_scale());
 		write_float3(json, "coat_color0", m_mtl.coat_color0());
 		write_float(json, "coat_roughness", m_mtl.coat_roughness());
-		write_float(json, "coat_glint_density", m_mtl.coat_glint_density());
 
 		write_float3(json, "sheen_color", m_mtl.sheen_color());
 		write_float(json, "sheen_roughness", m_mtl.sheen_roughness());
@@ -137,6 +137,9 @@ public:
 		float specular_roughness;
 		if(read_float(json, "specular_roughness", specular_roughness)){ m_mtl.set_specular_roughness(specular_roughness); }
 		
+		float specular_glint_density;
+		if(read_float(json, "specular_glint_density", specular_glint_density)){ m_mtl.set_specular_glint_density(specular_glint_density); }
+		
 		float coat_scale;
 		if(read_float(json, "coat_scale", coat_scale)){ m_mtl.set_coat_scale(coat_scale); }
 
@@ -145,9 +148,6 @@ public:
 		
 		float coat_roughness;
 		if(read_float(json, "coat_roughness", coat_roughness)){ m_mtl.set_coat_roughness(coat_roughness); }
-		
-		float coat_glint_density;
-		if(read_float(json, "coat_glint_density", coat_glint_density)){ m_mtl.set_coat_glint_density(coat_glint_density); }
 
 		float3 sheen_color;
 		if(read_float3(json, "sheen_color", sheen_color)){ m_mtl.set_sheen_color(sheen_color); }
@@ -173,7 +173,7 @@ public:
 
 private:
 
-	render::glint_material& m_mtl;
+	render::glint_specular_material& m_mtl;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

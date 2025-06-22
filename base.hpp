@@ -149,7 +149,8 @@ shader/src/material/common.hlsl‚Æ‡‚í‚¹‚é
 enum material_type : uint8_t
 {
 	material_type_standard,
-	material_type_glint,
+	material_type_glint_coating,
+	material_type_glint_specular,
 	material_type_hair,
 	material_type_count,
 };

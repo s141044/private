@@ -17,8 +17,9 @@
 #include"realistic_camera.hlsl"
 
 #include"../material/hair.hlsl"
-#include"../material/glint.hlsl"
 #include"../material/standard.hlsl"
+#include"../material/glint_coating.hlsl"
+#include"../material/glint_specular.hlsl"
 
 #define ENABLE_HIT_EVAL 1
 #define ENABLE_NEE_EVAL 1
@@ -57,9 +58,12 @@ RWByteAddressBuffer	dispatch_arg_uav;
 #define MATERIAL_TYPE 0
 #endif
 
-#if MATERIAL_TYPE == MATERIAL_TYPE_GLINT
-#define MATERIAL		glint_material
-#define LOAD_MATERIAL	load_glint_material
+#if MATERIAL_TYPE == MATERIAL_TYPE_GLINT_COATING
+#define MATERIAL		glint_coating_material
+#define LOAD_MATERIAL	load_glint_coating_material
+#elif MATERIAL_TYPE == MATERIAL_TYPE_GLINT_SPECULAR
+#define MATERIAL		glint_specular_material
+#define LOAD_MATERIAL	load_glint_specular_material
 #elif MATERIAL_TYPE == MATERIAL_TYPE_HAIR
 #define MATERIAL		hair_material
 #define LOAD_MATERIAL	load_hair_material
@@ -513,7 +517,7 @@ void lighting_and_sampling(uint2 dtid : SV_DispatchThreadID)
 	bsdf_sample s = ref::sample_bsdf(wo, isect.normal, mtl, randF(rng), randF(rng), dtid);
 	if(s.is_valid)
 	{
-#if (MATERIAL_TYPE == MATERIAL_TYPE_STANDARD) || (MATERIAL_TYPE == MATERIAL_TYPE_GLINT)
+#if (MATERIAL_TYPE != MATERIAL_TYPE_HAIR)
 		if((dot(s.w, isect.normal) <= 0) && !is_twoside(mtl))
 		{
 			//bssrdfの入射位置サンプリングはdisplacement無効にするので,出射位置もdisplacement無効状態の位置にする

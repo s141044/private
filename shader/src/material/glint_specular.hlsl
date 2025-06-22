@@ -1,6 +1,6 @@
 
-#ifndef MATERIAL_GLINT_HLSL
-#define MATERIAL_GLINT_HLSL
+#ifndef MATERIAL_GLINT_SPECULAR_HLSL
+#define MATERIAL_GLINT_SPECULAR_HLSL
 
 #include"common.hlsl"
 #include"../debug.hlsl"
@@ -17,7 +17,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct glint_material
+struct glint_specular_material
 {
 	uint	coat_normal;
 	uint	base_normal;
@@ -27,11 +27,10 @@ struct glint_material
 	uint	coat_reflectance;
 	uint	specular_color0;
 	uint	specular_reflectance;
-	uint	matte_reflectance;
 	uint	diffuse_color;
 	uint	diffuse_reflectance;
 	uint	subsurface_radius;
-	uint	roughness; //sheen,coat,glint
+	uint	roughness; //sheen,coat,specular
 	uint	roughness_subsurface_misc; //diffuse,subsurface
 	uint	scale; //coat,specular
 	uint	flags_glint_cell_size;
@@ -41,36 +40,35 @@ struct glint_material
 	float2	patch_axis1;
 };
 
-float3	get_coat_normal(glint_material mtl){ return oct_to_f32x3(u16x2_unorm_to_f32x2(mtl.coat_normal) * 2 - 1); }
-float3	get_base_normal(glint_material mtl){ return oct_to_f32x3(u16x2_unorm_to_f32x2(mtl.base_normal) * 2 - 1); }
-float3	get_sheen_color(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.sheen_color).xyz; }
-float	get_sheen_roughness(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness).x; }
-float3	get_sheen_reflectance(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.sheen_reflectance).xyz; }
-float	get_coat_scale(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.scale).x; }
-float3	get_coat_color0(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.coat_color0).xyz; }
-float	get_coat_roughness(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness).y; }
-float3	get_coat_reflectance(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.coat_reflectance).xyz; }
-float	get_specular_scale(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.scale).y; }
-float3	get_specular_color0(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.specular_color0).xyz; }
-float	get_specular_roughness(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness).z; }
-float3	get_specular_reflectance(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.specular_reflectance).xyz; }
-float3	get_matte_reflectance(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.matte_reflectance).xyz; }
-float3	get_diffuse_color(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.diffuse_color).xyz; }
-float	get_diffuse_roughness(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness_subsurface_misc).x; }
-float3	get_diffuse_reflectance(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.diffuse_reflectance).xyz; }
-float	get_subsurface(glint_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness_subsurface_misc).y; }
-float3	get_subsurface_radius(glint_material mtl){ return r9g9b9e5_to_f32x3(mtl.subsurface_radius); }
-bool	is_twoside(glint_material mtl){ return mtl.flags_glint_cell_size & 1; }
+float3	get_coat_normal(glint_specular_material mtl){ return oct_to_f32x3(u16x2_unorm_to_f32x2(mtl.coat_normal) * 2 - 1); }
+float3	get_base_normal(glint_specular_material mtl){ return oct_to_f32x3(u16x2_unorm_to_f32x2(mtl.base_normal) * 2 - 1); }
+float3	get_sheen_color(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.sheen_color).xyz; }
+float	get_sheen_roughness(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness).x; }
+float3	get_sheen_reflectance(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.sheen_reflectance).xyz; }
+float	get_coat_scale(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.scale).x; }
+float3	get_coat_color0(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.coat_color0).xyz; }
+float	get_coat_roughness(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness).y; }
+float3	get_coat_reflectance(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.coat_reflectance).xyz; }
+float	get_specular_scale(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.scale).y; }
+float3	get_specular_color0(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.specular_color0).xyz; }
+float	get_specular_roughness(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness).z; }
+float3	get_specular_reflectance(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.specular_reflectance).xyz; }
+float3	get_diffuse_color(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.diffuse_color).xyz; }
+float	get_diffuse_roughness(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness_subsurface_misc).x; }
+float3	get_diffuse_reflectance(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.diffuse_reflectance).xyz; }
+float	get_subsurface(glint_specular_material mtl){ return r10g10b10a2_to_f32x4(mtl.roughness_subsurface_misc).y; }
+float3	get_subsurface_radius(glint_specular_material mtl){ return r9g9b9e5_to_f32x3(mtl.subsurface_radius); }
+bool	is_twoside(glint_specular_material mtl){ return mtl.flags_glint_cell_size & 1; }
 
-float2	get_patch_center(glint_material mtl) { return mtl.patch_center; }
-float2	get_patch_axis0(glint_material mtl){ return mtl.patch_axis0; }
-float2	get_patch_axis1(glint_material mtl){ return mtl.patch_axis1; }
-float	get_lod_bias(glint_material mtl){ return 2; }
-float	get_cell_size(glint_material mtl){ return f16tof32(mtl.flags_glint_cell_size >> 16); }
+float2	get_patch_center(glint_specular_material mtl) { return mtl.patch_center; }
+float2	get_patch_axis0(glint_specular_material mtl){ return mtl.patch_axis0; }
+float2	get_patch_axis1(glint_specular_material mtl){ return mtl.patch_axis1; }
+float	get_lod_bias(glint_specular_material mtl){ return 2; }
+float	get_cell_size(glint_specular_material mtl){ return f16tof32(mtl.flags_glint_cell_size >> 16); }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct glint_material_host
+struct glint_specular_material_host
 {
 	//0
 	uint	coat_normal_map;
@@ -99,7 +97,7 @@ struct glint_material_host
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-glint_material load_glint_material(intersection isect, float3 wo, float lod = 0, uint2 dtid = 0)
+glint_specular_material load_glint_specular_material(intersection isect, float3 wo, float lod = 0, uint2 dtid = 0)
 {
 	uint handle = isect.material_handle;
 	float3 position = isect.position;
@@ -230,10 +228,9 @@ glint_material load_glint_material(intersection isect, float3 wo, float lod = 0,
 		float3 coat_tangent, coat_binormal;
 		calc_orthonormal_basis(coat_normal, coat_tangent, coat_binormal);
 		float3 coat_wo = float3(dot(coat_tangent, wo), dot(coat_binormal, wo), dot(coat_normal, wo));
-		if(coat_wo.z > cosine_threshold){ coat_reflectance = coat_scale * glint::calc_reflectance(coat_wo, coat_color0, coat_roughness); }
+		if(coat_wo.z > cosine_threshold){ coat_reflectance = coat_scale * microfacet::calc_reflectance(coat_wo, coat_color0, coat_roughness); }
 	}
 
-	float3 matte_reflectance = 0;
 	float3 diffuse_reflectance = 0;
 	float3 specular_reflectance = 0;
 	if((specular_scale > 0) || any(diffuse_color > 0))
@@ -243,17 +240,14 @@ glint_material load_glint_material(intersection isect, float3 wo, float lod = 0,
 		float3 base_wo = float3(dot(base_tangent, wo), dot(base_binormal, wo), dot(base_normal, wo));
 		if(base_wo.z > cosine_threshold)
 		{
-			if(specular_scale > 0)
-			{
-				specular_reflectance = specular_scale * microfacet::calc_reflectance(base_wo, specular_color0, specular_roughness);
-				matte_reflectance = specular_scale * microfacet::calc_matte_reflectance(base_wo, specular_color0, specular_roughness);
-			}
+			if (specular_scale > 0)
+				specular_reflectance = specular_scale * glint::calc_reflectance(base_wo, specular_color0, specular_roughness);
 			if(any(diffuse_color > 0))
 				diffuse_reflectance = oren_nayer::calc_reflectance(base_wo, diffuse_color, diffuse_roughness);
 		}
 	}
 
-	glint_material mtl;
+	glint_specular_material mtl;
 	mtl.flags_glint_cell_size = data4.y;
 
 	float view_z = abs(mul(float4(position, 1), view_mat).z);
@@ -292,7 +286,6 @@ glint_material load_glint_material(intersection isect, float3 wo, float lod = 0,
 	mtl.coat_reflectance = f32x4_to_r10g10b10a2(float4(coat_reflectance, 0));
 	mtl.specular_color0 = f32x4_to_r10g10b10a2(float4(specular_color0, 0));
 	mtl.specular_reflectance = f32x4_to_r10g10b10a2(float4(specular_reflectance, 0));
-	mtl.matte_reflectance = f32x4_to_r10g10b10a2(float4(matte_reflectance, 0));
 	mtl.diffuse_color = f32x4_to_r10g10b10a2(float4(diffuse_color, 0));
 	mtl.diffuse_reflectance = f32x4_to_r10g10b10a2(float4(diffuse_reflectance, 0));
 	mtl.subsurface_radius = f32x3_to_r9g9b9e5(subsurface_radius);
@@ -309,7 +302,7 @@ glint_material load_glint_material(intersection isect, float3 wo, float lod = 0,
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool has_contribution(float nwi, glint_material mtl)
+bool has_contribution(float nwi, glint_specular_material mtl)
 {
 	if(nwi > cosine_threshold)
 		return true;
@@ -321,7 +314,7 @@ bool has_contribution(float nwi, glint_material mtl)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, glint_material mtl, out float3 diffuse, out float3 non_diffuse, out float pdf, uint2 dtid = 0)
+void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, glint_specular_material mtl, out float3 diffuse, out float3 non_diffuse, out float pdf, uint2 dtid = 0)
 {
 	pdf = 0;
 	diffuse = 0;
@@ -375,7 +368,7 @@ void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, glint_material mtl, out 
 	
 		if(coat_wi.z > cosine_threshold)
 		{
-			float4 brdf_pdf = glint::calc_brdf_pdf(coat_wo, coat_wi, get_coat_color0(mtl), get_coat_roughness(mtl), get_patch_center(mtl), get_patch_axis0(mtl), get_patch_axis1(mtl), get_cell_size(mtl), get_lod_bias(mtl));
+			float4 brdf_pdf = microfacet::calc_brdf_pdf(coat_wo, coat_wi, get_coat_color0(mtl), get_coat_roughness(mtl));
 			non_diffuse += get_coat_scale(mtl) * brdf_pdf.xyz * throughput;
 			pdf += brdf_pdf.w * weight;
 		}
@@ -394,28 +387,22 @@ void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, glint_material mtl, out 
 	float3 base_wo = float3(dot(base_tangent, wo), dot(base_binormal, wo), dot(base_normal, wo));
 	float3 base_wi = float3(dot(base_tangent, wi), dot(base_binormal, wi), dot(base_normal, wi));
 	
-	float3 matte_reflectance = get_matte_reflectance(mtl);
 	float3 specular_reflectance = get_specular_reflectance(mtl);
 	if(eval_brdf && any(specular_reflectance) > 0)
 	{
-		float weight_s = luminance(throughput * specular_reflectance);
-		float weight_m = luminance(throughput * matte_reflectance);
-		sum_weight += weight_s + weight_m;
+		float weight = luminance(throughput * specular_reflectance);
+		sum_weight += weight;
 
 		if(base_wi.z > cosine_threshold)
 		{
 			float specular_scale = get_specular_scale(mtl);
 			float roughness = get_specular_roughness(mtl);
-			float4 brdf_pdf = microfacet::calc_brdf_pdf(base_wo, base_wi, get_specular_color0(mtl), roughness);
+			float4 brdf_pdf = glint::calc_brdf_pdf(base_wo, base_wi, get_specular_color0(mtl), get_specular_roughness(mtl), get_patch_center(mtl), get_patch_axis0(mtl), get_patch_axis1(mtl), get_cell_size(mtl), get_lod_bias(mtl));
 			non_diffuse += specular_scale * brdf_pdf.xyz * throughput;
-			pdf += brdf_pdf.w * weight_s;
-
-			brdf_pdf = microfacet::calc_matte_brdf_pdf(base_wo, base_wi, matte_reflectance, roughness);
-			non_diffuse += specular_scale * brdf_pdf.xyz * throughput;
-			pdf += brdf_pdf.w * weight_m;
+			pdf += brdf_pdf.w * weight;
 		}
 
-		throughput *= 1 - (specular_reflectance + matte_reflectance);
+		throughput *= 1 - specular_reflectance;
 		if(all(throughput == 0))
 		{
 			pdf /= sum_weight;
@@ -453,7 +440,7 @@ void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, glint_material mtl, out 
 	pdf /= sum_weight;
 }
 
-float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, glint_material mtl, uint2 dtid = 0)
+float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, glint_specular_material mtl, uint2 dtid = 0)
 {
 	float pdf;
 	float3 diffuse, non_diffuse;
@@ -461,19 +448,19 @@ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, glint_material mtl, ui
 	return float4(diffuse + non_diffuse, pdf);
 }
 
-float3 calc_subsurface(glint_material mtl)
+float3 calc_subsurface(glint_specular_material mtl)
 {
 	float3 throughput = 1;
 	throughput *= 1 - get_sheen_reflectance(mtl);
 	throughput *= 1 - get_coat_reflectance(mtl);
-	throughput *= 1 - (get_specular_reflectance(mtl) + get_matte_reflectance(mtl));
+	throughput *= 1 - get_specular_reflectance(mtl);
 	//return throughput * get_diffuse_reflectance(mtl) * get_subsurface(mtl); //アルベドが2重にかかると色がおかしくなる
 	return throughput * get_subsurface(mtl);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-bsdf_sample sample_bsdf(float3 wo, float3 normal, glint_material mtl, float u0, float u1, uint2 dtid = 0)
+bsdf_sample sample_bsdf(float3 wo, float3 normal, glint_specular_material mtl, float u0, float u1, uint2 dtid = 0)
 {
 	float3 throughput = 1;
 	
@@ -534,22 +521,7 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, glint_material mtl, float u0, 
 		{
 			u0 = (1 - u0) / (1 - pmf);
 		}
-	
-		float3 matte_reflectance = get_matte_reflectance(mtl);
-		weight = luminance(throughput * matte_reflectance);
-		sum_weight += weight;
-			
-		pmf = weight / sum_weight;
-		if(u0 < pmf)
-		{
-			u0 /= pmf;
-			sample_type = 3;
-		}
-		else
-		{
-			u0 = (1 - u0) / (1 - pmf);
-		}
-		throughput *= 1 - (specular_reflectance + matte_reflectance);
+		throughput *= 1 - specular_reflectance;
 	}
 	
 	float3 diffuse_reflectance = get_diffuse_reflectance(mtl);
@@ -622,12 +594,7 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, glint_material mtl, float u0, 
 		//specular
 		if(sample_type == 2)
 		{
-			s.is_valid = microfacet::sample_brdf(base_wo, s.w, get_specular_color0(mtl), get_specular_roughness(mtl), u0, u1);
-		}
-		//matte
-		else if(sample_type == 3)
-		{
-			s.is_valid = microfacet::sample_matte_brdf(base_wo, s.w, get_matte_reflectance(mtl), get_specular_roughness(mtl), u0, u1);
+			s.is_valid = glint::sample_brdf(base_wo, s.w, get_specular_color0(mtl), get_specular_roughness(mtl), get_patch_center(mtl), get_patch_axis0(mtl), get_patch_axis1(mtl), get_cell_size(mtl), get_lod_bias(mtl), u0, u1);
 		}
 		//diffuse
 		else
