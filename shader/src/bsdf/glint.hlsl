@@ -17,7 +17,7 @@ Texture1DArray<float>	glint_cdf_dictionary_srv;
 
 #define GLINT_MIP_LEVELS		16
 #define GLINT_TABLE_RES			64
-#define GLINT_TABLE_RES_LOG2	64
+#define GLINT_TABLE_RES_LOG2	6
 #define GLINT_ALPHA_DICT		0.5
 #define GLINT_DICT_SIZE			128
 #define GLINT_TABLE_MAX			(GLINT_ALPHA_DICT * 4 * 0.707107) //(ALPHA_DICT * 4 / sqrt(2))
@@ -75,10 +75,10 @@ void init_rng(int x, int y, int lod, out rng rng)
 
 float sample_sdf(uint array_index, float u)
 {
-	uint beg = 0;               //cdf[beg]<=u
-	uint end = GLINT_TABLE_RES; //cdf[end]>u
+	uint beg = 0;                   //cdf[beg]<=u
+	uint end = GLINT_TABLE_RES + 1; //cdf[end]>u
 
-	for(uint i = 0; i < GLINT_TABLE_RES_LOG2; i++)
+	for(uint i = 0; i < GLINT_TABLE_RES_LOG2 + 1; i++)
 	{
 		uint mid = (beg + end) / 2;
 		float cdf = glint_cdf_dictionary_srv[uint2(mid, array_index)];
@@ -92,9 +92,44 @@ float sample_sdf(uint array_index, float u)
 			break;
 	}
 
-	//TODO: sdfをバイリニア補間していることの考慮
+	float cdf0 = 0;
+	if(beg > 0) 
+		cdf0 = glint_cdf_dictionary_srv[uint2(beg + 0, array_index)];
+
+	float cdf1 = 1;
+	if(beg < GLINT_TABLE_RES) 
+		cdf1 = glint_cdf_dictionary_srv[uint2(beg + 1, array_index)];
+
+	u = (u - cdf0) / (cdf1 - cdf0);
+
+	float ret;
+	if(beg == 0)
+	{
+		ret = u / 2;
+	}
+	else if(beg == GLINT_TABLE_RES)
+	{
+		ret = beg - 0.5 + u / 2;
+	}
+	else
+	{
+		float a = glint_sdf_dictionary_srv[uint2(beg - 1, array_index)];
+		float b = glint_sdf_dictionary_srv[uint2(beg + 0, array_index)];
+		if(a == b)
+			ret = beg - 0.5 + u;
+		else
+		{
+			float A = b - a;
+			float B = a;
+			float C = -u * (a + b);
+			float sqrt_D = sqrt(B * B - A * C);
+			float t = (-B + sqrt_D) / A;
+			ret = beg - 0.5 + t;
+		}
+	}
+	
 	float texel_size = 1 / float(GLINT_TABLE_RES);
-	return texel_size * (beg + u) * GLINT_TABLE_MAX;
+	return ret * texel_size * GLINT_TABLE_MAX;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -167,8 +202,6 @@ void calc_brdf_pdf(float3 wo, float3 wi, float3 color0, float roughness, float2 
 					float sdf = pow2(GLINT_ALPHA_DICT / alpha) * (
 						glint_sdf_dictionary_srv.SampleLevel(bilinear_clamp, float2(abs(slope_uv.x), dict_x), 0) *
 						glint_sdf_dictionary_srv.SampleLevel(bilinear_clamp, float2(abs(slope_uv.y), dict_y), 0));
-
-					sdf *= pow2(GLINT_TABLE_RES / GLINT_TABLE_MAX); //unormで保存するためにした変換を打ち消す
 
 					float w = exp(-diff2 / pow2(patch_size / 2));
 					sdfs[i] += w * sdf;
@@ -349,7 +382,7 @@ float3 calc_reflectance(float3 wo, float3 color0, float roughness)
 
 RWTexture1DArray<float>	sdf_dictionary_uav;
 RWTexture1DArray<float>	cdf_dictionary_uav;
-groupshared uint		table[GLINT_MIP_LEVELS][GLINT_TABLE_RES];
+groupshared uint		table[GLINT_MIP_LEVELS][GLINT_TABLE_RES + 1];
 
 uint to_fixed_point(float f)
 {
@@ -419,38 +452,32 @@ void calc_dictionary(uint gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint 
 		GroupMemoryBarrierWithGroupSync();
 	}
 	
-	//正規化(unormで保存するため.実際に使用するときは1テクセルのサイズで除算が必要)
-	if(wave_index < GLINT_MIP_LEVELS)
+	//保存
+	float a = to_floating_point(table[gtid.y][max(0, gtid.x - 1)]);
+	float b = to_floating_point(table[gtid.y][gtid.x]);
+	sdf_dictionary_uav[uint2(gtid.x, gtid.y + GLINT_MIP_LEVELS * gid)] = b * (GLINT_TABLE_RES / GLINT_TABLE_MAX);
+	GroupMemoryBarrierWithGroupSync();
+
+	//重み計算(各区間の積分値)
+	table[gtid.y][gtid.x] = asuint((gtid.x == 0) ? a : (a + b));
+	if(gtid.x == GLINT_TABLE_RES - 1)
+		table[gtid.y][gtid.x + 1] = asuint(b);
+	GroupMemoryBarrierWithGroupSync();
+
+	//InclusiveSumを計算
+	float sum = asfloat(table[wave_index][0]);
+	for(uint i = lane_index + 1; i <= GLINT_TABLE_RES; i += lane_count)
 	{
-		uint sum = 0;
-		for(uint i = lane_index; i < GLINT_TABLE_RES; i += lane_count)
-			sum += WaveActiveSum(table[wave_index][i]);
-		for(uint i = lane_index; i < GLINT_TABLE_RES; i += lane_count)
-			table[wave_index][i] = asuint(to_floating_point(table[wave_index][i]) / to_floating_point(sum));
+		float val = asfloat(table[gtid.y][i]);
+		sum += WavePrefixSum(val) + val;
+
+		table[gtid.y][i] = asuint(sum);
+		sum = WaveReadLaneAt(sum, lane_count - 1);
 	}
 	GroupMemoryBarrierWithGroupSync();
 	
 	//保存
-	sdf_dictionary_uav[uint2(gtid.x, gtid.y + GLINT_MIP_LEVELS * gid)] = asfloat(table[gtid.y][gtid.x]);
-
-	//CDF計算
-	if(wave_index < GLINT_MIP_LEVELS)
-	{
-		float sum = 0;
-		for(uint i = lane_index; i < GLINT_TABLE_RES; i += lane_count)
-		{
-			float val = asfloat(table[wave_index][i]);
-			sum += WavePrefixSum(val) + val;
-
-			table[wave_index][i] = asuint(sum);
-			sum = WaveReadLaneAt(sum, lane_count - 1);
-		}
-	}
-	GroupMemoryBarrierWithGroupSync();
-
-	//保存
-	if(gtid.x + 1 < GLINT_TABLE_RES)
-		cdf_dictionary_uav[uint2(gtid.x + 1, gtid.y + GLINT_MIP_LEVELS * gid)] = asfloat(table[gtid.y][gtid.x]);
+	cdf_dictionary_uav[uint2(gtid.x + 1, gtid.y + GLINT_MIP_LEVELS * gid)] = asfloat(table[gtid.y][gtid.x]) / asfloat(table[gtid.y][GLINT_TABLE_RES]);
 }
 
 #endif

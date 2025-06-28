@@ -162,6 +162,7 @@ float sample_environment_pdf(float3 w)
 
 bool exists_environment_light()
 {
+	//return false;
 	return asfloat(environment_cdf_srv.Load(4 * 5)) > 0;
 }
 
