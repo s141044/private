@@ -97,15 +97,6 @@ private:
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-//drwa_type
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-enum draw_type
-{
-	draw_type_mask, //非0を書き込む
-};
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
 //render_entity
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -122,8 +113,8 @@ public:
 	virtual void update(render_context& context, const float dt){}
 
 	//描画
-	virtual void draw(render_context& context, draw_type type){}
-
+	virtual void draw_constant(render_context& context, float4 col, uint material_index = -1){}
+	
 	//インスタンスインデックスを返す
 	uint bindless_instance_index() const { return m_bindless_instance_index; }
 	uint raytracing_instance_index() const { return m_raytracing_instance_index; }
@@ -414,7 +405,7 @@ public:
 	void update(render_context& context, const float dt) final;
 
 	//描画
-	void draw(render_context& context, draw_type type) final;
+	void draw_constant(render_context& context, float4 color, uint material_index) final;
 
 	//ジオメトリステートを返す
 	const geometry_state& geometry_state() const { return *m_gs_ptrs[gp_render_device->frame_count() % 2]; }

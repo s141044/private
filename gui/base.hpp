@@ -77,15 +77,43 @@ public:
 	mesh(render::mesh& mesh, string name = "mesh") : property_editor(std::move(name)), m_transform(mesh), m_mesh(mesh)
 	{
 		m_material_ptrs.resize(mesh.material_ptrs().size());
+		m_material_is_open.resize(mesh.material_ptrs().size());
 	}
 
 	void edit() override
 	{
 		m_transform.edit();
-		for(auto& p_editor : m_material_ptrs)
+
+		for(uint i = 0; i < uint(m_material_ptrs.size()); i++)
 		{
+			auto& p_editor = m_material_ptrs[i];
 			tree_node tree_node(p_editor->name().c_str());
 			if(tree_node.is_open()){ p_editor->edit(); }
+
+			//選択中のものの場合
+			if((m_current_mesh_ptr == &m_mesh) && (m_current_material_index == i))
+			{
+				//選択状態を継続
+				if(tree_node.is_open())
+					m_frame_count = gp_render_device->frame_count();
+				//選択状態を解除
+				else
+				{
+					m_current_mesh_ptr = nullptr;
+					m_current_material_index = uint(-1);
+				}
+			}
+			//新規に選択状態にするか
+			else if(m_material_is_open[i] != tree_node.is_open())
+			{
+				m_material_is_open[i] = tree_node.is_open();
+				if(tree_node.is_open())
+				{
+					m_current_mesh_ptr = &m_mesh;
+					m_current_material_index = i;
+					m_frame_count = gp_render_device->frame_count();
+				}
+			}
 		}
 	}
 	
@@ -119,6 +147,24 @@ private:
 	render::mesh&						m_mesh;
 	transform							m_transform;
 	vector<shared_ptr<property_editor>>	m_material_ptrs;
+	vector<bool>						m_material_is_open;
+
+public:
+
+	static render::mesh* current_mesh_ptr()
+	{
+		return (m_frame_count == gp_render_device->frame_count()) ? m_current_mesh_ptr : nullptr;
+	}
+	static uint current_material_index()
+	{
+		return m_current_material_index;
+	}
+
+private:
+
+	static inline render::mesh*			m_current_mesh_ptr = nullptr;
+	static inline uint					m_current_material_index = -1;
+	static inline uint					m_frame_count = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

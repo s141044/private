@@ -82,23 +82,31 @@ inline void mesh::update(render_context& context, const float dt)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //•`‰æ
-inline void mesh::draw(render_context& context, draw_type type)
+inline void mesh::draw_constant(render_context& context, float4 color, uint material_index)
 {
 	if(m_shaders.has_update())
 		m_shaders.update();
 	else if(m_shaders.is_invalid())
 		return;
 
-	const auto ltow = ltow_matrix();
-	context.set_pipeline_resource("draw_cb", *gp_render_device->create_temporary_cbuffer(sizeof(float3x4), &ltow));
-	context.set_geometry_state(geometry_state());
+	struct cbuffer
+	{
+		float3x4	ltow;
+		float4		color;
+	};
+	auto& cbuf = *gp_render_device->create_temporary_cbuffer(sizeof(cbuffer));
+	auto& cbuf_data = *cbuf.data<cbuffer>();
+	cbuf_data.ltow = ltow_matrix();
+	cbuf_data.color = color;
 
-	switch(type){
-	case draw_type_mask: context.set_pipeline_state(*m_shaders.get("draw_mask")); break;
-	}
+	context.set_pipeline_resource("draw_cb", cbuf);
+	context.set_geometry_state(geometry_state());
+	context.set_pipeline_state(*m_shaders.get("draw_constant"));
+
 	for(auto& cluster : m_clusters)
 	{
-		context.draw_indexed(cluster.index_count, 1, cluster.start_index_location, cluster.base_vertex_location);
+		if((material_index == -1) || (cluster.material_index == material_index))
+			context.draw_indexed(cluster.index_count, 1, cluster.start_index_location, cluster.base_vertex_location);
 	}
 }
 

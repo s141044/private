@@ -51,13 +51,13 @@
   "definition" : 
   [
     {
-      "name": "draw_mask",
+      "name": "draw_constant",
       "bs": "none",
       "il": "static",
-      "rs": "cull_disable",
+      "rs": "cull_enable",
       "dss": "none",
-      "vs": [ "draw.hlsl", "draw_mask_vs", ""],
-      "ps": [ "draw.hlsl", "draw_mask_ps", ""]
+      "vs": [ "draw.hlsl", "draw_constant_vs", ""],
+      "ps": [ "draw.hlsl", "draw_constant_ps", ""]
     },
     {
       "name": "calc_prism_aabbs",

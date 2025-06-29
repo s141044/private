@@ -11,16 +11,17 @@ struct vs_input
 
 cbuffer draw_cb
 {
-	float4x3 ltow;
+	float4x3	ltow;
+	float4		color;
 };
 
-float4 draw_mask_vs(vs_input input) : SV_POSITION
+float4 draw_constant_vs(vs_input input) : SV_POSITION
 {
 	float3 position = mul(float4(input.position, 1), ltow).xyz;
 	return mul(float4(position, 1), view_proj_mat);
 }
 
-float draw_mask_ps() : SV_TARGET
+float4 draw_constant_ps() : SV_TARGET
 {
-	return 1;
+	return color;
 }
