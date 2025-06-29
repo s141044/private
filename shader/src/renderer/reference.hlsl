@@ -735,10 +735,12 @@ void filtering(uint gid : SV_GroupID, uint group_index : SV_GroupIndex)
 			uint offset = WavePrefixCountBits(material_type == current), wave_offset;
 			if(WaveIsFirstLane())
 				InterlockedAdd(shared_count[current], count, wave_offset);
+
+			offset += WaveReadLaneFirst(wave_offset); //なぜかこのタイミングでやらないとバグる
 		
 			if(material_type == current)
 			{
-				offset += WaveReadLaneFirst(wave_offset);
+				//offset += WaveReadLaneFirst(wave_offset); //なぜかこのタイミングでやるとバグる
 				work_queue_uav.Store(4 * (queue_start + offset), tasks[i]);
 				break;
 			}
