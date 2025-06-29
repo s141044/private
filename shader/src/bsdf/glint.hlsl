@@ -203,6 +203,8 @@ void calc_brdf_pdf(float3 wo, float3 wi, float3 color0, float roughness, float2 
 						glint_sdf_dictionary_srv.SampleLevel(bilinear_clamp, float2(abs(slope_uv.x), dict_x), 0) *
 						glint_sdf_dictionary_srv.SampleLevel(bilinear_clamp, float2(abs(slope_uv.y), dict_y), 0));
 
+					sdf *= pow2(GLINT_TABLE_RES / GLINT_TABLE_MAX); //unormで保存するためにした変換を打ち消す
+
 					float w = exp(-diff2 / pow2(patch_size / 2));
 					sdfs[i] += w * sdf;
 					sum_weight += w;
@@ -382,7 +384,8 @@ float3 calc_reflectance(float3 wo, float3 color0, float roughness)
 
 RWTexture1DArray<float>	sdf_dictionary_uav;
 RWTexture1DArray<float>	cdf_dictionary_uav;
-groupshared uint		table[GLINT_MIP_LEVELS][GLINT_TABLE_RES + 1];
+groupshared uint		sdf_table[GLINT_MIP_LEVELS][GLINT_TABLE_RES + 1];
+groupshared float		cdf_table[GLINT_MIP_LEVELS][GLINT_TABLE_RES + 1];
 
 uint to_fixed_point(float f)
 {
@@ -403,7 +406,7 @@ void calc_dictionary(uint gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint 
 	uint lane_count = WaveGetLaneCount();
 	uint wave_index = group_index / lane_count;
 	
-	table[gtid.y][gtid.x] = 0;
+	sdf_table[gtid.y][gtid.x] = 0;
 	GroupMemoryBarrierWithGroupSync();
 
 	rng rng;
@@ -439,7 +442,7 @@ void calc_dictionary(uint gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint 
 		{
 			float q = (j + 0.5) / GLINT_TABLE_RES;
 			float v = exp(-pow2((p - q) / sigma));
-			InterlockedAdd(table[level][abs(j)], to_fixed_point(v));
+			InterlockedAdd(sdf_table[level][abs(j)], to_fixed_point(v));
 		}
 	}
 	GroupMemoryBarrierWithGroupSync();
@@ -448,36 +451,37 @@ void calc_dictionary(uint gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint 
 	for(uint level = 1; level < GLINT_MIP_LEVELS; level++)
 	{
 		if(group_index < GLINT_TABLE_RES)
-			table[level][group_index] += table[level - 1][group_index];
+			sdf_table[level][group_index] += sdf_table[level - 1][group_index];
 		GroupMemoryBarrierWithGroupSync();
 	}
-	
-	//保存
-	float a = to_floating_point(table[gtid.y][max(0, gtid.x - 1)]);
-	float b = to_floating_point(table[gtid.y][gtid.x]);
-	sdf_dictionary_uav[uint2(gtid.x, gtid.y + GLINT_MIP_LEVELS * gid)] = b * (GLINT_TABLE_RES / GLINT_TABLE_MAX);
-	GroupMemoryBarrierWithGroupSync();
 
 	//重み計算(各区間の積分値)
-	table[gtid.y][gtid.x] = asuint((gtid.x == 0) ? a : (a + b));
+	float sdf_a = to_floating_point(sdf_table[gtid.y][gtid.x]);
+	float sdf_b = to_floating_point(sdf_table[gtid.y][min(gtid.x + 1, GLINT_TABLE_RES - 1)]);
+	cdf_table[gtid.y][gtid.x] = ((gtid.x == 0) ? sdf_a : (sdf_a + sdf_b)) / 2;
 	if(gtid.x == GLINT_TABLE_RES - 1)
-		table[gtid.y][gtid.x + 1] = asuint(b);
-	GroupMemoryBarrierWithGroupSync();
-
-	//InclusiveSumを計算
-	float sum = asfloat(table[wave_index][0]);
-	for(uint i = lane_index + 1; i <= GLINT_TABLE_RES; i += lane_count)
-	{
-		float val = asfloat(table[gtid.y][i]);
-		sum += WavePrefixSum(val) + val;
-
-		table[gtid.y][i] = asuint(sum);
-		sum = WaveReadLaneAt(sum, lane_count - 1);
-	}
+		cdf_table[gtid.y][gtid.x + 1] = sdf_b / 2;
 	GroupMemoryBarrierWithGroupSync();
 	
+	//積分値計算
+	if(wave_index < GLINT_MIP_LEVELS)
+	{
+		float sum = cdf_table[wave_index][0];
+		for(uint i = lane_index + 1; i <= GLINT_TABLE_RES; i += lane_count)
+		{
+			float val = cdf_table[wave_index][i];
+			sum += WavePrefixSum(val) + val;
+
+			cdf_table[wave_index][i] = sum;
+			sum = WaveReadLaneAt(sum, lane_count - 1);
+		}
+	}
+	GroupMemoryBarrierWithGroupSync();
+
 	//保存
-	cdf_dictionary_uav[uint2(gtid.x + 1, gtid.y + GLINT_MIP_LEVELS * gid)] = asfloat(table[gtid.y][gtid.x]) / asfloat(table[gtid.y][GLINT_TABLE_RES]);
+	float inv_sum = 1 / cdf_table[gtid.y][GLINT_TABLE_RES];
+	sdf_dictionary_uav[uint2(gtid.x, gtid.y + GLINT_MIP_LEVELS * gid)] = sdf_a * inv_sum;
+	cdf_dictionary_uav[uint2(gtid.x + 1, gtid.y + GLINT_MIP_LEVELS * gid)] = cdf_table[gtid.y][gtid.x] * inv_sum;
 }
 
 #endif

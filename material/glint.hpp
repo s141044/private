@@ -44,7 +44,7 @@ public:
 			mp_reflectance_tex = gp_render_device->create_texture2d(texture_format_r16g16_unorm, 32, 32, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
 			mp_reflectance_srv = gp_render_device->create_shader_resource_view(*mp_reflectance_tex, texture_srv_desc(*mp_reflectance_tex));
 			mp_reflectance_uav = gp_render_device->create_unordered_access_view(*mp_reflectance_tex, texture_uav_desc(*mp_reflectance_tex));
-			mp_sdf_dictionary_tex = gp_render_device->create_texture1d_array(texture_format_r16_float, 64, 16 * 128, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+			mp_sdf_dictionary_tex = gp_render_device->create_texture1d_array(texture_format_r16_unorm, 64, 16 * 128, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
 			mp_sdf_dictionary_srv = gp_render_device->create_shader_resource_view(*mp_sdf_dictionary_tex, texture_srv_desc(*mp_sdf_dictionary_tex));
 			mp_sdf_dictionary_uav = gp_render_device->create_unordered_access_view(*mp_sdf_dictionary_tex, texture_uav_desc(*mp_sdf_dictionary_tex));
 			mp_cdf_dictionary_tex = gp_render_device->create_texture1d_array(texture_format_r16_unorm, 64 + 1, 16 * 128, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
