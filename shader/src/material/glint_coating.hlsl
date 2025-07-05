@@ -256,6 +256,13 @@ glint_coating_material load_glint_coating_material(intersection isect, float3 wo
 	glint_coating_material mtl;
 	mtl.flags_glint_cell_size = data4.y;
 
+	float3 dpdu = isect.dpdu;
+	float3 dpdv = isect.dpdv;
+	float u_scale = length(dpdu);
+	float v_scale = length(dpdv);
+	dpdu /= u_scale;
+	dpdv /= v_scale;
+
 	float view_z = abs(mul(float4(position, 1), view_mat).z);
 	float3 ray_o = camera_pos - position;
 	float3 ray_d_px = normalize(+camera_axis_x * pixel_size * view_z - ray_o);
@@ -268,8 +275,8 @@ glint_coating_material load_glint_coating_material(intersection isect, float3 wo
 	float ray_t_y = -dot(ray_o, isect.geometry_normal) / dot(ray_d_y, isect.geometry_normal);
 	float3 p_x = ray_o + ray_d_x * ray_t_x;
 	float3 p_y = ray_o + ray_d_y * ray_t_y;
-	float2 uv_axis_x = float2(dot(p_x, isect.dpdu), dot(p_x, isect.dpdv));
-	float2 uv_axis_y = float2(dot(p_y, isect.dpdu), dot(p_y, isect.dpdv));
+	float2 uv_axis_x = float2(dot(p_x, dpdu), dot(p_x, dpdv));
+	float2 uv_axis_y = float2(dot(p_y, dpdu), dot(p_y, dpdv));
 
 	float2 uv_axis0;
 	float2 uv_axis1;
@@ -300,7 +307,7 @@ glint_coating_material load_glint_coating_material(intersection isect, float3 wo
 	mtl.roughness_subsurface_misc = f32x4_to_r10g10b10a2(float4(diffuse_roughness, subsurface, 0, 0));
 	mtl.scale = f32x4_to_r10g10b10a2(float4(coat_scale, specular_scale, 0, 0));
 
-	mtl.patch_center = uv;
+	mtl.patch_center = uv * float2(u_scale, v_scale);
 	mtl.patch_axis0 = uv_axis0 / 2;
 	mtl.patch_axis1 = uv_axis1 / 2;
 
