@@ -14,6 +14,8 @@
 #define MATERIAL_TYPE_GLINT_COATING		1
 #define MATERIAL_TYPE_GLINT_SPECULAR	2
 #define MATERIAL_TYPE_HAIR				3
+#define MATERIAL_TYPE_COSMETIC			4
+#define MATERIAL_TYPE_EYEBALL			5
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 

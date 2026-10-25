@@ -17,7 +17,9 @@
 #include"realistic_camera.hlsl"
 
 #include"../material/hair.hlsl"
+#include"../material/eyeball.hlsl"
 #include"../material/standard.hlsl"
+#include"../material/callisto.hlsl"
 #include"../material/glint_coating.hlsl"
 #include"../material/glint_specular.hlsl"
 
@@ -67,6 +69,12 @@ RWByteAddressBuffer	dispatch_arg_uav;
 #elif MATERIAL_TYPE == MATERIAL_TYPE_HAIR
 #define MATERIAL		hair_material
 #define LOAD_MATERIAL	load_hair_material
+#elif MATERIAL_TYPE == MATERIAL_TYPE_CALLISTO
+#define MATERIAL		callisto_material
+#define LOAD_MATERIAL	load_callisto_material
+#elif MATERIAL_TYPE == MATERIAL_TYPE_EYEBALL
+#define MATERIAL		eyeball_material
+#define LOAD_MATERIAL	load_eyeball_material
 #else
 #define MATERIAL		standard_material
 #define LOAD_MATERIAL	load_standard_material

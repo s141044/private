@@ -122,9 +122,19 @@ public:
 						if(has_vt)
 							vt = file.texcoords().at(sub.texcoord_index(i, j));
 							
-						const auto ts = ts_calculator.calculate(sub, i, j, has_vn ? &vn : nullptr);
+						auto ts = ts_calculator.calculate(sub, i, j, has_vn ? &vn : nullptr);
 						if(not(has_vn))
 							vn = ts.axis_z();
+
+						auto is_zero = [](const vec4& v)
+						{
+							return (v.x == 0) && (v.y == 0) && (v.z == 0);
+						};
+						if(!ts.axis_x().isfinite() || !ts.axis_y().isfinite() || !ts.axis_z().isfinite() || is_zero(ts.axis_x()) || is_zero(ts.axis_y()) || is_zero(ts.axis_z()))
+						{
+							ts = ts_calculator.calculate(sub, i, j, has_vn ? &vn : nullptr);
+							watch(ts.axis_x(), ts.axis_y(), ts.axis_z());
+						}
 
 						positions[base_vertex_location + vertex_count + j] = float3(vp);
 						ntuv[base_vertex_location + vertex_count + j].n = encode_normal(float3(vn));

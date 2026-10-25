@@ -60,6 +60,14 @@ inline void emissive_tlas::unregister_blas(uint index)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+//“o˜^‚³‚ê‚½BLAS‚ª‘¶Ý‚·‚é‚©
+bool emissive_tlas::exist_blas() const
+{
+	return (m_blas_allocator.last_free_block_index() > 0);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 //ƒrƒ‹ƒh
 inline bool emissive_tlas::build(render_context& context)
 {
@@ -104,8 +112,9 @@ inline bool emissive_tlas::build(render_context& context)
 	void* dst = context.update_buffer(*mp_blas_handle_buf, 0, sizeof(uint) * blas_count);
 	memcpy(dst, m_blas_handles.data(), sizeof(uint) * blas_count);
 
-	context.clear_unordered_access_view(*mp_sum_weight_uav, uint4(0, 0, 0, 0));
-	context.clear_unordered_access_view(*mp_scan_scratch_uav, uint4(0, 0, 0, 0));
+	uint clear_value[4] = {};
+	context.clear_unordered_access_view(*mp_sum_weight_uav, clear_value);
+	context.clear_unordered_access_view(*mp_scan_scratch_uav, clear_value);
 
 	if((mp_weight_buf == nullptr) || (blas_count != mp_weight_buf->num_elements()))
 	{

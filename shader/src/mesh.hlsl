@@ -77,7 +77,8 @@ float3 decode_normal(uint v)
 
 float4 decode_tangent(float2 v)
 {
-	return float4(oct_to_f32x3(abs(v) * 2 - 1), sign(v.x));
+	float w = sign(v.x);
+	return float4(oct_to_f32x3(abs(v) * 2 - 1), (w != 0) ? w : sign(v.y));
 }
 
 float4 decode_tangent(uint v)

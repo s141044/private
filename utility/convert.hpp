@@ -102,9 +102,21 @@ inline float2 u16x2_snorm_to_f32x2(const uint v)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+inline uint f32_to_f16(const float2 &v)
+{
+	return reinterpret<uint16_t>(half(v.x));
+}
+
+inline float f16_to_f32(const uint v)
+{
+	return float(reinterpret<half>(uint16_t(v & 0xffff)));
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 inline uint f32x2_to_f16x2(const float2 &v)
 {
-	return reinterpret<uint16_t>(half(v.x)) | (reinterpret<uint16_t>(half(v.x)) << 16);
+	return reinterpret<uint16_t>(half(v.x)) | (reinterpret<uint16_t>(half(v.y)) << 16);
 }
 
 inline float2 f16x2_to_f32x2(const uint v)

@@ -1422,7 +1422,11 @@ inline shader_ptr shader_compiler::compile(const wstring& filename, const wstrin
 	//args.push_back(bin_filename.c_str());
 	//args.push_back(L"-Fd");
 	//args.push_back(pdb_filename.c_str());
-	args.push_back(L"-Zs");
+#if defined(_DEBUG)
+	args.push_back(L"-O0");
+#endif
+	args.push_back(L"-Zi");
+	//args.push_back(L"-Zs");
 	args.push_back(L"-enable-16bit-types");
 
 	if(entry_point.size()) //ライブラリの場合はentry_pointなし
@@ -1555,6 +1559,11 @@ inline render_device_impl::render_device_impl()
 		if(FAILED(p_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &feature_support, sizeof(feature_support))))
 			continue;
 		if(feature_support.RaytracingTier == D3D12_RAYTRACING_TIER_NOT_SUPPORTED)
+			continue;
+
+		//出力先がないのは無視
+		ComPtr<IDXGIOutput> p_output;
+		if (p_adapter->EnumOutputs(0, &p_output) == DXGI_ERROR_NOT_FOUND)
 			continue;
 
 		//デバイス採用

@@ -538,7 +538,8 @@ float3 calc_subsurface(standard_material mtl)
 	throughput *= 1 - get_coat_reflectance(mtl);
 	throughput *= 1 - (get_specular_reflectance(mtl) + get_matte_reflectance(mtl));
 	//return throughput * get_diffuse_reflectance(mtl) * get_subsurface(mtl); //アルベドが2重にかかると色がおかしくなる
-	return throughput * get_subsurface(mtl);
+	//return throughput * get_subsurface(mtl); //subsurfaceが2重にかかると暗くなる
+	return throughput;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

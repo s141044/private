@@ -199,7 +199,9 @@ inline void base_application::composite_gui_and_present(render_context& context,
 {
 	context.set_target_state(*mp_ldr_target);
 	context.set_priority(priority_initiaize);
-	context.clear_render_target_view(*mp_ldr_color_rtv, float4(0.0f));
+
+	float clear_value[4] = {};
+	context.clear_render_target_view(*mp_ldr_color_rtv, clear_value);
 	context.set_priority(priority_render_gui);
 	gp_gui_manager->render(*gp_render_device, context);
 

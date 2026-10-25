@@ -130,7 +130,7 @@ float3 calc_matte_weight(float3 wo, float3 wi, float3 reflectance, float roughne
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool sample_brdf(float3 wo, out float3 wi, float roughness, float u0, float u1)
+float3 sample_vndf(float3 wo, float roughness, float u0, float u1)
 {
 	float alpha = pow2(roughness);
 	float3 Vh = normalize(float3(alpha * wo.x, alpha * wo.y, wo.z));
@@ -145,7 +145,15 @@ bool sample_brdf(float3 wo, out float3 wi, float roughness, float u0, float u1)
 	t2 = (1.0 - s) * sqrt(1.0 - t1 * t1) + s * t2;
 	float3 Nh = t1 * T1 + t2 * T2 + sqrt(max(0, 1 - t1 * t1 - t2 * t2)) * Vh;
 	float3 Ne = normalize(float3(alpha * Nh.x, alpha * Nh.y, max(0, Nh.z)));
-	wi = reflect(-wo, Ne);
+	return Ne;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool sample_brdf(float3 wo, out float3 wi, float roughness, float u0, float u1)
+{
+	float3 h = sample_vndf(wo, roughness, u0, u1);
+	wi = reflect(-wo, h);
 	return (wi.z >= cosine_threshold);
 }
 

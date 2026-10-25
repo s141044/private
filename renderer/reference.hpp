@@ -125,7 +125,10 @@ public:
 		}
 
 		if(params.reset_accumulation)
-			context.clear_unordered_access_view(*mp_accum_uav, uint4(0, 0, 0, 0));
+		{
+			uint clear_value[4] = {};
+			context.clear_unordered_access_view(*mp_accum_uav, clear_value);
+		}
 
 		if(m_use_realistic_camera)
 		{
@@ -153,27 +156,49 @@ public:
 		if(params.p_envmap)
 			m_environment_sampler.bind(context);
 
+#if 1
 		static texture_ptr p_debug_tex[4];
-		static unordered_access_view_ptr p_debug_uav[4];
+		static buffer_ptr p_debug_buf[4];
+		static unordered_access_view_ptr p_debug_tex_uav[4];
+		static unordered_access_view_ptr p_debug_buf_uav[4];
 		if(p_debug_tex[0] == nullptr)
 		{
 			p_debug_tex[0] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, params.screen_size.x, params.screen_size.y, 1, resource_flag_allow_unordered_access);
 			p_debug_tex[1] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, params.screen_size.x, params.screen_size.y, 1, resource_flag_allow_unordered_access);
 			p_debug_tex[2] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, params.screen_size.x, params.screen_size.y, 1, resource_flag_allow_unordered_access);
 			p_debug_tex[3] = gp_render_device->create_texture2d(texture_format_r32g32b32a32_float, params.screen_size.x, params.screen_size.y, 1, resource_flag_allow_unordered_access);
-			p_debug_uav[0] = gp_render_device->create_unordered_access_view(*p_debug_tex[0], texture_uav_desc(*p_debug_tex[0]));
-			p_debug_uav[1] = gp_render_device->create_unordered_access_view(*p_debug_tex[1], texture_uav_desc(*p_debug_tex[1]));
-			p_debug_uav[2] = gp_render_device->create_unordered_access_view(*p_debug_tex[2], texture_uav_desc(*p_debug_tex[2]));
-			p_debug_uav[3] = gp_render_device->create_unordered_access_view(*p_debug_tex[3], texture_uav_desc(*p_debug_tex[3]));
+			p_debug_buf[0] = gp_render_device->create_byteaddress_buffer(sizeof(uint) * params.screen_size.x * params.screen_size.y, resource_flag_allow_unordered_access);
+			p_debug_buf[1] = gp_render_device->create_byteaddress_buffer(sizeof(uint) * params.screen_size.x * params.screen_size.y, resource_flag_allow_unordered_access);
+			p_debug_buf[2] = gp_render_device->create_byteaddress_buffer(sizeof(uint) * params.screen_size.x * params.screen_size.y, resource_flag_allow_unordered_access);
+			p_debug_buf[3] = gp_render_device->create_byteaddress_buffer(sizeof(uint) * params.screen_size.x * params.screen_size.y, resource_flag_allow_unordered_access);
+			p_debug_tex_uav[0] = gp_render_device->create_unordered_access_view(*p_debug_tex[0], texture_uav_desc(*p_debug_tex[0]));
+			p_debug_tex_uav[1] = gp_render_device->create_unordered_access_view(*p_debug_tex[1], texture_uav_desc(*p_debug_tex[1]));
+			p_debug_tex_uav[2] = gp_render_device->create_unordered_access_view(*p_debug_tex[2], texture_uav_desc(*p_debug_tex[2]));
+			p_debug_tex_uav[3] = gp_render_device->create_unordered_access_view(*p_debug_tex[3], texture_uav_desc(*p_debug_tex[3]));
+			p_debug_buf_uav[0] = gp_render_device->create_unordered_access_view(*p_debug_buf[0], buffer_uav_desc(*p_debug_buf[0]));
+			p_debug_buf_uav[1] = gp_render_device->create_unordered_access_view(*p_debug_buf[1], buffer_uav_desc(*p_debug_buf[1]));
+			p_debug_buf_uav[2] = gp_render_device->create_unordered_access_view(*p_debug_buf[2], buffer_uav_desc(*p_debug_buf[2]));
+			p_debug_buf_uav[3] = gp_render_device->create_unordered_access_view(*p_debug_buf[3], buffer_uav_desc(*p_debug_buf[3]));
 		}
-		context.set_pipeline_resource("debug_uav0", *p_debug_uav[0]);
-		context.set_pipeline_resource("debug_uav1", *p_debug_uav[1]);
-		context.set_pipeline_resource("debug_uav2", *p_debug_uav[2]);
-		context.set_pipeline_resource("debug_uav3", *p_debug_uav[3]);
-		context.clear_unordered_access_view(*p_debug_uav[0], uint4(0,0,0,0));
-		context.clear_unordered_access_view(*p_debug_uav[1], uint4(0,0,0,0));
-		context.clear_unordered_access_view(*p_debug_uav[2], uint4(0,0,0,0));
-		context.clear_unordered_access_view(*p_debug_uav[3], uint4(0,0,0,0));
+		context.set_pipeline_resource("debug_tex0", *p_debug_tex_uav[0]);
+		context.set_pipeline_resource("debug_tex1", *p_debug_tex_uav[1]);
+		context.set_pipeline_resource("debug_tex2", *p_debug_tex_uav[2]);
+		context.set_pipeline_resource("debug_tex3", *p_debug_tex_uav[3]);
+		context.set_pipeline_resource("debug_buf0", *p_debug_buf_uav[0]);
+		context.set_pipeline_resource("debug_buf1", *p_debug_buf_uav[1]);
+		context.set_pipeline_resource("debug_buf2", *p_debug_buf_uav[2]);
+		context.set_pipeline_resource("debug_buf3", *p_debug_buf_uav[3]);
+
+		uint clear_value[4] = {};
+		context.clear_unordered_access_view(*p_debug_tex_uav[0], clear_value);
+		context.clear_unordered_access_view(*p_debug_tex_uav[1], clear_value);
+		context.clear_unordered_access_view(*p_debug_tex_uav[2], clear_value);
+		context.clear_unordered_access_view(*p_debug_tex_uav[3], clear_value);
+		context.clear_unordered_access_view(*p_debug_buf_uav[0], clear_value);
+		context.clear_unordered_access_view(*p_debug_buf_uav[1], clear_value);
+		context.clear_unordered_access_view(*p_debug_buf_uav[2], clear_value);
+		context.clear_unordered_access_view(*p_debug_buf_uav[3], clear_value);
+#endif
 
 #if 0
 		context.set_pipeline_resource("reference_cbuf", *p_cbuf);
@@ -189,8 +214,8 @@ public:
 		context.dispatch(ceil_div(params.screen_size.x, 8), ceil_div(params.screen_size.y, 4), 1);
 #else
 
-		context.clear_unordered_access_view(*mp_work_queue_size_uav[0], uint4(0u));
-		context.clear_unordered_access_view(*mp_work_queue_size_uav[1], uint4(0u));
+		context.clear_unordered_access_view(*mp_work_queue_size_uav[0], clear_value);
+		context.clear_unordered_access_view(*mp_work_queue_size_uav[1], clear_value);
 
 		context.set_pipeline_resource("reference_cbuf", *p_cbuf);
 		context.set_pipeline_resource("color_uav", *params.p_color_uav);
@@ -265,6 +290,9 @@ public:
 			//bool enable_sss = false;
 			if(enable_sss)
 			{
+				context.copy_buffer(*mp_work_queue_buf[1 - queue_index], 0, *mp_work_queue_buf[queue_index], 0, mp_work_queue_buf[0]->size());
+				queue_index = 1 - queue_index;
+
 				context.set_pipeline_resource("dispatch_arg_uav", *mp_argument_uav);
 				context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[0]);
 				context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[1]);
@@ -300,8 +328,8 @@ public:
 
 				context.set_pipeline_resource("hit_info_srv", *mp_hit_info_srv);
 				context.set_pipeline_resource("ray_info_uav", *mp_ray_info_uav[ray_index]);
-				context.set_pipeline_resource("work_queue_srv", *mp_work_queue_srv[1 - queue_index]);
-				context.set_pipeline_resource("work_queue_uav", *mp_work_queue_uav[queue_index]);
+				context.set_pipeline_resource("work_queue_srv", *mp_work_queue_srv[queue_index]);
+				context.set_pipeline_resource("work_queue_uav", *mp_work_queue_uav[1 - queue_index]);
 				context.set_pipeline_resource("work_queue_size_srv", *mp_work_queue_size_srv[1]);
 				context.set_pipeline_resource("work_queue_size_uav", *mp_work_queue_size_uav[0]);
 				context.set_pipeline_resource("work_queue_offset_srv", *mp_work_queue_offset_srv);

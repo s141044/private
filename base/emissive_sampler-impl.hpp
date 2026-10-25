@@ -35,6 +35,9 @@ inline bool emissive_sampler::sample(render_context& context, const uint sample_
 		gp_render_device->set_name(*mp_emissive_sample_buf, L"emissive_sample");
 	}
 
+	if(!gp_raytracing_manager->exist_emissive())
+		return true;
+
 	context.set_pipeline_state(*m_shaders.get("emissive_presample"));
 	context.set_pipeline_resource("emissive_sample_uav", *mp_emissive_sample_uav);
 	context.dispatch_with_32bit_constant(ceil_div(sample_count, 256), 1, 1, sample_count);

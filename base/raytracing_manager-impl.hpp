@@ -72,6 +72,14 @@ inline void raytracing_manager::unregister_emissive(const uint emissive_instance
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+//Emissiveインスタンスが存在するか
+inline bool raytracing_manager::exist_emissive() const
+{
+	return m_emissive_tlas.exist_blas();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 //TLAS構築
 inline void raytracing_manager::build(render_context& context)
 {

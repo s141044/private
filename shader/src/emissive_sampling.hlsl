@@ -72,8 +72,22 @@ emissive_sample sample_emissive(float u0, float u1, uint dtid = 0)
 	else
 		index = emissive_blas_handle_srv.Load(4 * index);
 
+	//セーフ
+	//{
+	//	emissive_sample s = (emissive_sample)0;
+	//	s.L = index;
+	//	return s;
+	//}
+
 	ByteAddressBuffer blas = get_byteaddress_buffer(index);
 	emissive_blas_header blas_header = load_emissive_blas_header(blas);
+
+	//アウト
+	{
+		emissive_sample s = (emissive_sample)0;
+		s.L = blas_header.primitive_count;
+		return s;
+	}
 
 	index = u1 * blas_header.primitive_count;
 	u1 = frac(u1 * blas_header.primitive_count);
@@ -116,19 +130,19 @@ void emissive_presample(uint dtid : SV_DispatchThreadID)
 	rng rng;
 	rng.state = dtid + sample_count * frame_count;
 	float u = randF(rng);
-
+	
 	float sum_weight = 0;
 	emissive_sample s;
-
+	
 	const uint M = 4;
 	for(uint i = 0; i < M; i++)
 	{
 		emissive_sample candidate = sample_emissive(randF(rng), randF(rng), dtid);
-
+	
 		float weight = luminance(candidate.L);
 		if(weight <= 0)
 			continue;
-
+	
 		sum_weight += weight;
 		
 		float pmf = weight / sum_weight;
@@ -143,12 +157,12 @@ void emissive_presample(uint dtid : SV_DispatchThreadID)
 			u = (u - pmf) / (1 - pmf);
 		}
 	}
-
+	
 	if(sum_weight > 0)
 		s.L *= sum_weight;
 	else
 		s = (emissive_sample)0;
-
+	
 	emissive_sample_uav[dtid] = compress(s);
 }
 

@@ -111,6 +111,14 @@
             {
               "name": "_type3",
               "cs": ["", "", "-DMATERIAL_TYPE=3"]
+            },
+            {
+              "name": "_type4",
+              "cs": ["", "", "-DMATERIAL_TYPE=4"]
+            },
+            {
+              "name": "_type5",
+              "cs": ["", "", "-DMATERIAL_TYPE=5"]
             }
           ]
         }
@@ -160,6 +168,14 @@
             {
               "name": "_type3",
               "cs": ["", "", "-DMATERIAL_TYPE=3"]
+            },
+            {
+              "name": "_type4",
+              "cs": ["", "", "-DMATERIAL_TYPE=4"]
+            },
+            {
+              "name": "_type5",
+              "cs": ["", "", "-DMATERIAL_TYPE=5"]
             }
           ]
         }

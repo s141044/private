@@ -143,6 +143,8 @@ enum material_type : uint8_t
 	material_type_glint_coating,
 	material_type_glint_specular,
 	material_type_hair,
+	material_type_cosmetic,
+	material_type_eyeball,
 	material_type_count,
 };
 
@@ -310,6 +312,9 @@ public:
 	//“o˜^/‰ğœ
 	uint register_blas(const emissive_blas& blas);
 	void unregister_blas(uint index);
+
+	//“o˜^‚³‚ê‚½BLAS‚ª‘¶İ‚·‚é‚©
+	bool exist_blas() const;
 
 	//ƒrƒ‹ƒh
 	bool build(render_context& context);
@@ -501,6 +506,9 @@ public:
 	//EmissiveƒCƒ“ƒXƒ^ƒ“ƒX“o˜^/‰ğœ
 	uint register_emissive(const emissive_blas& blas);
 	void unregister_emissive(const uint index);
+
+	//EmissiveƒCƒ“ƒXƒ^ƒ“ƒX‚ª‘¶İ‚·‚é‚©
+	bool exist_emissive() const;
 
 	//TLAS\’z
 	void build(render_context& context);
