@@ -27,16 +27,20 @@ float sample_medium_distance_pdf(float sigma_t, float t)
 
 float hg_phase(float3 w1, float3 w2, float g)
 {
-	float tmp = 1 + g * g - 2 * g * dot(w1, w2);
+	float tmp = 1 + g * g + 2 * g * dot(w1, w2);
 	return (1 - g * g) / (4 * PI * tmp * sqrt(tmp));
 }
 
 float3 sample_hg_phase(float3 w, float g, float u0, float u1)
 {
+	float3 wi = -w, wj, wk;
+	calc_orthonormal_basis(wi, wj, wk);
+
 	float phi = 2 * PI * u0;
 	float ct = (1 + g * g - pow2((1 - g * g) / (1 + g - 2 * g * u1))) / (2 * g);
 	float st = sqrt(1 - ct * ct);
-	return float3(st * cos(phi), st * sin(phi), ct);
+	float3 local_w = float3(st * cos(phi), st * sin(phi), ct);
+	return local_w.x * wk + local_w.y * wj + local_w.z * wi;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -84,10 +88,15 @@ float sggx_projected_area(float3 w, sggx_param param)
 	return sqrt(max(0, sggx_quadratic_form(w, param)));
 }
 
-float sggx_specular_phase(float3 w1, float3 w2, sggx_param param)
+float sggx_specular_phase(float3 w1, float3 w2, sggx_param param, float projected_area)
 {
 	float3 wh = normalize(w1 + w2);
-	return sggx_ndf(wh, param) / (4 * sggx_projected_area(w1, param));
+	return sggx_ndf(wh, param) / (4 * projected_area);
+}
+
+float sggx_specular_phase(float3 w1, float3 w2, sggx_param param)
+{
+	return sggx_specular_phase(w1, w2, param, sggx_projected_area(w1, param));
 }
 
 float3 sample_sggx_vndf(float3 w, sggx_param param, float u0, float u1)

@@ -115,4 +115,19 @@ float3 schlick_average_fresnel(float3 F0)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+float calc_F0(float eta)
+{
+	//eta=eta2/eta1
+	float sqrt_F0 = (eta - 1.0f) / (eta + 1.0f);
+	return sqrt_F0 * sqrt_F0;
+}
+
+float calc_eta(float F0)
+{
+	float sqrt_F0 = sqrt(F0);
+	return (1 + sqrt_F0) / (1 - sqrt_F0);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 #endif
