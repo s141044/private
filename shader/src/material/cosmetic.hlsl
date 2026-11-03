@@ -32,10 +32,11 @@ struct cosmetic_material
 	uint	platelet_albedo;
 
 	uint	data0; //coat_roughness, specular_roughness, platelet_roughness
-	uint	data1; //coat_scale, specular_scale, specular_reflectance, 
+	uint	data1; //coat_scale, specular_scale, -
 	uint	data2; //subsurface, diffuser_cd, -
 	uint	data3; //diffuser_g1, diffuser_g2, diffuser_wg
-	unit	data4; //thickness,eta
+	uint	data4; //coat_eta, specular_eta
+	uint	data5; //thickness, -
 };
 
 float3	get_base_normal(cosmetic_material mtl){ return oct_to_f32x3(u16x2_unorm_to_f32x2(mtl.base_normal) * 2 - 1); }
@@ -43,15 +44,14 @@ float3	get_coat_normal(cosmetic_material mtl){ return oct_to_f32x3(u16x2_unorm_t
 float	get_coat_scale(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data1).x; }
 float	get_coat_roughness(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data0).x; }
 float	get_specular_scale(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data1).y; }
-float3	get_specular_color0(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.specular_color0).xyz; }
 float	get_specular_roughness(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data0).y; }
-float	get_specular_reflectance(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data1).z; }
 float3	get_diffuse_color(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.diffuse_color).xyz; }
 float	get_subsurface(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data2).x; }
 float3	get_subsurface_radius(cosmetic_material mtl){ return r9g9b9e5_to_f32x3(mtl.subsurface_radius); }
 
-float	get_eta(cosmetic_material mtl){ return f16_to_f32(mtl.data4 >> 16); }
-float	get_thickness(cosmetic_material mtl){ return f16_to_f32(mtl.data4); }
+float	get_coat_eta(cosmetic_material mtl){ return f16_to_f32(mtl.data4); }
+float	get_specular_eta(cosmetic_material mtl){ return f16_to_f32(mtl.data4 >> 16); }
+float	get_thickness(cosmetic_material mtl){ return asfloat(mtl.data5); }
 float3	get_diffuser_albedo(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.diffuser_albedo).xyz; }
 float	get_diffuser_cd(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data2).y; }
 float	get_diffuser_g1(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data3).x; }
@@ -61,49 +61,6 @@ float3	get_platelet_albedo(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(m
 float	get_platelet_roughness(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data0).z; }
 
 #else
-
-struct cosmetic_material
-{
-	float3	base_normal;
-	float3	diffuse_color;
-	float	diffuse_fresnel;
-	float	diffuse_fresnel_falloff;
-	float	diffuse_fresnel_tangent_falloff;
-	float	retroreflection;
-	float	retroreflection_falloff;
-	float	retroreflection_tangent_falloff;
-	float	specular_scale;
-	float3	specular_color0;
-	float	specular_roughness;
-	float	specular_fresnel_falloff;
-	float	smooth_terminator;
-	float	smooth_terminator_length;
-	float	subsurface;
-	float3	subsurface_radius;
-	uint	flags;
-};
-
-float3	get_coat_normal(cosmetic_material mtl){ return mtl.coat_normal; }
-float3	get_base_normal(cosmetic_material mtl){ return mtl.base_normal; }
-float3	get_sheen_color(cosmetic_material mtl){ return mtl.sheen_color; }
-float	get_sheen_roughness(cosmetic_material mtl){ return mtl.sheen_roughness; }
-float3	get_sheen_reflectance(cosmetic_material mtl){ return mtl.sheen_reflectance; }
-float	get_coat_scale(cosmetic_material mtl){ return mtl.coat_scale; }
-float3	get_coat_color0(cosmetic_material mtl){ return mtl.coat_color0; }
-float	get_coat_roughness(cosmetic_material mtl){ return mtl.coat_roughness; }
-float3	get_coat_reflectance(cosmetic_material mtl){ return mtl.coat_reflectance; }
-float3	get_emissive_color(cosmetic_material mtl){ return mtl.emissive_color; }
-float	get_specular_scale(cosmetic_material mtl){ return mtl.specular_scale; }
-float3	get_specular_color0(cosmetic_material mtl){ return mtl.specular_color0; }
-float	get_specular_roughness(cosmetic_material mtl){ return mtl.specular_roughness; }
-float3	get_specular_reflectance(cosmetic_material mtl){ return mtl.specular_reflectance; }
-float3	get_matte_reflectance(cosmetic_material mtl){ return mtl.matte_reflectance; }
-float3	get_diffuse_color(cosmetic_material mtl){ return mtl.diffuse_color; }
-float	get_diffuse_roughness(cosmetic_material mtl){ return mtl.diffuse_roughness; }
-float3	get_diffuse_reflectance(cosmetic_material mtl){ return mtl.diffuse_reflectance; }
-float	get_subsurface(cosmetic_material mtl){ return mtl.subsurface; }
-float3	get_subsurface_radius(cosmetic_material mtl){ return mtl.subsurface_radius; }
-bool	is_twoside(cosmetic_material mtl){ return mtl.flags & 1; }
 
 #endif
 
@@ -138,7 +95,7 @@ struct cosmetic_material_host
 	uint	specular_color0;
 	//5
 	uint	subsurface_radius; //r9g9b9e5
-	uint	thickness;
+	uint	thickness; //offset,scale
 	uint	diffuser_albedo;
 	uint	platelet_albedo;
 };
@@ -160,6 +117,7 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	uint4 data2 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 2);
 	uint4 data3 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 3);
 	uint4 data4 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 4);
+	uint4 data5 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 5);
 
 	float3 base_normal = normal;
 	float3 coat_normal = normal;
@@ -170,6 +128,11 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 		local_normal.xy = 2 * local_normal.xy - 1;
 		base_normal = normalize(tangent * local_normal.x + binormal * local_normal.y + normal * local_normal.z);
 		coat_normal = normalize(tangent * local_normal.x + binormal * local_normal.y + normal * local_normal.z * 2); //パラメータ化？thicknessから？
+
+		//ローカル化
+		float3 coat_tangent, coat_binormal;
+		calc_orthonormal_basis(coat_normal, coat_tangent, coat_binormal);
+		base_normal = float3(dot(coat_tangent, base_normal), dot(coat_binormal, base_normal), dot(coat_normal, base_normal));
 	}
 
 	float coat_scale = u8_unorm_to_f32(data0.y >> 24);
@@ -183,7 +146,7 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	if((data0.z & 0x00ffffff) != 0x00ffffff)
 	{
 		Texture2D<float3> tex = get_texture2d<float3> (data0.z & 0x00ffffff);
-		diffuse_color *= tex.SampleLevel(RT_SAMPLER, uv, lod);
+		coat_color0 *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
 	float coat_roughness = u8_unorm_to_f32(data0.w >> 24);
@@ -246,7 +209,7 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	float3 diffuser_albedo = u8x4_unorm_to_f32x4(data5.z).xyz;
 	if((data2.w & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float> tex = get_texture2d<float3>(data2.w & 0x00ffffff);
+		Texture2D<float3> tex = get_texture2d<float3>(data2.w & 0x00ffffff);
 		diffuser_albedo *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
@@ -274,7 +237,7 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	float3 platelet_albedo = u8x4_unorm_to_f32x4(data5.w).xyz;
 	if((data3.w & 0x00ffffff) != 0x00ffffff)
 	{
-		Texture2D<float> tex = get_texture2d<float3>(data3.w & 0x00ffffff);
+		Texture2D<float3> tex = get_texture2d<float3>(data3.w & 0x00ffffff);
 		platelet_albedo *= tex.SampleLevel(RT_SAMPLER, uv, lod);
 	}
 
@@ -288,11 +251,11 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	float3 subsurface_radius = r9g9b9e5_to_f32x3(data5.x);
 
 	specular_roughness = max(specular_roughness, 1e-3);
-	float specular_reflectance = luminance(microfacet::calc_reflectance(wo, specular_color0, specular_roughness));
-	specular_reflectance *= specular_scale;
+	platelet_roughness = max(platelet_roughness, 1e-3);
 
-	float sqrt_F0 = clamp(sqrt(luminance(coat_color0)), 0, 0.999);
-	float eta = (1 + sqrt_F0) / (1 - sqrt_F0);
+	//単色と仮定
+	float coat_eta = calc_eta(coat_color0.x);
+	float specular_eta = calc_eta(specular_color0.x);
 
 	cosmetic_material mtl;
 
@@ -308,33 +271,13 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	mtl.platelet_albedo = f32x4_to_r10g10b10a2(float4(platelet_albedo, 0));
 
 	mtl.data0 = f32x4_to_r10g10b10a2(float4(coat_roughness, specular_roughness, platelet_roughness, 0));
-	mtl.data1 = f32x4_to_r10g10b10a2(float4(coat_scale, specular_scale, specular_reflectance, 0));
+	mtl.data1 = f32x4_to_r10g10b10a2(float4(coat_scale, specular_scale, 0, 0));
 	mtl.data2 = f32x4_to_r10g10b10a2(float4(subsurface, diffuser_cd, 0, 0));
 	mtl.data3 = f32x4_to_r10g10b10a2(float4(diffuser_g1, diffuser_g2, diffuser_wg, 0));
-	mtl.data4 = f32x2_to_f16x2(float2(thickness, eta));
+	mtl.data4 = f32x2_to_f16x2(float2(coat_eta, specular_eta));
+	mtl.data5 = asuint(thickness);
 
 #else
-
-	mtl.coat_normal = coat_normal;
-	mtl.base_normal = base_normal;
-	mtl.sheen_color = sheen_color;
-	mtl.sheen_roughness = sheen_roughness;
-	mtl.sheen_reflectance = sheen_reflectance;
-	mtl.coat_scale = coat_scale;
-	mtl.coat_color0 = coat_color0;
-	mtl.coat_roughness = coat_roughness;
-	mtl.coat_reflectance = coat_reflectance;
-	mtl.emissive_color = emissive_color;
-	mtl.specular_scale = specular_scale;
-	mtl.specular_color0 = specular_color0;
-	mtl.specular_roughness = specular_roughness;
-	mtl.specular_reflectance = specular_reflectance;
-	mtl.matte_reflectance = matte_reflectance;
-	mtl.diffuse_color = diffuse_color;
-	mtl.diffuse_roughness = diffuse_roughness;
-	mtl.diffuse_reflectance = diffuse_reflectance;
-	mtl.subsurface = subsurface;
-	mtl.subsurface_radius = subsurface_radius;
 
 #endif
 
@@ -353,30 +296,14 @@ bool has_contribution(float nwi, cosmetic_material mtl)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-void calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, cosmetic_material mtl, out float3 diffuse, out float3 non_diffuse, out float pdf, uint2 dtid = 0)
+enum sample_type
 {
-	//TODO
-	diffuse = 0;
-	non_diffuse = 0;
-	pdf = 0;
-}
+	sample_type_brdf, 
+	sample_type_btdf, 
+	sample_type_default,
+};
 
-float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, cosmetic_material mtl, uint2 dtid = 0)
-{
-	float pdf;
-	float3 diffuse, non_diffuse;
-	calc_bsdf_pdf(wo, wi, normal, mtl, diffuse, non_diffuse, pdf, dtid);
-	return float4(diffuse + non_diffuse, pdf);
-}
-
-float3 calc_subsurface(cosmetic_material mtl)
-{
-	return 1; //もうこれでいいや．出射点側の情報だけでSSS感を出す
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-bsdf_sample sample_bsdf(float3 wo, float eta_o, float eta_i, float roughness, float u0, float u1, float u2)
+bsdf_sample sample_bsdf(float3 wo, float eta_o, float eta_i, float roughness, float u0, float u1, float u2, sample_type sample_type = sample_type_default)
 {
 	bsdf_sample s;
 	s.is_valid = false;
@@ -386,7 +313,22 @@ bsdf_sample sample_bsdf(float3 wo, float eta_o, float eta_i, float roughness, fl
 	float alpha = pow2(roughness);
 	float hwo = abs(dot(h, wo));
 	float Fr = fresnel_dielectric(hwo, eta_i / eta_o);
-	if(u2 < Fr)
+
+	float Pr;
+	if(sample_type == sample_type_default)
+		Pr = Fr;
+	else if(sample_type == sample_type_brdf)
+		Pr = 1;
+	else if(sample_type == sample_type_btdf)
+	{
+		Pr = 0;
+
+		//全反射
+		if(Fr >= 1)
+			return s;
+	}
+
+	if(u2 < Pr)
 	{
 		float3 wi = reflect(-wo, h);
 		if(wi.z <= 0)
@@ -397,8 +339,9 @@ bsdf_sample sample_bsdf(float3 wo, float eta_o, float eta_i, float roughness, fl
 		float G1 = microfacet::G1(wo, alpha);
 
 		s.w = wi;
-		s.weight = G / G1;
-		s.pdf = Fr * G1 * D / (4 * wo.z);
+
+		s.weight = G / G1 * (Fr / Pr);
+		s.pdf = Pr * G1 * D / (4 * wo.z);
 	}
 	else
 	{
@@ -413,11 +356,266 @@ bsdf_sample sample_bsdf(float3 wo, float eta_o, float eta_i, float roughness, fl
 		float hwo = abs(dot(h, wo));
 
 		s.w = wi;
-		s.weight = hwi * G / G1;
-		s.pdf = (1 - Fr) * G1 * D * hwo * hwi * pow2(eta_i) / (wo.z * pow2(eta_i * hwi + eta_o * hwo));
+		s.weight = hwi * G / G1 * ((1 - Fr) / (1 - Pr));
+		s.pdf = (1 - Pr) * G1 * D * hwo * hwi * pow2(eta_i) / (wo.z * pow2(eta_i * hwi + eta_o * hwo));
 	}
 	return s;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+float2 calc_bsdf_pdf(float3 wo, float3 wi, float eta_o, float eta_i, float roughness)
+{
+	float alpha = pow2(roughness);
+
+	//brdf
+	if(wo.z * wi.z > 0)
+	{
+		float3 h = normalize(wo + wi);
+		float hwo = abs(dot(h, wo));
+
+		float F = fresnel_dielectric(hwo, eta_i / eta_o);
+		float D = microfacet::D(h, alpha);
+		float G = microfacet::G(wo, wi, alpha);
+		float G1 = microfacet::G1(wo, alpha);
+		float common = F * D / (4 * wo.z);
+
+		float brdf = G * common;
+		float pdf = G1 * common;
+		return float2(brdf, pdf);)
+	}
+	//btdf
+	else
+	{
+		float3 h = normalize(eta_o * wo + eta_i * wi);
+		if(eta_o < eta_i)
+			h = -h;
+
+		if(h.z <= 0)
+			return 0;
+
+		float hwo = dot(h, wo);
+		float hwi = dot(h, wi);
+		if(hwo * hwi >= 0)
+			return 0;
+
+		hwo = abs(hwo);
+		hwi = abs(hwi);
+		float nwo = abs(wo.z);
+		float nwi = abs(wi.z);
+
+		float F = fresnel_dielectric(hwo, eta_i / eta_o);
+		float D = microfacet::D(h, alpha);
+		float G = microfacet::G(wo, wi, alpha);
+		float G1 = microfacet::G1(wo, alpha);
+		float common = (1 - F) * D * hwo * pow2(eta_i) / (nwo * pow2(eta_o * hwo + eta_i * hwi));
+
+		float btdf = G * hwi * common;
+		float pdf = G1 * common;
+		return float2(btdf, pdf);
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+float calc_pdf(float3 wo, float3 wi, float3 normal, cosmetic_material mtl, inout rng rng)
+{
+	//MISに使うだけなので近似値を使用
+	//wo,wiは方向はローカル空間
+
+	float coat_eta = get_coat_eta(mtl);
+	float coat_roughness = get_coat_roughness(mtl);
+
+	//coatで反射のpdf
+	float pdf = calc_bsdf_pdf(wo, wi, 1, coat_eta, coat_roughness).y;
+
+	//透過方向をサンプリング
+	bsdf_sample s = sample_bsdf(wo, 1, coat_eta, coat_roughness, randF(rng), randF(rng), 0, sample_type_btdf);
+	if(s.is_valid)
+	{
+		float sigma_t = 1;
+		float T1 = transmittance(sigma_t, get_thickness(mtl) / abs(s.w.z));
+		pdf += s.weight.x * (1 - T1) * wi.z * inv_PI;
+		s.weight.x *= T1;
+
+		float3 base_tangent, base_binormal, base_normal = get_base_normal(mtl);
+		calc_orthonormal_basis(base_normal, base_tangent, base_binormal);
+
+		s.w = float3(dot(s.w, base_tangent), dot(s.w, base_binormal), dot(s.w, base_normal));
+		if(s.w.z < 0)
+		{
+			//反射方向をサンプリング
+			bsdf_sample s2 = sample_bsdf(-s.w, coat_eta, get_specular_eta(mtl), get_specular_roughness(mtl), randF(rng), randF(rng), 0, sample_type_brdf);
+			if(s2.is_valid)
+			{
+				s2.w = s2.w.x * base_tangent + s2.w.y * base_binormal + s2.w.z * base_normal;
+
+				float T2 = transmittance(sigma_t, get_thickness(mtl) / abs(s2.w.z));
+				pdf += s.weight.x * s2.weight.x * (1 - T2) * wi.z * inv_PI;
+				s2.weight.x *= T2;
+
+				//coatで透過のpdf
+				//法線が下向きのローカル空間なので入射出射の符号がこうなる
+				pdf += s.weight.x * s2.weight.x * calc_bsdf_pdf(s2.w, -wi, coat_eta, 1, coat_roughness).y;
+			}
+		}
+	}
+	return pdf;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, cosmetic_material mtl, inout rng rng, uint2 dtid = 0)
+{
+	float3 coat_tangent, coat_binormal;
+	float3 coat_normal = get_coat_normal(mtl);
+	calc_orthonormal_basis(coat_normal, coat_tangent, coat_binormal);
+
+	wo = float3(dot(wo, coat_tangent), dot(wo, coat_binormal), dot(wo, coat_normal));
+	wi = float3(dot(wi, coat_tangent), dot(wi, coat_binormal), dot(wi, coat_normal));
+
+	float pdf = calc_pdf(wo, wi, normal, mtl, rng);
+
+	//coatで反射
+	float3 bsdf = calc_bsdf_pdf(wo, wi, 1, get_coat_eta(mtl), get_coat_roughness(mtl)).x;
+
+	//透過方向をサンプリング
+	bsdf_sample s = sample_bsdf(wo, 1, get_coat_eta(mtl), get_coat_roughness(mtl), randF(rng), randF(rng), 0, sample_type_btdf);
+	if(!s.is_valid)
+		return float4(bsdf, pdf);
+
+	//反対側からも透過方向をサンプリング
+	bsdf_sample s2 = sample_bsdf(wi, 1, get_coat_eta(mtl), get_coat_roughness(mtl), randF(rng), randF(rng), 0, sample_type_btdf);
+	if(!s2.is_valid)
+		return float4(bsdf, pdf);
+
+	sggx_param sggx_param;
+	sggx_param.Sxx = coat_normal.x * coat_normal.x + get_platelet_roughness(mtl) * (coat_normal.y * coat_normal.y + coat_normal.z * coat_normal.z);
+	sggx_param.Syy = coat_normal.y * coat_normal.y + get_platelet_roughness(mtl) * (coat_normal.x * coat_normal.x + coat_normal.z * coat_normal.z);
+	sggx_param.Szz = coat_normal.z * coat_normal.z + get_platelet_roughness(mtl) * (coat_normal.x * coat_normal.x + coat_normal.y * coat_normal.y);
+	sggx_param.Sxy = coat_normal.x * coat_normal.y - get_platelet_roughness(mtl) * (coat_normal.x * coat_normal.y);
+	sggx_param.Sxz = coat_normal.x * coat_normal.z - get_platelet_roughness(mtl) * (coat_normal.x * coat_normal.z);
+	sggx_param.Syz = coat_normal.y * coat_normal.z - get_platelet_roughness(mtl) * (coat_normal.y * coat_normal.z);
+
+	float z = 0;
+	float thickness = get_thickness(mtl);
+	for(uint i = 0; i < 128; i++)
+	{
+		float sigma_t = 1;
+		float t = sample_medium_distance(sigma_t, randF(rng));
+		z += s.w.z * t;
+
+		//air
+		if(z > 0)
+		{
+			//s.wは点に向かう方向だが，法線が下向きなので反転させてs.wのままでいい
+			bsdf_sample s3 = sample_bsdf(s.w, get_coat_eta(mtl), 1, get_coat_roughness(mtl), randF(rng), randF(rng), randF(rng));
+			if(!s3.is_valid)
+				break;
+
+			s.w = -s3.w; //法線が下向きの空間から戻す
+			s.weight *= s3.weight;
+
+			//反射
+			if(s.w.z < 0)
+			{
+				z = 0;
+			}
+			//透過
+			else
+			{
+				break;
+			}
+		}
+		//volume
+		else if(z > -thickness)
+		{
+			float cd = get_diffuser_cd(mtl);
+			float wg = get_diffuser_wg(mtl);
+			float g1 = get_diffuser_g1(mtl);
+			float g2 = get_diffuser_g2(mtl);
+			float3 Ad = get_diffuser_albedo(mtl);
+			float3 Ap = get_platelet_albedo(mtl);
+
+			float proj_area = sggx_projected_area(s.w, sggx_param); 
+			float fd = lerp(hg_phase(-s.w, -s2.w, g2), hg_phase(-s.w, -s2.w, g1), wg);
+			float fp = sggx_specular_phase(-s.w, -s2.w, sggx_param, proj_area);
+			float T = transmittance(sigma_t, z / abs(s2.w.z));
+			bsdf += s.weight * (cd * fd * Ad + (1 - cd) * proj_area * fp * Ap) * T;
+
+			float u0 = randF(rng);
+			float u1 = randF(rng);
+
+			//diffuser
+			float pmf_d = cd / (cd + (1 - cd) * proj_area);
+			if(u0 < pmf_d)
+			{
+				u0 /= pmf_d;
+
+				float g, pmf_d1 = wg;
+				if(u1 < pmf_d1)
+				{
+					u1 /= pmf_d1;
+					g = g1;
+				}
+				else
+				{
+					u1 = (u1 - pmf_d1) / (1 - pmf_d1);
+					g = g2;
+				}
+
+				s.wi = sample_hg_phase(-s.w, g, u0, u1);
+				s.weight *= Ad;
+			}
+			//platelet
+			else
+			{
+				u0 = (u0 - pmf_d) / (1 - pmf_d);
+
+				s.wi = sample_sggx_specular_phase(-s.w, sggx_param, u0, u1);
+				s.weight *= Ap;
+			}
+		}
+		//skin
+		else
+		{
+			float3 base_tangent, base_binormal, base_normal = get_base_normal(mtl);
+			calc_orthonormal_basis(base_normal, base_tangent, base_binormal);
+
+			float3 local_wo = -float3(dot(s.w, base_tangent), dot(s.w, base_binormal), dot(s.w, base_normal));
+			if(local_wo.z > 0)
+			{
+				float3 local_wi = -float3(dot(s2.w, base_tangent), dot(s2.w, base_binormal), dot(s2.w, base_normal));
+				if(local_wi.z > 0)
+				{
+					float T = transmittance(sigma_t, get_thickness(mtl) / abs(s2.w.z));
+					bsdf += s.weight * calc_bsdf_pdf(local_wo, local_wi, get_coat_eta(mtl), get_specular_eta(mtl), get_specular_roughness(mtl)).x * T;
+				}
+
+				bsdf_sample s3 = sample_bsdf(local_wo, get_coat_eta(mtl), get_specular_eta(mtl), get_specular_roughness(mtl), randF(rng), randF(rng), randF(rng));
+				if(!s3.is_valid)
+					break;
+
+				s.w = s3.w.x * base_tangent + s3.w.y * base_binormal + s3.w.z * base_normal;
+				s.weight *= s3.weight;
+			}
+
+			//反射
+			if(s.w.z > 0)
+			{
+				z = -thickness;
+			}
+			//透過(SSS)
+			else
+			{
+				break;
+			}
+		}
+	}
+	return float4(bsdf, pdf);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u0, float u1, uint2 dtid = 0)
 {
@@ -443,7 +641,16 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 		return s;
 	}
 
+	sggx_param sggx_param;
+	sggx_param.Sxx = coat_normal.x * coat_normal.x + get_platelet_roughness(mtl) * (coat_normal.y * coat_normal.y + coat_normal.z * coat_normal.z);
+	sggx_param.Syy = coat_normal.y * coat_normal.y + get_platelet_roughness(mtl) * (coat_normal.x * coat_normal.x + coat_normal.z * coat_normal.z);
+	sggx_param.Szz = coat_normal.z * coat_normal.z + get_platelet_roughness(mtl) * (coat_normal.x * coat_normal.x + coat_normal.y * coat_normal.y);
+	sggx_param.Sxy = coat_normal.x * coat_normal.y - get_platelet_roughness(mtl) * (coat_normal.x * coat_normal.y);
+	sggx_param.Sxz = coat_normal.x * coat_normal.z - get_platelet_roughness(mtl) * (coat_normal.x * coat_normal.z);
+	sggx_param.Syz = coat_normal.y * coat_normal.z - get_platelet_roughness(mtl) * (coat_normal.y * coat_normal.z);
+
 	float z = 0;
+	float thickness = get_thickness(mtl);
 	for(uint i = 0; i < 128; i++)
 	{
 		float sigma_t = 1;
@@ -453,11 +660,12 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 		//air
 		if(z > 0)
 		{
+			//s.wは点に向かう方向だが，法線が下向きなので反転させてs.wのままでいい
 			bsdf_sample s2 = sample_bsdf(s.w, get_coat_eta(mtl), 1, get_coat_roughness(mtl), randF(rng), randF(rng), randF(rng));
 			if(!s2.is_valid)
 				return s2;
 
-			s.w = -s2.w;
+			s.w = -s2.w; //法線が下向きの空間から戻す
 			s.weight *= s2.weight;
 
 			//反射
@@ -470,6 +678,7 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 			{
 				s.diffuse_weight = 0;
 				s.non_diffuse_weight = s.weight;
+				s.pdf = calc_pdf(local_wo, s.w, normal, mtl);
 				s.w = coat_tangent * s.w.x + coat_binormal * s.w.y + coat_normal * s.w.z;
 				s.is_valid = (dot(s.w, normal) > cosine_threshold);
 				break;
@@ -478,34 +687,58 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 		//volume
 		else if(z > -thickness)
 		{
+			float cd = get_diffuser_cd(mtl);
+			float proj_area = sggx_projected_area(s.w, sggx_param); 
+			float pmf_d = cd / (cd + (1 - cd) * proj_area);
+
+			float u0 = randF(rng);
+			float u1 = randF(rng);
 
 			//diffuser
-			if()
+			if(u0 < pmf_d)
 			{
-				local_wi;
+				u0 /= pmf_d;
+
+				float g, pmf_d1 = get_diffuser_wg(mtl);
+				if(u1 < pmf_d1)
+				{
+					u1 /= pmf_d1;
+					g = get_diffuser_g1(mtl);
+				}
+				else
+				{
+					u1 = (u1 - pmf_d1) / (1 - pmf_d1);
+					g = get_diffuser_g2(mtl);
+				}
+
+				s.w = sample_hg_phase(-s.w, g, u0, u1);
+				s.weight *= get_diffuser_albedo(mtl);
 			}
 			//platelet
 			else
 			{
-				local_wi;
-			}
+				u0 = (u0 - pmf_d) / (1 - pmf_d);
 
+				s.w = sample_sggx_specular_phase(-s.w, sggx_param, u0, u1);
+				s.weight *= get_platelet_albedo(mtl);
+			}
 		}
 		//skin
 		else
 		{
-			float3 base_normal = get_base_normal(mtl);
-			base_normal = float3(dot(base_normal, coat_tangent), dot(base_normal, coat_binormal), dot(base_normal, coat_normal));
-			
-			float3 base_tangent, base_binormal;
-			calc_orthonormal_basis(coat_normal, coat_tangent, coat_binormal);
+			float3 base_tangent, base_binormal, base_normal = get_base_normal(mtl);
+			calc_orthonormal_basis(base_normal, base_tangent, base_binormal);
 
-			bsdf_sample s2 = sample_bsdf(-s.w, get_coat_eta(mtl), get_base_eta(mtl), get_specular_roughness(mtl), randF(rng), randF(rng), randF(rng));
-			if(!s2.is_valid)
-				return s2;
+			float3 local_wo = -float3(dot(s.w, base_tangent), dot(s.w, base_binormal), dot(s.w, base_normal));
+			if(local_wo.z > 0)
+			{
+				bsdf_sample s2 = sample_bsdf(local_wo, get_coat_eta(mtl), get_specular_eta(mtl), get_specular_roughness(mtl), randF(rng), randF(rng), randF(rng));
+				if(!s2.is_valid)
+					return s2;
 
-			s.w = s2.w;
-			s.weight *= s2.weight;
+				s.w = s2.w.x * base_tangent + s2.w.y * base_binormal + s2.w.z * base_normal;
+				s.weight *= s2.weight;
+			}
 
 			//反射
 			if(s.w.z > 0)
@@ -522,13 +755,19 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 
 				//方向は下半球なら何でもOK
 				s.w = -s.normal;
+
+				//SSSでPDFは使わないから何でもOK
+				s.pdf = 1;
 				break;
 			}
 		}
 	}
-
-	s.pdf = 1e15; //MISでBSDFサンプリングの重みが1になるように大きい値を適当に設定. TODO: 近似PDF対応
 	return s;
+}
+
+float3 calc_subsurface(cosmetic_material mtl)
+{
+	return 1; //もうこれでいいや．出射点側の情報だけでSSS感を出す
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
