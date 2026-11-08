@@ -19,7 +19,7 @@
 #include"../material/hair.hlsl"
 #include"../material/eyeball.hlsl"
 #include"../material/standard.hlsl"
-#include"../material/callisto.hlsl"
+#include"../material/cosmetic.hlsl"
 #include"../material/glint_coating.hlsl"
 #include"../material/glint_specular.hlsl"
 
@@ -69,9 +69,9 @@ RWByteAddressBuffer	dispatch_arg_uav;
 #elif MATERIAL_TYPE == MATERIAL_TYPE_HAIR
 #define MATERIAL		hair_material
 #define LOAD_MATERIAL	load_hair_material
-#elif MATERIAL_TYPE == MATERIAL_TYPE_CALLISTO
-#define MATERIAL		callisto_material
-#define LOAD_MATERIAL	load_callisto_material
+#elif MATERIAL_TYPE == MATERIAL_TYPE_COSMETIC
+#define MATERIAL		cosmetic_material
+#define LOAD_MATERIAL	load_cosmetic_material
 #elif MATERIAL_TYPE == MATERIAL_TYPE_EYEBALL
 #define MATERIAL		eyeball_material
 #define LOAD_MATERIAL	load_eyeball_material
@@ -205,7 +205,7 @@ namespace ref{ bool has_contribution(float nwi, MATERIAL mtl)
 #endif
 }}
 
-namespace ref{ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, MATERIAL mtl, uint2 dtid = 0)
+namespace ref{ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, MATERIAL mtl, inout rng rng, uint2 dtid = 0)
 {
 #if defined(SSS_LIGHTING_AND_SAMPLING)
 
@@ -213,8 +213,11 @@ namespace ref{ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, MATERIA
 	calc_orthonormal_basis(normal, tangent, binormal);
 
 	wi = float3(dot(tangent, wi), dot(binormal, wi), dot(normal, wi));
-	return float4(calc_subsurface(mtl) * wi.z * inv_PI, sample_cosine_hemisphere_pdf(wi)); //本当はwiでmaterialを読みなおさないとダメ.重すぎるのでwi=normalのmaterialで近似.
+	//return float4(calc_subsurface(mtl) * wi.z * inv_PI, sample_cosine_hemisphere_pdf(wi)); //本当はwiでmaterialを読みなおさないとダメ.重すぎるのでwi=normalのmaterialで近似.
+	return float4(wi.zzz * inv_PI, sample_cosine_hemisphere_pdf(wi));
 
+#elif MATERIAL_TYPE == MATERIAL_TYPE_COSMETIC
+	return ::calc_bsdf_pdf(wo, wi, normal, mtl, rng, dtid);
 #else
 	return ::calc_bsdf_pdf(wo, wi, normal, mtl, dtid);
 #endif
@@ -229,10 +232,16 @@ namespace ref{ bsdf_sample sample_bsdf(float3 wo, float3 normal, MATERIAL mtl, f
 	
 	bsdf_sample s;
 	s.w = sample_cosine_hemisphere(u0, u1);
+	
+	//s.w = s.w.x * tangent + s.w.y * binormal + s.w.z * normal;
+	//float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, s.w, normal, mtl);
+	//s.weight = bsdf_pdf.rgb / bsdf_pdf.a;
+	//s.pdf = bsdf_pdf.a;
+	
+	s.weight = 1;
+	s.pdf = sample_cosine_hemisphere_pdf(s.w);
 	s.w = s.w.x * tangent + s.w.y * binormal + s.w.z * normal;
-	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, s.w, normal, mtl);
-	s.weight = bsdf_pdf.rgb / bsdf_pdf.a;
-	s.pdf = bsdf_pdf.a;
+	
 	s.is_valid = true;
 	return s;
 
@@ -274,7 +283,7 @@ float3 emissive_lighting(intersection isect, MATERIAL mtl, float3 wo, inout rng 
 	if(is_occluded(isect.position, wi, 1 / inv_dist, randF(rng)))
 		return 0;
 
-	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, wi, isect.normal, mtl);
+	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, wi, isect.normal, mtl, rng);
 
 	float mis_weight = 1;
 #if ENABLE_HIT_EVAL || FORCE_MIS
@@ -292,7 +301,7 @@ float3 directional_lighting(intersection isect, MATERIAL mtl, float3 wo, inout r
 	if(is_occluded(isect.position, wi, FLT_MAX, randF(rng)))
 		return 0;
 
-	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, wi, isect.normal, mtl, dtid);
+	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, wi, isect.normal, mtl, rng, dtid);
 
 	float mis_weight = 1;
 #if ENABLE_HIT_EVAL || FORCE_MIS
@@ -317,7 +326,7 @@ float3 environment_lighting(intersection isect, MATERIAL mtl, float3 wo, inout r
 	if(is_occluded(isect.position, s.w, FLT_MAX, randF(rng)))
 		return 0;
 
-	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, s.w, isect.normal, mtl);
+	float4 bsdf_pdf = ref::calc_bsdf_pdf(wo, s.w, isect.normal, mtl, rng);
 
 	float mis_weight = 1;
 #if ENABLE_HIT_EVAL || FORCE_MIS

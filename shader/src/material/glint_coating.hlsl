@@ -471,11 +471,12 @@ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, glint_coating_material
 float3 calc_subsurface(glint_coating_material mtl)
 {
 	float3 throughput = 1;
-	throughput *= 1 - get_sheen_reflectance(mtl);
-	throughput *= 1 - get_coat_reflectance(mtl);
-	throughput *= 1 - (get_specular_reflectance(mtl) + get_matte_reflectance(mtl));
-	//return throughput * get_diffuse_reflectance(mtl) * get_subsurface(mtl); //アルベドが2重にかかると色がおかしくなる
-	return throughput * get_subsurface(mtl);
+	//throughput *= 1 - get_sheen_reflectance(mtl);
+	//throughput *= 1 - get_coat_reflectance(mtl);
+	//throughput *= 1 - (get_specular_reflectance(mtl) + get_matte_reflectance(mtl));
+	////return throughput * get_diffuse_reflectance(mtl) * get_subsurface(mtl); //アルベドが2重にかかると色がおかしくなる
+	//return throughput * get_subsurface(mtl);
+	return throughput;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

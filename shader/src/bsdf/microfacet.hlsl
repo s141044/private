@@ -46,7 +46,7 @@ void calc_conductor_color(float3 n, float3 k, out float3 color0, out float3 colo
 float Lambda(float3 w, float2 alpha)
 {
 	w.xy *= alpha;
-	return (-1 + length(w) / w.z) / 2;
+	return (-1 + length(w) / abs(w.z)) / 2;
 }
 
 float G1(float3 w, float2 alpha)
@@ -116,7 +116,7 @@ float4 calc_matte_brdf_pdf(float3 wo, float3 wi, float3 reflectance, float rough
 {
 	float3 weight;
 	float4 brdf_pdf;
-	calc_brdf_pdf(wo, wi, reflectance, roughness, brdf_pdf.xyz, brdf_pdf.w, weight);
+	calc_matte_brdf_pdf(wo, wi, reflectance, roughness, brdf_pdf.xyz, brdf_pdf.w, weight);
 	return brdf_pdf;
 }
 
@@ -124,7 +124,7 @@ float3 calc_matte_weight(float3 wo, float3 wi, float3 reflectance, float roughne
 {
 	float3 weight;
 	float4 brdf_pdf;
-	calc_brdf_pdf(wo, wi, reflectance, roughness, brdf_pdf.xyz, brdf_pdf.w, weight);
+	calc_matte_brdf_pdf(wo, wi, reflectance, roughness, brdf_pdf.xyz, brdf_pdf.w, weight);
 	return weight;
 }
 

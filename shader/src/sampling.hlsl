@@ -40,6 +40,23 @@ float sample_uniform_hemisphere_pdf(float3 w)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+float3 sample_uniform_sphere(float u0, float u1)
+{
+	float phi = (2 * PI) * u0;
+	float ct = 1 - 2 * u1;
+	float st = sqrt(1 - ct * ct);
+	float cp = cos(phi);
+	float sp = sin(phi);
+	return float3(st * cp, st * sp, ct);
+}
+
+float sample_uniform_sphere_pdf(float3 w)
+{
+	return (1 / (4 * PI));
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 float3 sample_uniform_cone(float cos_max, float u0, float u1)
 {
 	float phi = (2 * PI) * u0;

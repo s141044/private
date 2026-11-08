@@ -58,9 +58,23 @@ float sin_phi(float3 w, float sin_theta)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-//eta = eta2 / eta1
+//eta = eta1 / eta2
 float fresnel_dielectric(float cos, float eta)
 {
+#if 1
+
+    float st2Sq = eta * eta * (1 - cos * cos);
+    if (st2Sq > 1) //‘S”½ŽË
+        return 1;
+
+	float ct1 = cos;
+    float ct2 = sqrt(1 - st2Sq);
+    float rs = (cos - eta * ct2) / (cos + eta * ct2);
+    float rp = (eta * ct1 - ct2) / (eta * ct1 + ct2);
+    return (rs * rs + rp * rp) * 0.5;
+
+#else
+	eta = 1 / eta;
 	float g = eta * eta - 1 + cos * cos;
 	if(g > 0)
 	{
@@ -69,6 +83,7 @@ float fresnel_dielectric(float cos, float eta)
 	}
 	//‘S”½ŽË
 	else{ return 1; }
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -115,15 +130,15 @@ float3 schlick_average_fresnel(float3 F0)
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-float calc_F0(float eta)
+float calc_F0(float ior)
 {
-	//eta=eta2/eta1
-	float sqrt_F0 = (eta - 1.0f) / (eta + 1.0f);
+	float sqrt_F0 = (ior - 1) / (ior + 1);
 	return sqrt_F0 * sqrt_F0;
 }
 
-float calc_eta(float F0)
+float calc_ior(float F0)
 {
+	F0 = min(F0, 1 - 1e-6);
 	float sqrt_F0 = sqrt(F0);
 	return (1 + sqrt_F0) / (1 - sqrt_F0);
 }

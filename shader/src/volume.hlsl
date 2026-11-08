@@ -36,8 +36,13 @@ float3 sample_hg_phase(float3 w, float g, float u0, float u1)
 	float3 wi = -w, wj, wk;
 	calc_orthonormal_basis(wi, wj, wk);
 
+	float ct;
+	if(abs(g) < 1e-3)
+		ct = 1 - 2 * u1;
+	else
+		ct = (1 + g * g - pow2((1 - g * g) / (1 + g - 2 * g * u1))) / (2 * g);
+
 	float phi = 2 * PI * u0;
-	float ct = (1 + g * g - pow2((1 - g * g) / (1 + g - 2 * g * u1))) / (2 * g);
 	float st = sqrt(1 - ct * ct);
 	float3 local_w = float3(st * cos(phi), st * sin(phi), ct);
 	return local_w.x * wk + local_w.y * wj + local_w.z * wi;
@@ -99,7 +104,7 @@ float sggx_specular_phase(float3 w1, float3 w2, sggx_param param)
 	return sggx_specular_phase(w1, w2, param, sggx_projected_area(w1, param));
 }
 
-float3 sample_sggx_vndf(float3 w, sggx_param param, float u0, float u1)
+float3 sggx_sample_vndf(float3 w, sggx_param param, float u0, float u1)
 {
 	float r = sqrt(u0);
 	float phi = 2 * PI * u1;
@@ -127,9 +132,9 @@ float3 sample_sggx_vndf(float3 w, sggx_param param, float u0, float u1)
 	return wh.x * wk + wh.y * wj + wh.z * wi;
 }
 
-float3 sample_sggx_specuar_phase(float3 w, sggx_param param, float u0, float u1)
+float3 sggx_sample_specular_phase(float3 w, sggx_param param, float u0, float u1)
 {
-	float3 wh = sample_sggx_vndf(w, param, u0, u1);
+	float3 wh = sggx_sample_vndf(w, param, u0, u1);
 	return reflect(-w, wh);
 }
 

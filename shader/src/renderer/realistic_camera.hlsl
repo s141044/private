@@ -127,7 +127,7 @@ bool trace(inout float3 o, inout float3 d, inout float throughput, float lambda,
 				normal = -normal;
 
 			float iface_ior = calc_ior(iface, lambda);
-			throughput *= 1 - fresnel_dielectric(-dot(normal, d), iface_ior / ior);
+			throughput *= 1 - fresnel_dielectric(-dot(normal, d), ior / iface_ior);
 
 			d = refract(d, normal, ior / iface_ior);
 			ior = iface_ior;
