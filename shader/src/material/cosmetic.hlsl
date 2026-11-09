@@ -4,6 +4,7 @@
 
 #include"common.hlsl"
 #include"../debug.hlsl"
+#include"../random.hlsl"
 #include"../packing.hlsl"
 #include"../intersection.hlsl"
 #include"../static_sampler.hlsl"
@@ -12,6 +13,26 @@
 #include"../bsdf/microfacet.hlsl"
 
 #include"../debug.hlsl"
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+static const float cosmetic_eta_max = 4;
+static const float cosmetic_log_base = cosmetic_eta_max * cosmetic_eta_max;
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+Texture3D<float> cosmetic_specular_reflectance_table;
+
+float calc_cosmetic_specular_reflectance(float cos, float roughness, float eta)
+{
+	if(eta == 1)
+		return 0;
+
+	eta = log(eta) / log(cosmetic_log_base) + 0.5;
+	return cosmetic_specular_reflectance_table.SampleLevel(trilinear_clamp, float3(cos, roughness, eta), 0);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define COMPRESS_MATERIAL
 
@@ -258,11 +279,11 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	coat_specular_roughness = max(coat_specular_roughness, 1e-3);
 	platelet_roughness = max(platelet_roughness, 1e-3);
 
-	float coat_specular_reflectance = microfacet::calc_reflectance(wo, coat_specular_F0, coat_specular_roughness).x;
-	coat_specular_reflectance *= coat_specular_scale;
-
 	float coat_specular_ior = calc_ior(coat_specular_F0);
 	float base_specular_ior = calc_ior(base_specular_F0);
+
+	float coat_specular_reflectance = calc_cosmetic_specular_reflectance(dot(coat_normal, wo), coat_specular_roughness, coat_specular_ior).x;
+	coat_specular_reflectance *= coat_specular_scale;
 
 	cosmetic_material mtl;
 
@@ -727,11 +748,13 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 
 #else
 			//s.wは点に向かう方向だが，法線が下向きなので反転させてs.wのままでいい
-			bsdf_sample s2 = sample_bsdf(s.w, get_coat_specular_ior(mtl), 1, get_coat_specular_roughness(mtl), get_coat_specular_scale(mtl), randF(rng), randF(rng), randF(rng));
+			float reflectance = calc_cosmetic_specular_reflectance(abs(s.w.z), get_coat_specular_roughness(mtl), 1 / get_coat_specular_ior(mtl));
+			bsdf_sample s2 = sample_bsdf(s.w, get_coat_specular_ior(mtl), 1, get_coat_specular_roughness(mtl), get_coat_specular_scale(mtl), reflectance, randF(rng), randF(rng), randF(rng));
 			if(!s2.is_valid)
 				return s2;
 
 			s.w = -s2.w; //法線が下向きの空間から戻す
+			s.weight *= s2.weight;
 
 			//反射
 			if(s.w.z < 0)
@@ -855,7 +878,8 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 			float3 local_wo = -float3(dot(s.w, base_tangent), dot(s.w, base_binormal), dot(s.w, base_normal));
 			if(local_wo.z > 0)
 			{
-				bsdf_sample s2 = sample_bsdf(local_wo, get_coat_specular_ior(mtl), get_base_specular_ior(mtl), get_base_specular_roughness(mtl), get_base_specular_scale(mtl), randF(rng), randF(rng), randF(rng));
+				float reflectance = calc_cosmetic_specular_reflectance(local_wo.z, get_base_specular_roughness(mtl), get_base_specular_ior(mtl) / get_coat_specular_ior(mtl));
+				bsdf_sample s2 = sample_bsdf(local_wo, get_coat_specular_ior(mtl), get_base_specular_ior(mtl), get_base_specular_roughness(mtl), get_base_specular_scale(mtl), reflectance, randF(rng), randF(rng), randF(rng));
 				if(!s2.is_valid)
 					return s2;
 
@@ -893,6 +917,49 @@ float3 calc_subsurface(cosmetic_material mtl)
 {
 	return 1; //もうこれでいいや．出射点側の情報だけでSSS感を出す
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+#if defined(CALC_REFLECTANCE)
+
+RWTexture3D<float>	reflectance_table;
+groupshared float	shared_sum[32];
+
+[numthreads(1024, 1, 1)]
+void calc_reflectance(uint group_index : SV_GroupIndex, uint3 gid : SV_GroupID)
+{
+	float nv = (gid.x + 0.5f) / 32;
+	float roughness = (gid.y + 0.5f) / 32;
+	float eta_o = pow(cosmetic_log_base, (gid.z + 0.5) / 32 - 0.5);
+	float3 wo = float3(sqrt(1 - nv * nv), 0, nv);
+
+	uint N = 4;
+	float sum = 0;
+	for(uint i = 0; i < N; i++)
+	{
+		float eta_i = 1;
+		float scale = 1;
+		float2 u = hammersley_sequence(N * group_index + i, N * 1024);
+		bsdf_sample s = sample_bsdf(wo, eta_o, eta_i, roughness, scale, u[0], u[1], 0, sample_type_brdf);
+		if(s.is_valid)
+			sum += s.weight.x;
+	}
+
+	sum = WaveActiveSum(sum);
+	if(WaveGetLaneIndex() == 0)
+		shared_sum[group_index / 32] = sum;
+
+	GroupMemoryBarrierWithGroupSync();
+
+	if(group_index < 32)
+	{
+		sum = WaveActiveSum(shared_sum[group_index]);
+		if(WaveGetLaneIndex() == 0)
+			reflectance_table[gid] = sum / (N * 1024);
+	}
+}
+
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 

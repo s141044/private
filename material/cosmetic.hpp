@@ -244,7 +244,57 @@ private:
 	texture_resource_ptr	mp_platelet_albedo_map;
 	float					m_platelet_roughness = 0.2f;
 	texture_resource_ptr	mp_platelet_roughness_map;
+};
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//cosmetic_material_resource
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+class cosmetic_material_resource
+{
+public:
+
+	//コンストラクタ
+	cosmetic_material_resource()
+	{
+		m_shaders = gp_shader_manager->create(L"material/cosmetic.sdf.json");
+	}
+
+	//バインド
+	bool bind(render_context &context)
+	{
+		bool update;
+		if(update = m_shaders.has_update())
+			m_shaders.update();
+		else if(m_shaders.is_invalid())
+			return false;
+
+		if(mp_specular_reflectance_tex == nullptr)
+		{
+			update = true;
+			mp_specular_reflectance_tex = gp_render_device->create_texture3d(texture_format_r16_unorm, 32, 32, 32, 1, resource_flags(resource_flag_allow_shader_resource | resource_flag_allow_unordered_access));
+			mp_specular_reflectance_srv = gp_render_device->create_shader_resource_view(*mp_specular_reflectance_tex, texture_srv_desc(*mp_specular_reflectance_tex));
+			mp_specular_reflectance_uav = gp_render_device->create_unordered_access_view(*mp_specular_reflectance_tex, texture_uav_desc(*mp_specular_reflectance_tex));
+			gp_render_device->set_name(*mp_specular_reflectance_tex, L"cosmetic_specular_reflectance");
+		}
+		if(update)
+		{
+			push_priority push_priority(context);
+			context.set_priority(priority_initiaize);
+			context.set_pipeline_resource("reflectance_table", *mp_specular_reflectance_uav);
+			context.set_pipeline_state(*m_shaders.get("calc_reflectance"));
+			context.dispatch(32, 32, 32);
+		}
+		context.set_pipeline_resource("cosmetic_specular_reflectance_table", *mp_specular_reflectance_srv, true);
+		return true;
+	}
+
+private:
+
+	shader_file_holder			m_shaders;
+	texture_ptr					mp_specular_reflectance_tex;
+	shader_resource_view_ptr	mp_specular_reflectance_srv;
+	unordered_access_view_ptr	mp_specular_reflectance_uav;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

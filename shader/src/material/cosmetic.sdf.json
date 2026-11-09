@@ -1,0 +1,9 @@
+{
+  "definition":
+  [
+    {
+      "name": "calc_reflectance", 
+      "cs": [ "material/cosmetic.hlsl", "calc_reflectance", "-DCALC_REFLECTANCE" ]
+    }, 
+  ]
+}
