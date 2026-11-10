@@ -59,6 +59,9 @@ public:
 		uint	subsurface_radius; //r9g9b9e5
 		uint	thickness; //offset,scale
 		uint	misc; //coat_normal_map_strength, -, -, -
+		uint	spread; //color, orientation
+
+		uint	diffuser_albedo2;
 	};
 
 	//コンストラクタ
@@ -111,7 +114,9 @@ public:
 		params.thickness = f32x2_to_f16x2(float2(m_thickness, m_thickness_scale));
 		params.diffuser_albedo = f32x4_to_u8x4_unorm(float4(m_diffuser_albedo, 0));
 		params.platelet_albedo = f32x4_to_u8x4_unorm(float4(m_platelet_albedo, 0));
+		params.diffuser_albedo2 = f32x4_to_u8x4_unorm(float4(m_diffuser_albedo2, 0));
 		params.misc = f32x4_to_u8x4_unorm(float4(m_coat_normal_map_strength, 0, 0, 0));
+		params.spread = f32x2_to_f16x2(float2(m_platelet_color_spread, m_platelet_orientation_spread));
 
 		push_priority push_priority(context);
 		context.set_priority(priority_initiaize);
@@ -151,6 +156,7 @@ public:
 	void set_diffuser_ratio(const float s) { set_impl(m_diffuser_ratio, s); }
 	void set_diffuser_ratio_map(texture_resource_ptr t) { set_impl(mp_diffuser_ratio_map, t); }
 	void set_diffuser_albedo(const float3 &c) { set_impl(m_diffuser_albedo, c); }
+	void set_diffuser_albedo2(const float3 &c) { set_impl(m_diffuser_albedo2, c); }
 	void set_diffuser_albedo_map(texture_resource_ptr t) { set_impl(mp_diffuser_albedo_map, t); }
 	void set_diffuser_anisotropy1(const float s) { set_impl(m_diffuser_anisotropy1, s); }
 	void set_diffuser_anisotropy1_map(texture_resource_ptr t) { set_impl(mp_diffuser_anisotropy1_map, t); }
@@ -179,11 +185,17 @@ public:
 	float	coat_normal_map_strength() const  { return m_coat_normal_map_strength; }
 	float	diffuser_ratio() const  { return m_diffuser_ratio; }
 	float3	diffuser_albedo() const  { return m_diffuser_albedo; }
+	float3	diffuser_albedo2() const  { return m_diffuser_albedo2; }
 	float	diffuser_anisotropy1() const  { return m_diffuser_anisotropy1; }
 	float	diffuser_anisotropy2() const  { return m_diffuser_anisotropy2; }
 	float	diffuser_lobe_weight() const  { return m_diffuser_lobe_weight; }
 	float3	platelet_albedo() const  { return m_platelet_albedo; }
 	float	platelet_roughness() const  { return m_platelet_roughness; }
+
+	void	set_platelet_color_spread(const float s) { set_impl(m_platelet_color_spread, s); }
+	void	set_platelet_orientation_spread(const float s) { set_impl(m_platelet_orientation_spread, s); }
+	float	platelet_color_spread() const  { return m_platelet_color_spread; }
+	float	platelet_orientation_spread() const  { return m_platelet_orientation_spread; }
 
 private:
 
@@ -232,6 +244,7 @@ private:
 
 	texture_resource_ptr	mp_diffuser_ratio_map;
 	float3					m_diffuser_albedo = float3(0.5f);
+	float3					m_diffuser_albedo2 = float3(0.5f);
 	texture_resource_ptr	mp_diffuser_albedo_map;
 	float					m_diffuser_anisotropy1 = 0;
 	texture_resource_ptr	mp_diffuser_anisotropy1_map;
@@ -244,6 +257,9 @@ private:
 	texture_resource_ptr	mp_platelet_albedo_map;
 	float					m_platelet_roughness = 0.2f;
 	texture_resource_ptr	mp_platelet_roughness_map;
+	
+	float					m_platelet_color_spread = 0.1f;
+	float					m_platelet_orientation_spread = 0.1f;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

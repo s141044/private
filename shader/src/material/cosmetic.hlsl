@@ -32,6 +32,41 @@ float calc_cosmetic_specular_reflectance(float cos, float roughness, float eta)
 	return cosmetic_specular_reflectance_table.SampleLevel(trilinear_clamp, float3(cos, roughness, eta), 0);
 }
 
+uint rand(uint state, uint index)
+{
+	uint z = state + index;
+	z &= 0xFFFFFFFF;
+	z ^= (z >> 16);
+	z = (z * 0x21f0aaad) & 0xFFFFFFFF;
+	z ^= (z >> 15);
+	z = (z * 0x735a2d97) & 0xFFFFFFFF;
+	z ^= (z >> 15);
+	return z;
+}
+
+float randF(uint state, uint index)
+{
+	return (rand(state, index) % 10000) / float(10000);
+}
+
+float3 rgb_to_hsv(float3 c)
+{
+    float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    float4 p = c.g < c.b ? float4(c.bg, K.wz) : float4(c.gb, K.xy);
+    float4 q = c.r < p.x ? float4(p.xyw, c.r) : float4(c.r, p.yzx);
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+float3 hsv_to_rgb(float3 c)
+{
+    float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    float3 p = abs(frac(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * lerp(K.xxx, saturate(p - K.xxx), c.y);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define COMPRESS_MATERIAL
@@ -50,6 +85,7 @@ struct cosmetic_material
 	uint	subsurface_radius;
 
 	uint	diffuser_albedo;
+	uint	diffuser_albedo2;
 	uint	platelet_albedo;
 
 	uint	data0; //coat_specular_roughness, base_specular_roughness, platelet_roughness
@@ -58,6 +94,8 @@ struct cosmetic_material
 	uint	data3; //diffuser_g1, diffuser_g2, diffuser_wg
 	uint	data4; //coat_specular_ior, base_specular_ior
 	uint	data5; //thickness, -
+	uint	state; //state
+	uint	num; //
 };
 
 float3	get_base_normal(cosmetic_material mtl){ return oct_to_f32x3(u16x2_unorm_to_f32x2(mtl.base_normal) * 2 - 1); }
@@ -75,12 +113,15 @@ float	get_coat_specular_ior(cosmetic_material mtl){ return f16_to_f32(mtl.data4)
 float	get_base_specular_ior(cosmetic_material mtl){ return f16_to_f32(mtl.data4 >> 16); }
 float	get_thickness(cosmetic_material mtl){ return asfloat(mtl.data5); }
 float3	get_diffuser_albedo(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.diffuser_albedo).xyz; }
+float3	get_diffuser_albedo2(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.diffuser_albedo2).xyz; }
 float	get_diffuser_cd(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data2).y; }
 float	get_diffuser_g1(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data3).x; }
 float	get_diffuser_g2(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data3).y; }
 float	get_diffuser_wg(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data3).z; }
 float3	get_platelet_albedo(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.platelet_albedo).xyz; }
 float	get_platelet_roughness(cosmetic_material mtl){ return r10g10b10a2_to_f32x4(mtl.data0).z; }
+//float	get_platelet_color_spread(cosmetic_material mtl){ return f16_to_f32(mtl.data6); }
+//float	get_platelet_orientation_spread(cosmetic_material mtl){ return f16_to_f32(mtl.data6 >> 16); }
 
 #else
 
@@ -119,6 +160,10 @@ struct cosmetic_material_host
 	uint	subsurface_radius; //r9g9b9e5
 	uint	thickness; //offset,scale
 	uint	misc; //coat_normal_map_strength, -, -, -
+	uint	spread; //color, orientation
+
+	//6
+	uint	diffuser_albedo2;
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -138,7 +183,8 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	uint4 data2 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 2);
 	uint4 data3 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 3);
 	uint4 data4 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 4);
-	uint3 data5 = buf.Load3(MATERIAL_HEADER_SIZE + 16 * 5);
+	uint4 data5 = buf.Load4(MATERIAL_HEADER_SIZE + 16 * 5);
+	uint  data6 = buf.Load (MATERIAL_HEADER_SIZE + 16 * 6);
 
 	float3 coat_normal = normal;
 	float3 base_normal = float3(0, 0, 1);
@@ -232,6 +278,7 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	}
 
 	float3 diffuser_albedo = u8x4_unorm_to_f32x4(data4.z).xyz;
+	float3 diffuser_albedo2 = u8x4_unorm_to_f32x4(data6.x).xyz;
 	if((data2.w & 0x00ffffff) != 0x00ffffff)
 	{
 		Texture2D<float3> tex = get_texture2d<float3>(data2.w & 0x00ffffff);
@@ -285,6 +332,17 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	float coat_specular_reflectance = calc_cosmetic_specular_reflectance(dot(coat_normal, wo), coat_specular_roughness, coat_specular_ior).x;
 	coat_specular_reflectance *= coat_specular_scale;
 
+	
+	float platelet_orientation_spread = f16_to_f32(data5.w >> 16);
+	float cell_size = 0.00001 / platelet_orientation_spread;
+	//float camera_distance = length(position - camera_pos);
+	//float cell_scale = floor(log2(camera_distance + 1) + 1);
+	//cell_size *= cell_scale
+	uint3 cell_id = int3(floor(position / cell_size));
+	uint n = cell_id.x * 73856093U ^ cell_id.y * 19349663U ^ cell_id.z * 83492791U;
+	n = (n ^ (n >> 13U)) * 1274126177U;
+	uint rng_state = n ^ (n >> 16U);
+
 	cosmetic_material mtl;
 
 #if defined(COMPRESS_MATERIAL)
@@ -294,8 +352,9 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	mtl.base_diffuse_color = f32x4_to_r10g10b10a2(float4(base_diffuse_color, 0));
 	mtl.subsurface_radius = f32x3_to_r9g9b9e5(subsurface_radius);
 
-	mtl.diffuser_albedo = f32x4_to_r10g10b10a2(float4(diffuser_albedo, 0));
 	mtl.platelet_albedo = f32x4_to_r10g10b10a2(float4(platelet_albedo, 0));
+	mtl.diffuser_albedo = f32x4_to_r10g10b10a2(float4(diffuser_albedo, 0));
+	mtl.diffuser_albedo2 = f32x4_to_r10g10b10a2(float4(diffuser_albedo2, 0));
 
 	mtl.data0 = f32x4_to_r10g10b10a2(float4(coat_specular_roughness, base_specular_roughness, platelet_roughness, 0));
 	mtl.data1 = f32x4_to_r10g10b10a2(float4(coat_specular_scale, base_specular_scale, coat_specular_reflectance, 0));
@@ -303,6 +362,8 @@ cosmetic_material load_cosmetic_material(intersection isect, float3 wo, float lo
 	mtl.data3 = f32x4_to_r10g10b10a2(float4(diffuser_g1, diffuser_g2, diffuser_wg, 0));
 	mtl.data4 = f32x2_to_f16x2(float2(coat_specular_ior, base_specular_ior));
 	mtl.data5 = asuint(thickness);
+	mtl.state = rng_state;
+	//mtl.num = 
 
 #else
 
@@ -344,7 +405,11 @@ bsdf_sample sample_bsdf(float3 wo, float eta_o, float eta_i, float roughness, fl
 
 	float alpha = pow2(roughness);
 	float hwo = abs(dot(h, wo));
-	float Fr = fresnel_dielectric(hwo, eta_o / eta_i) * scale;
+	float Fr = fresnel_dielectric(hwo, eta_o / eta_i);
+
+	//全反射じゃないときだけ
+	if(Fr < 1)
+		Fr *= scale;
 
 	float Pr;
 	if(sample_type == sample_type_default)
@@ -689,6 +754,20 @@ float4 calc_bsdf_pdf(float3 wo, float3 wi, float3 normal, cosmetic_material mtl,
 
 bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u0, float u1, uint2 dtid = 0)
 {
+	//{
+	//	bsdf_sample s;
+	//	s.weight = 1;
+	//	s.w = sample_cosine_hemisphere(u0, u1);
+	//	
+	//	float3 coat_tangent, coat_binormal;
+	//	float3 coat_normal = normal;
+	//	calc_orthonormal_basis(coat_normal, coat_tangent, coat_binormal);
+	//	s.pdf = sample_cosine_hemisphere_pdf(s.w);
+	//	s.w = s.w.x * coat_tangent + s.w.y * coat_binormal + s.w.z * coat_normal;
+	//	s.is_valid = dot(s.w, normal) > 0;
+	//	return s;
+	//}
+
 	rng rng;
 	rng.state = asuint(u0) ^ asuint(u1);
 
@@ -748,7 +827,7 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 
 #else
 			//s.wは点に向かう方向だが，法線が下向きなので反転させてs.wのままでいい
-			float reflectance = calc_cosmetic_specular_reflectance(abs(s.w.z), get_coat_specular_roughness(mtl), 1 / get_coat_specular_ior(mtl));
+			float reflectance = calc_cosmetic_specular_reflectance(abs(s.w.z), get_coat_specular_roughness(mtl), 1 / get_coat_specular_ior(mtl)) * get_coat_specular_scale(mtl);
 			bsdf_sample s2 = sample_bsdf(s.w, get_coat_specular_ior(mtl), 1, get_coat_specular_roughness(mtl), get_coat_specular_scale(mtl), reflectance, randF(rng), randF(rng), randF(rng));
 			if(!s2.is_valid)
 				return s2;
@@ -776,18 +855,27 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 		//volume
 		else if(z > -thickness)
 		{
-			
+			float3 platelet_albedo = get_platelet_albedo(mtl);
+
 			sggx_param sggx_param;
 			{
 				float sigma = pow2(get_platelet_roughness(mtl));
-#if 0
-				float3 platelet_dir = sample_platelet_dir(1 / sigma, randF(rng), randF(rng), 5);
+#if 1
+				uint index = 3 * (rand(rng) % 2);
+				float3 platelet_dir = sample_platelet_dir(1 / sigma, randF(mtl.state, index + 0), randF(mtl.state, index + 1));
 				sggx_param.Sxx = platelet_dir.x * platelet_dir.x + 1e-6 * (platelet_dir.y * platelet_dir.y + platelet_dir.z * platelet_dir.z); //数値誤差的なのがある？完全なdiskではなくちょっとだけ厚みを持たせる
 				sggx_param.Syy = platelet_dir.y * platelet_dir.y + 1e-6 * (platelet_dir.x * platelet_dir.x + platelet_dir.z * platelet_dir.z);
 				sggx_param.Szz = platelet_dir.z * platelet_dir.z + 1e-6 * (platelet_dir.x * platelet_dir.x + platelet_dir.y * platelet_dir.y);
 				sggx_param.Sxy = platelet_dir.x * platelet_dir.y - 1e-6 * (platelet_dir.x * platelet_dir.y);
 				sggx_param.Sxz = platelet_dir.x * platelet_dir.z - 1e-6 * (platelet_dir.x * platelet_dir.z);
 				sggx_param.Syz = platelet_dir.y * platelet_dir.z - 1e-6 * (platelet_dir.y * platelet_dir.z);
+
+				float3 hsv = rgb_to_hsv(platelet_albedo);
+				float amount = 1;
+				float offset = (randF(mtl.state, index + 2) * 2 - 1) * amount;
+				hsv.x = frac(hsv.x + offset);
+				platelet_albedo = hsv_to_rgb(hsv);
+
 #else
 				float3 coat_normal = float3(0, 0, 1);
 				sggx_param.Sxx = coat_normal.x * coat_normal.x + sigma * (coat_normal.y * coat_normal.y + coat_normal.z * coat_normal.z);
@@ -816,15 +904,16 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 				{
 					u1 /= pmf_d1;
 					g = get_diffuser_g1(mtl);
+					s.weight *= get_diffuser_albedo(mtl);
 				}
 				else
 				{
 					u1 = (u1 - pmf_d1) / (1 - pmf_d1);
 					g = get_diffuser_g2(mtl);
+					s.weight *= get_diffuser_albedo2(mtl);
 				}
 
 				s.w = sample_hg_phase(-s.w, g, u0, u1);
-				s.weight *= get_diffuser_albedo(mtl);
 			}
 			//platelet
 			else
@@ -832,7 +921,8 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 				u0 = (u0 - pmf_d) / (1 - pmf_d);
 
 				s.w = sggx_sample_specular_phase(-s.w, sggx_param, u0, u1);
-				s.weight *= get_platelet_albedo(mtl);
+				s.weight *= platelet_albedo;
+				//s.weight *= get_platelet_albedo(mtl);
 			}
 		}
 		//skin
@@ -878,7 +968,7 @@ bsdf_sample sample_bsdf(float3 wo, float3 normal, cosmetic_material mtl, float u
 			float3 local_wo = -float3(dot(s.w, base_tangent), dot(s.w, base_binormal), dot(s.w, base_normal));
 			if(local_wo.z > 0)
 			{
-				float reflectance = calc_cosmetic_specular_reflectance(local_wo.z, get_base_specular_roughness(mtl), get_base_specular_ior(mtl) / get_coat_specular_ior(mtl));
+				float reflectance = calc_cosmetic_specular_reflectance(local_wo.z, get_base_specular_roughness(mtl), get_base_specular_ior(mtl) / get_coat_specular_ior(mtl)) * get_base_specular_scale(mtl);
 				bsdf_sample s2 = sample_bsdf(local_wo, get_coat_specular_ior(mtl), get_base_specular_ior(mtl), get_base_specular_roughness(mtl), get_base_specular_scale(mtl), reflectance, randF(rng), randF(rng), randF(rng));
 				if(!s2.is_valid)
 					return s2;
@@ -930,14 +1020,14 @@ void calc_reflectance(uint group_index : SV_GroupIndex, uint3 gid : SV_GroupID)
 {
 	float nv = (gid.x + 0.5f) / 32;
 	float roughness = (gid.y + 0.5f) / 32;
-	float eta_o = pow(cosmetic_log_base, (gid.z + 0.5) / 32 - 0.5);
+	float eta_i = pow(cosmetic_log_base, (gid.z + 0.5) / 32 - 0.5);
 	float3 wo = float3(sqrt(1 - nv * nv), 0, nv);
 
 	uint N = 4;
 	float sum = 0;
 	for(uint i = 0; i < N; i++)
 	{
-		float eta_i = 1;
+		float eta_o = 1;
 		float scale = 1;
 		float2 u = hammersley_sequence(N * group_index + i, N * 1024);
 		bsdf_sample s = sample_bsdf(wo, eta_o, eta_i, roughness, scale, u[0], u[1], 0, sample_type_brdf);

@@ -88,6 +88,9 @@ public:
 		float3 diffuser_albedo = m_mtl.diffuser_albedo();
 		if(color_edit("diffuser_albedo", diffuser_albedo)){ m_mtl.set_diffuser_albedo(diffuser_albedo); }
 		
+		float3 diffuser_albedo2 = m_mtl.diffuser_albedo2();
+		if(color_edit("diffuser_albedo2", diffuser_albedo2)){ m_mtl.set_diffuser_albedo2(diffuser_albedo2); }
+		
 		float diffuser_anisotropy1 = m_mtl.diffuser_anisotropy1();
 		if(slider_float("diffuser_anisotropy1", diffuser_anisotropy1, -1, 1)){ m_mtl.set_diffuser_anisotropy1(diffuser_anisotropy1); }
 
@@ -104,6 +107,12 @@ public:
 
 		float platelet_roughness = m_mtl.platelet_roughness();
 		if(slider_float("platelet_roughness", platelet_roughness, 0, 1)){ m_mtl.set_platelet_roughness(platelet_roughness); }
+
+		float platelet_color_spread = m_mtl.platelet_color_spread();
+		if(slider_float("platelet_color_spread", platelet_color_spread, 0, 1)){ m_mtl.set_platelet_color_spread(platelet_color_spread); }
+
+		float platelet_orientation_spread = m_mtl.platelet_orientation_spread();
+		if(slider_float("platelet_orientation_spread", platelet_orientation_spread, 0, 1)){ m_mtl.set_platelet_orientation_spread(platelet_orientation_spread); }
 	}
 	
 	void serialize(json_file::values_t& json)
@@ -128,12 +137,15 @@ public:
 		write_float(json, "diffuser_ratio", m_mtl.diffuser_ratio());
 
 		write_float3(json, "diffuser_albedo", m_mtl.diffuser_albedo());
+		write_float3(json, "diffuser_albedo2", m_mtl.diffuser_albedo2());
 		write_float(json, "diffuser_anisotropy1", m_mtl.diffuser_anisotropy1());
 		write_float(json, "diffuser_anisotropy2", m_mtl.diffuser_anisotropy2());
 		write_float(json, "diffuser_lobe_weight", m_mtl.diffuser_lobe_weight());
 		
 		write_float3(json, "platelet_albedo", m_mtl.platelet_albedo());
 		write_float(json, "platelet_roughness", m_mtl.platelet_roughness());
+		write_float(json, "platelet_color_spread", m_mtl.platelet_color_spread());
+		write_float(json, "platelet_orientation_spread", m_mtl.platelet_orientation_spread());
 	}
 
 	void deserialize(const json_file::values_t& json)
@@ -183,6 +195,9 @@ public:
 		float3 diffuser_albedo;
 		if(read_float3(json, "diffuser_albedo", diffuser_albedo)){ m_mtl.set_diffuser_albedo(diffuser_albedo); }
 		
+		float3 diffuser_albedo2;
+		if(read_float3(json, "diffuser_albedo2", diffuser_albedo2)){ m_mtl.set_diffuser_albedo2(diffuser_albedo2); }
+		
 		float diffuser_anisotropy1;
 		if(read_float(json, "diffuser_anisotropy1", diffuser_anisotropy1)){ m_mtl.set_diffuser_anisotropy1(diffuser_anisotropy1); }
 		
@@ -197,6 +212,12 @@ public:
 		
 		float platelet_roughness;
 		if(read_float(json, "platelet_roughness", platelet_roughness)){ m_mtl.set_platelet_roughness(platelet_roughness); }
+		
+		float platelet_color_spread;
+		if(read_float(json, "platelet_color_spread", platelet_color_spread)){ m_mtl.set_platelet_color_spread(platelet_color_spread); }
+		
+		float platelet_orientation_spread;
+		if(read_float(json, "platelet_orientation_spread", platelet_orientation_spread)){ m_mtl.set_platelet_orientation_spread(platelet_orientation_spread); }
 	}
 
 private:
